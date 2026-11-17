@@ -1,0 +1,14 @@
+---
+name: regression_sample
+sort: by_weight
+version: "1.0"
+...
+# Public synthetic fixture: existing readings, optional weights, one missing code.
+你好	nǐ;xx hǎo;xx	120
+重睡	chóng;xx shuì;xx	00400
+西安	xī;xx'ān;xx
+绿女	lǜ;xx nǚ;xx	0
+学习
+你好 世界	nǐ;xx hǎo;xx shì;xx jiè;xx	2
+重庆	chóng;xx qìng;xx	99
+再见	zài;xx jiàn;xx
