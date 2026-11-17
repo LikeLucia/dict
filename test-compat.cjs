@@ -37,6 +37,12 @@ async function test(label, fn) {if(process.env.DICT_TEST_FILTER&&!label.includes
 function bases(s) {return s.replace(/;[^\s'’]*/g, '');}
 // 原 autoHeader 使用 join('\n')，既有的 CRLF 头部会转成 LF；词条正文另验字节。
 function lines(s) {return s.split(/\r?\n/);}
+function filledFixtureLine(line,index,mode){
+  if(index<5||!line.trim()||line.startsWith('#')||line.startsWith('你好 世界\t'))return line;
+  const f=line.split('\t');
+  if(f.length===1)return mode==='existing'?line+'\t\t120':line+'\txué xí\t120';
+  return f.length===2?line+'\t120':line;
+}
 (async()=>{
   await api.ready;
   const yui = fs.readFileSync(fixturePath, 'utf8').replace(/\r?\n/g, '\r\n');
@@ -50,8 +56,8 @@ function lines(s) {return s.split(/\r?\n/);}
       if(i<5 || !before[i].trim() || before[i].startsWith('#') || i===mixedTextLine) {assert.equal(after[i],before[i]);continue;}
       const a=before[i].split('\t'),b=after[i].split('\t');
       assert.equal(b[0],a[0]);
-      if(a.length>1) {assert.equal(bases(b[1]),bases(a[1]));assert.equal(b.length,a.length);if(a.length>2)assert.equal(b[2],a[2]);}
-      else {assert.equal(b.length,3);assert.equal(b[2],'0');assert.match(b[1],/;/);}
+      if(a.length>1) {assert.equal(bases(b[1]),bases(a[1]));assert.equal(b.length,Math.max(a.length,3));assert.equal(b[2],a.length>2?a[2]:'120');}
+      else {assert.equal(b.length,3);assert.equal(b[2],'120');assert.match(b[1],/;/);}
       const expectedCodes=Array.from(a[0]).map(c=>api.tables.get('yuanmo').get(c));
       assert.deepEqual(b[1].match(/[^\s'’]+/g).map(t=>t.split(';')[1]),expectedCodes);
     }
@@ -61,21 +67,21 @@ function lines(s) {return s.split(/\r?\n/);}
   });
   await test('public fixture: autoOnly retains existing codes and tones; fills only missing code',async()=>{
     const r=await convert(yui,{mode:'autoOnly'}), a=lines(yui), b=lines(r.text);
-    a.forEach((l,i)=>{if(i!==missingCodeLine)assert.equal(b[i],l);});
-    assert.equal(b[missingCodeLine], '学习\txué xí\t0');assert.equal(r.st.coded,1);
-    const beforeBody=yui.slice(yui.indexOf('...')+3),afterBody=r.text.slice(r.text.indexOf('...')+3);
-    assert.equal(afterBody,beforeBody.replace('学习\r\n','学习\txué xí\t0\r\n'));
+    a.forEach((l,i)=>assert.equal(b[i],filledFixtureLine(l,i,'autoOnly')));
+    assert.equal(b[missingCodeLine], '学习\txué xí\t120');assert.equal(r.st.coded,1);
+    assert.equal(r.text.slice(r.text.indexOf('...')+3),'\r\n'+a.slice(5).map((l,i)=>filledFixtureLine(l,i+5,'autoOnly')).join('\r\n'));
   });
   await test('public fixture: existing mode unchanged; no invented pronunciation for absent code',async()=>{
     const r=await convert(yui,{mode:'existing'});
-    assert.equal(r.st.coded,6);assert.equal(lines(r.text)[missingCodeLine],'学习');
+    assert.equal(r.st.coded,6);assert.equal(lines(r.text)[missingCodeLine],'学习\t\t120');
+    for(const [i,line] of lines(r.text).entries())if(i<5||i===mixedTextLine)assert.equal(line,lines(yui)[i]);
     assert.equal(r.st.counts['无 code'],1);assert.equal(r.st.counts['混合非汉字'],1);
   });
   await test('public fixture: replace=false keeps all existing auxiliary codes including multi-code',async()=>{
     const r=await convert(yui,{replace:false}), a=lines(yui),b=lines(r.text);
-    a.forEach((l,i)=>{if(i!==missingCodeLine)assert.equal(b[i],l);});assert.equal(r.st.coded,1);
+    a.forEach((l,i)=>assert.equal(b[i],filledFixtureLine(l,i,'autoAux').replace('xué xí',b[missingCodeLine].split('\t')[1])));assert.equal(r.st.coded,1);
   });
-  await test('public fixture: all five tables, both tone modes, repeated conversion is idempotent',async()=>{
+  await test('public fixture: all four tables, both tone modes, repeated conversion is idempotent',async()=>{
     for(const [auxType,table] of api.tables)for(const toneType of ['symbol','none']){
       const o={auxType,table,toneType};const a=await convert(yui,o),b=await convert(a.text,o);
       assert.equal(a.text,b.text);assert.equal(a.st.coded,7);
@@ -84,7 +90,7 @@ function lines(s) {return s.split(/\r?\n/);}
   await test('missing columns: mixed one/two/three fields, empty code, absent/empty/zero weight',async()=>{
     const input=header+'你好\n你好\t123\n你好\tnǐ hǎo\n你好\tnǐ hǎo\t900\n你好\t\t000\n你好\t\n你好\t\t\n';
     const r=await convert(input,{mode:'autoOnly'});
-    assert.equal(r.text, header+'你好\tnǐ hǎo\t0\n你好\tnǐ hǎo\t123\n你好\tnǐ hǎo\n你好\tnǐ hǎo\t900\n你好\tnǐ hǎo\t000\n你好\tnǐ hǎo\n你好\tnǐ hǎo\t\n');
+    assert.equal(r.text, header+'你好\tnǐ hǎo\t120\n你好\tnǐ hǎo\t123\n你好\tnǐ hǎo\t120\n你好\tnǐ hǎo\t900\n你好\tnǐ hǎo\t000\n你好\tnǐ hǎo\t120\n你好\tnǐ hǎo\t120\n');
   });
   await test('default Rime uses text/code/weight independently of custom plain-text column settings',async()=>{
     const a=await convert(header+'你好\tnǐ hǎo\t123\n',{w:2,p:0});
@@ -116,7 +122,8 @@ function lines(s) {return s.split(/\r?\n/);}
     assert.equal(r.text,'---\ncolumns:\n  - text\n  - weight\n  - code\n...\n你好\t123\tnǐ hǎo\n');
   });
   await test('explicit columns protections remain: short rows, duplicate/unknown/nested columns, unclosed header',async()=>{
-    await assert.rejects(convert('---\ncolumns: [text, code, weight]\n...\n你好\tni hao\n'),/列数/);
+    assert.equal((await convert('---\ncolumns: [text, code, weight]\n...\n你好\tni hao\n',{mode:'autoOnly'})).text,'---\ncolumns: [text, code, weight]\n...\n你好\tni hao\t120\n');
+    await assert.rejects(convert('---\ncolumns: [text, code, weight, stem]\n...\n你好\tni hao\n'),/列数/);
     for(const h of ['columns: [text, text]','columns: [text, unknown]','  columns: [text, code]','columns: [text]\ncolumns: [text]'])await assert.rejects(convert('---\n'+h+'\n...\n你好\n'),/columns/);
     await assert.rejects(convert('---\nname: x\n你好\n'),/结束标记/);
   });
@@ -153,7 +160,7 @@ function lines(s) {return s.split(/\r?\n/);}
     assert.equal((await convert(custom,{mode:'autoOnly',w:2,p:1})).text,custom);
     assert.equal((await convert('你好\t\t0088\n',{mode:'autoOnly'})).text,'你好\tnǐ hǎo\t0088\n');
     assert.equal((await convert("西安\txī'ān\t12\n",{mode:'autoOnly'})).text,"西安\txī'ān\t12\n");
-    assert.equal((await convert('你\tnote\n',{mode:'autoOnly'})).text,'你\tnǐ\tnote\n');
+    assert.equal((await convert('你\tnote\n',{mode:'autoOnly'})).text,'你\tnǐ\t120\tnote\n');
   });
   await test('space round trip: spaced syllables form one code field in plain and Rime inputs',async()=>{
     const inputs=['你好 ni hao 120\n','你好 nǐ hǎo 120 extra\n','你好\n','你好 120 extra\n',header+'你好 nǐ hǎo 120\n'];
@@ -227,6 +234,98 @@ function lines(s) {return s.split(/\r?\n/);}
         file=downloads[0].blob;file.name='repeat.zip';
       }
     }finally{element('sep').value='tab';element('mode').value='autoAux';}
+  });
+  await test('1.1.0 interface: four auxiliary tables, renamed tones and concise help',async()=>{
+    assert.deepEqual(Array.from(api.tables.keys()).sort(),['moqi','xiaohe','yuanmo','ziranma']);
+    assert(!html.includes('id="yhPairs"'));assert(!html.includes('value="original"'));assert(!html.includes('原版音托'));
+    assert(html.includes('<label>有声调/无声调<select id="toneType">'));
+    assert(html.includes('value="symbol" selected>有声调（默认）'));
+    assert(!html.includes('自动刷声调'));assert(!html.includes('声调符号：'));
+    const help=html.match(/沿用已识别的拼音列[\s\S]*?<p class="sub">([^<]+)<\/p>/)[1];
+    assert(help.length<180);assert(help.includes('缺权重补 120'));
+  });
+  await test('1.1.0 weights: all modes fill omitted/empty weights with existing pinyin and auxiliary codes',async()=>{
+    for(const mode of ['autoOnly','autoAux','existing'])for(const sep of ['tab','space'])for(const replace of [true,false]){
+      for(const suffix of ['','\t','\t   ','\t0','\t000','\t0088','\t12.5']){
+        const input='你好\tnǐ;xx hǎo;yy'+suffix+'\n';
+        const expectedWeight=suffix.trim()?suffix.slice(1):'120';
+        for(const prefix of ['',header]){
+          const o={mode,sep,replace},r=await convert(prefix+input,o),line=lines(r.text).filter(x=>x.startsWith('你好'))[0];
+          const fields=line.split('\t');assert.equal(fields.length,3);assert.equal(fields[2],expectedWeight);
+          assert.equal(bases(fields[1]),'nǐ hǎo');
+          if(mode==='autoOnly'||!replace)assert.equal(fields[1],'nǐ;xx hǎo;yy');
+          assert.equal((await convert(r.text,o)).text,r.text);
+        }
+      }
+    }
+  });
+  await test('1.1.0 weights: missing weight without existing code, whitespace input and trailing metadata',async()=>{
+    for(const mode of ['autoOnly','autoAux','existing']){
+      const r=await convert('你好\n',{mode});const f=lines(r.text)[0].split('\t');
+      assert.equal(f.length,3);assert.equal(f[0],'你好');assert.equal(f[2],'120');
+      assert.equal(mode==='existing'?f[1]:bases(f[1]),mode==='existing'?'':'nǐ hǎo');
+      const withMeta=await convert('你好\tnǐ hǎo\tremark\n',{mode});
+      assert.deepEqual(lines(withMeta.text)[0].split('\t').slice(2),['120','remark']);
+      const spaced=await convert('  你好   nǐ;xx hǎo;yy   \n',{mode,replace:false,sep:'space'});
+      assert.equal(spaced.text,'  你好   nǐ;xx hǎo;yy 120   \n');
+      assert.equal((await convert(spaced.text,{mode,replace:false,sep:'space'})).text,spaced.text);
+    }
+  });
+  await test('1.1.0 weights: declared order, missing declaration, stem and omitted trailing weight',async()=>{
+    const cases=[
+      ['[text, code]','你好\tnǐ;xx hǎo;yy','[text, code, weight]','你好\tnǐ;xx hǎo;yy\t120'],
+      ['[code, text, stem]','nǐ;xx hǎo;yy\t你好\tmeta','[code, text, stem, weight]','nǐ;xx hǎo;yy\t你好\tmeta\t120'],
+      ['[weight, text, code]','\t你好\tnǐ;xx hǎo;yy','[weight, text, code]','120\t你好\tnǐ;xx hǎo;yy'],
+      ['[text, code, weight]','你好\tnǐ;xx hǎo;yy','[text, code, weight]','你好\tnǐ;xx hǎo;yy\t120'],
+      ['[text, code, weight, stem]','你好\tnǐ;xx hǎo;yy\t\tmeta','[text, code, weight, stem]','你好\tnǐ;xx hǎo;yy\t120\tmeta'],
+      ['[weight, text, code, stem]','000\t你好\tnǐ;xx hǎo;yy\tmeta','[weight, text, code, stem]','000\t你好\tnǐ;xx hǎo;yy\tmeta']
+    ];
+    for(const mode of ['autoOnly','autoAux','existing'])for(const [columns,input,outColumns,expected] of cases){
+      const h='---\ncolumns: '+columns+'\n...\n',o={mode,replace:false};
+      const r=await convert(h+input+'\n',o);
+      assert.equal(r.text,'---\ncolumns: '+outColumns+'\n...\n'+expected+'\n');
+      assert.equal((await convert(r.text,o)).text,r.text);
+    }
+    for(const mode of ['autoOnly','autoAux','existing']){
+      const r=await convert('---\ncolumns:\n  - text\n...\n你好\n',{mode});
+      assert(r.text.startsWith('---\ncolumns:\n  - text\n  - code\n  - weight\n...\n'));
+      const f=lines(r.text).filter(l=>l.startsWith('你好'))[0].split('\t');assert.equal(f.length,3);assert.equal(f[2],'120');
+      assert.equal((await convert(r.text,{mode})).text,r.text);
+    }
+  });
+  await test('1.1.0 weights: reported rows stay visible, known missing table still fills and ambiguous rows stay intact',async()=>{
+    const input=header+'你好\tnǐ;xx hǎo;yy\n';
+    const r=await convert(input,{table:new Map()});
+    assert.equal(r.text,input.replace('hǎo;yy\n','hǎo;yy\t120\n'));assert.equal(r.st.counts['缺辅助码'],1);
+    const mixed='你好 世界\tni hao shi jie\n';assert.equal((await convert(mixed)).text,mixed);
+    const ambiguous='你好\tni hao\tni hao\n';assert.equal((await convert(ambiguous,{p:2})).text,ambiguous);
+  });
+  await test('1.1.0 weights: failed generation preserves Rime numeric weight outside the code column',async()=>{
+    for(const sep of ['tab','space'])for(const suffix of ['', '00123','0','000','12.5']){
+      const line=sep==='tab'?'你好'+(suffix?'\t'+suffix:''):'你好'+(suffix?' '+suffix:'');
+      const r=await convert(header+line+'\n',{mode:'autoAux',sep,table:new Map()});
+      assert.equal(r.text,header+'你好\t\t'+(suffix||'120')+'\n');
+      assert.equal(r.st.counts['缺辅助码'],1);
+      const again=await convert(r.text,{mode:'autoAux',sep,table:new Map()});assert.equal(again.text,r.text);
+    }
+  });
+  await test('1.1.0 weights: plain missing-code rows retain weights and metadata across all modes',async()=>{
+    for(const mode of ['autoOnly','autoAux','existing']){
+      const options={mode,...(mode==='autoAux'?{table:new Map()}:{})};
+      for(const [input,weight,meta] of [['你好\t00123\n','00123',null],['你好\tremark\n','120','remark'],['你好\n','120',null]]){
+        const r=await convert(input,options),fields=lines(r.text)[0].split('\t');
+        assert.equal(fields[0],'你好');assert.equal(fields[2],weight);
+        if(mode==='autoOnly')assert.equal(fields[1],'nǐ hǎo');else assert.equal(fields[1],'');
+        if(meta)assert.equal(fields[3],meta);
+        assert.equal((await convert(r.text,options)).text,r.text);
+      }
+    }
+  });
+  await test('1.1.0 weights: BOM and CRLF are retained while appending weight',async()=>{
+    for(const mode of ['autoOnly','autoAux','existing']){
+      const r=await convert('\uFEFF你好\tnǐ;xx hǎo;yy\r\n',{mode,replace:false});
+      assert.equal(r.text,'\uFEFF你好\tnǐ;xx hǎo;yy\t120\r\n');
+    }
   });
   await test('ZIP deflate/store round trip preserves nested path and non-dictionary payload, CRC checked',async()=>{
     const z=new api.Zip(), entries=[['Rime/sample/mixed-layout.dict.yaml',Buffer.from(yui),8],['Rime/sample/assets.bin',Buffer.from([0,1,2,3,255]),8],['Rime/sample/',Buffer.alloc(0),0]];

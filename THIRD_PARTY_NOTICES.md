@@ -7,7 +7,6 @@
 | pinyin-pro | 3.27.0，zh-lx | MIT，Copyright (c) 2022-present zh-lx |
 | 墨奇、自然码、万象野鹤扩展表 | amzxyz/rime-wanxiang，commit `47f0c48787ce08d6c37526a2612163a946de5668` | 页面保留 CC BY 4.0 及相关墨奇 MIT 声明 |
 | 渊默辅助码表 | LikeLucia/momo，commit `18dbd2f801b79b498ed577825891fc560954caeb`，aux_code.csv | 页面标记 NOASSERTION；没有另行替其指定许可证 |
-| 原版音托 | 原页面内嵌兼容表 | 按原页面保留，来源信息以页面为准 |
 
 每个字取来源顺序中的首个完整两字母码。万象野鹤扩展并非未修改的官方小鹤表。
 
