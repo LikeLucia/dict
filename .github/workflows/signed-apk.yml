@@ -1,0 +1,176 @@
+# Manual signed-release build.
+#
+# Required repository secrets:
+#   KEYSTORE_BASE64: base64 output of the release keystore
+#   DICT_STORE_PASS: keystore password
+#   DICT_KEY_PASS: key password, optional when it matches DICT_STORE_PASS
+#
+# The workflow refuses to build a version whose v<versionName> tag already
+# exists, so bump android:versionCode and android:versionName before using it
+# for a new release.
+
+name: Build signed APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      key_alias:
+        description: Alias of the signing key inside the keystore
+        required: true
+        default: ksm
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-signed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install Android and Kotlin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:?ANDROID_HOME is not set}"
+
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" --install "platforms;android-23" "build-tools;34.0.0"
+
+          curl -fsSL -o "$RUNNER_TEMP/kotlin-compiler.zip" \
+            https://github.com/JetBrains/kotlin/releases/download/v1.3.31/kotlin-compiler-1.3.31.zip
+          unzip -q "$RUNNER_TEMP/kotlin-compiler.zip" -d "$RUNNER_TEMP"
+
+          curl -fsSL -o "$RUNNER_TEMP/r8.jar" \
+            https://storage.googleapis.com/r8-releases/raw/8.3.37/r8.jar
+
+          KOTLIN_HOME="$RUNNER_TEMP/kotlinc"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-23/android.jar"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/34.0.0"
+
+          test -x "$KOTLIN_HOME/bin/kotlinc"
+          test -f "$KOTLIN_HOME/lib/kotlin-stdlib.jar"
+          test -f "$KOTLIN_HOME/lib/kotlin-stdlib-jdk7.jar"
+          test -f "$ANDROID_JAR"
+          test -x "$BUILD_TOOLS/aapt"
+          test -x "$BUILD_TOOLS/zipalign"
+          test -x "$BUILD_TOOLS/apksigner"
+
+          echo "$KOTLIN_HOME/bin" >> "$GITHUB_PATH"
+          echo "$BUILD_TOOLS" >> "$GITHUB_PATH"
+          {
+            echo "ANDROID_JAR=$ANDROID_JAR"
+            echo "R8_JAR=$RUNNER_TEMP/r8.jar"
+            echo "KOTLIN_STDLIB=$KOTLIN_HOME/lib/kotlin-stdlib.jar"
+            echo "KOTLIN_STDLIB_JDK7=$KOTLIN_HOME/lib/kotlin-stdlib-jdk7.jar"
+          } >> "$GITHUB_ENV"
+
+      - name: Read app version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import xml.etree.ElementTree as ET
+
+          ns = "{http://schemas.android.com/apk/res/android}"
+          root = ET.parse("android/AndroidManifest.xml").getroot()
+          print("name=" + root.attrib[ns + "versionName"])
+          print("code=" + root.attrib[ns + "versionCode"])
+          PY
+
+      - name: Refuse to reuse a released version
+        shell: bash
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION_NAME}" >/dev/null; then
+            echo "::error::Tag v${VERSION_NAME} already exists. Bump android:versionCode and android:versionName before signing a new release."
+            exit 1
+          fi
+
+      - name: Run JavaScript tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node test-compat.cjs
+          node test-bridge.cjs
+
+      - name: Build and sign APK
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          DICT_STORE_PASS: ${{ secrets.DICT_STORE_PASS }}
+          DICT_KEY_PASS: ${{ secrets.DICT_KEY_PASS }}
+          DICT_KEY_ALIAS: ${{ inputs.key_alias }}
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/release-keystore.p12"
+          trap 'rm -f "$KEYSTORE"' EXIT
+
+          : "${KEYSTORE_BASE64:?KEYSTORE_BASE64 repository secret is not set}"
+          : "${DICT_STORE_PASS:?DICT_STORE_PASS repository secret is not set}"
+          : "${DICT_KEY_ALIAS:?key_alias input is empty}"
+
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+
+          python3 android/build.py --keystore "$KEYSTORE" --alias "$DICT_KEY_ALIAS"
+
+      - name: Verify APK and write checksum
+        shell: bash
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          set -euo pipefail
+          APK="android/build/dict-${VERSION_NAME}.apk"
+          test -f "$APK"
+
+          apksigner verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apksigner.txt"
+          (cd android/build && sha256sum "dict-${VERSION_NAME}.apk" > SHA256SUMS.txt)
+
+          {
+            echo "### Signed dict APK"
+            echo
+            echo "- Version: ${VERSION_NAME} (${VERSION_CODE})"
+            echo
+            echo '```text'
+            cat "$RUNNER_TEMP/apksigner.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dict-${{ steps.version.outputs.name }}-run-${{ github.run_number }}
+          path: |
+            android/build/dict-${{ steps.version.outputs.name }}.apk
+            android/build/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
