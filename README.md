@@ -7,8 +7,8 @@
 在 [Releases](https://github.com/LikeLucia/dict/releases) 下载：
 
 - `dict-1.0.6.apk`：Android 6.0+，Kotlin 宿主 + Android 系统 WebView。
-- `通用词库刷辅助码.html`：可直接离线打开的网页版。
-- `dict-Kotlin源码-1.0.6.zip`：与 APK 对应的工程源码和测试。
+- `dict-offline.html`：可直接离线打开的网页版（仓库内仍保留原中文文件名）。
+- `dict-source-1.0.6.zip`：与 APK 对应的工程源码和测试。
 
 APK 使用包名 `local.ksm.aux`，显示名为 `dict`，版本 `1.0.6`。已安装 1.0.4/1.0.5 的用户可以直接覆盖更新；1.0.3 及更早版本使用旧签名，需要先保存数据后卸载再安装。系统 WebView 需要支持 `DecompressionStream('deflate-raw')`、Streams 和 GB18030 `TextDecoder`。
 
