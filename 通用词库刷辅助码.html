@@ -1,6 +1,6 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>通用词库刷辅助码</title><style>
 :root{--fg:#1f2328;--mut:#667085;--line:#d9dee7;--acc:#2563eb;--err:#b42318}*{box-sizing:border-box}body{margin:0;background:#f6f7f9;color:var(--fg);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}main{max-width:760px;margin:auto;padding:28px 16px 50px}h1{font-size:21px;margin:0 0 5px}.sub{color:var(--mut);font-size:13px;margin:0 0 18px}.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;font-size:13px;color:#475467}input,select{width:100%;margin-top:4px;padding:8px;border:1px solid var(--line);border-radius:7px;background:#fff;font:inherit}.drop{border:1.5px dashed var(--line);border-radius:10px;padding:25px 14px;text-align:center;cursor:pointer}.drop.hot{border-color:var(--acc);background:#fafcff}.drop small{display:block;color:var(--mut);margin-top:5px}.drop input{display:none}.bar{height:4px;background:var(--line);border-radius:4px;margin:15px 0;overflow:hidden}.bar i{display:block;height:100%;width:0;background:var(--acc)}.msg{white-space:pre-wrap;margin:12px 0}.ok{color:#18794e}.err{color:var(--err)}.warn{color:#9a6700}details{color:var(--mut);font-size:13px}pre{white-space:pre-wrap;word-break:break-word;background:#f8fafc;padding:10px;border-radius:7px}.hide{display:none}@media(max-width:480px){.grid{grid-template-columns:1fr}}
-</style></head><body><main><h1>通用词库刷辅助码</h1><p class="sub">内置音托两码 · 支持 Rime YAML、TXT、TSV 与 ZIP</p><div class="panel"><label>处理方式<select id="mode"><option value="autoAux" selected>刷拼音和辅助码</option><option value="existing">仅刷辅助码</option><option value="autoOnly">仅刷拼音</option></select></label><label>辅助码类型<select id="auxType"><option value="original">原版音托</option><option value="moqi">墨奇</option><option value="ziranma">自然码</option><option value="xiaohe">小鹤（万象野鹤扩展）</option><option value="yuanmo" selected>渊默码（默认）</option></select></label><label>自动刷声调<select id="toneType"><option value="symbol" selected>声调符号：nǐ hǎo（默认）</option><option value="none">无声调：ni hao</option></select></label><div class="grid"><label>分隔符<select id="sep"><option value="tab">Tab（默认）</option><option value="space">空白</option></select></label><label>输入编码（输出 UTF-8）<select id="enc"><option>UTF-8</option><option>GB18030</option></select></label><label>词语列（正整数）<input id="wordCol" type="number" min="1" step="1" value="1"></label><label>拼音列（正整数）<input id="pyCol" type="number" min="1" step="1" value="2"></label></div><label>辅助码分隔符<input id="auxSep" value=";" maxlength="8"></label><label style="margin-top:10px"><input id="replace" type="checkbox" checked style="width:auto;margin-right:6px">替换已有辅助码；重复处理保持幂等</label><p class="sub">刷拼音和辅助码：为无拼音词库补拼音并刷辅助码（默认）；仅刷辅助码：为已有拼音刷辅助码；仅刷拼音：为无拼音词库补拼音。Rime columns 优先于列号；空白模式每段空白分列，多音节请用撇号连接，如 xi'an。仅刷辅助码模式保留输入拼音原样，不受自动刷声调选项影响。自动刷声调默认使用声调符号 nǐ hǎo，也可选无声调 ni hao；带调 ü 按 lǜ、nǚ 显示，无调时写为 v；符号模式轻声不标调。自动注音使用词级读音，多音字准确率非 100%，人名、地名可能需校对。纯文本按词语列后插入拼音，原权重和额外列保留，输出 Tab 分列。Rime 有 columns 时使用声明的词语列，已有 code 位置保留，无 code 时末尾新增；无 columns 时按 Rime 默认 text/code/weight 列位逐行识别，支持词语、词语+数字权重、词语+编码及词语+编码+权重混合。已有编码保留读音和权重，刷拼音和辅助码模式按所选码表补/替辅助码，仅刷拼音模式保留已有编码；缺编码才自动注音。词语或词语+数字权重行补成三列（缺权重填 0），已有编码行保持原列数；不新增 columns 声明。未知字、混合非汉字整行保留并报告；这些保留行仍为原布局，请按报告校对。输出 UTF-8；普通文件按原文件名和扩展名直接导出，不再打包；ZIP 输入仍导出 ZIP，包内其他条目保留。</p></div><div class="drop" id="drop"><b>点击选择或拖入词库文件</b><small>支持 .dict.yaml / .yaml / .yml / .txt / .tsv / .zip，可多选</small><input type="file" id="pick" multiple accept=".zip,.dict.yaml,.yaml,.yml,.txt,.tsv,application/zip,text/plain"></div><div class="bar hide" id="bar"><i id="fill"></i></div><div id="downloads"></div><p id="msg" class="msg"></p><details id="detail" class="hide"><summary>查看报告</summary><pre id="report"></pre></details><p class="sub">所有词库处理都在本机完成，没有上传任何文件。保存此 HTML 后可离线使用，无外部 CDN。</p><details><summary>辅助码表来源、规则与许可证</summary><p>本页内嵌四张离线主码表，按固定来源版本生成：墨奇、自然码、小鹤使用 amzxyz/rime-wanxiang commit <code>47f0c48787ce08d6c37526a2612163a946de5668</code>；小鹤为其中“野鹤”列对应的万象野鹤扩展（不是未修改的官方小鹤表）。渊默码使用 LikeLucia/momo commit <code>18dbd2f801b79b498ed577825891fc560954caeb</code> 的当前 <code>aux_code.csv</code> 主码。</p><p>每个字取来源顺序中的首个完整两字母码；完整多码组合保留在离线源表，页面按首码规则工作。原版音托为原网页内置两码表，保留为兼容选项；默认辅助码类型为渊默码。墨奇、自然码、小鹤来源授权文字按 NOTICE 保留：amzxyz/rime-wanxiang 为 CC BY 4.0；相关墨奇来源另有 MIT 说明。渊默当前数据来源未声明可确认许可证，标为 NOASSERTION，不代称 MIT 或其他许可证。</p></details><details><summary>拼音库与许可证：pinyin-pro 3.27.0 / MIT</summary><pre>MIT License
+</style></head><body><main><h1>通用词库刷辅助码</h1><p class="sub">内置音托两码 · 支持 Rime YAML、TXT、TSV 与 ZIP</p><div class="panel"><label>处理方式<select id="mode"><option value="autoAux" selected>刷拼音和辅助码</option><option value="existing">仅刷辅助码</option><option value="autoOnly">仅刷拼音</option></select></label><label>辅助码类型<select id="auxType"><option value="original">原版音托</option><option value="moqi">墨奇</option><option value="ziranma">自然码</option><option value="xiaohe">小鹤（万象野鹤扩展）</option><option value="yuanmo" selected>渊默码（默认）</option></select></label><label>自动刷声调<select id="toneType"><option value="symbol" selected>声调符号：nǐ hǎo（默认）</option><option value="none">无声调：ni hao</option></select></label><div class="grid"><label>分隔符<select id="sep"><option value="tab">Tab（默认）</option><option value="space">空白</option></select></label><label>输入编码（输出 UTF-8）<select id="enc"><option>UTF-8</option><option>GB18030</option></select></label><label>词语列（正整数）<input id="wordCol" type="number" min="1" step="1" value="1"></label><label>拼音列（正整数）<input id="pyCol" type="number" min="1" step="1" value="2"></label></div><label>辅助码分隔符<input id="auxSep" value=";" maxlength="8"></label><label style="margin-top:10px"><input id="replace" type="checkbox" checked style="width:auto;margin-right:6px">替换已有辅助码（沿用已识别的拼音列）</label><p class="sub">刷拼音和辅助码：为无拼音词库补拼音并刷辅助码（默认）；仅刷辅助码：为已有拼音刷辅助码；仅刷拼音：为无拼音词库补拼音。Rime columns 优先于列号。空白模式支持音节之间用空格连接，如 nǐ hǎo；按词语字数将完整音节合并为一个拼音字段，也兼容原有撇号形式。输入含 Tab 时优先按 Tab 分列，保留拼音内部空格和空字段；词语含空格或列边界有歧义时请使用 Tab。仅刷辅助码模式保留输入拼音原样，不受自动刷声调选项影响。自动刷声调默认使用声调符号 nǐ hǎo，也可选无声调 ni hao；带调 ü 按 lǜ、nǚ 显示，无调时写为 v；符号模式轻声不标调。自动注音使用词级读音，多音字准确率非 100%，人名、地名可能需校对。纯文本优先识别所选拼音列及词语后的已有拼音列，音节完整且字音数量匹配时沿用该列，不重复插入；空拼音列原位补音。未识别到已有拼音时才在词语列后新增，原权重和额外列保留，输出 Tab 分列。相同设置下已识别的输出可直接重刷；多个候选列有歧义时原行保留并报告，请确认列号。Rime 有 columns 时使用声明的词语列，已有 code 位置保留，无 code 时末尾新增；无 columns 时按 Rime 默认 text/code/weight 列位逐行识别，支持词语、词语+数字权重、词语+编码及词语+编码+权重混合。已有编码保留读音和权重，刷拼音和辅助码模式按所选码表补/替辅助码，仅刷拼音模式保留已有编码；缺编码才自动注音。词语或词语+数字权重行补成三列（缺权重填 0），已有编码行保持原列数；不新增 columns 声明。未知字、混合非汉字整行保留并报告；这些保留行仍为原布局，请按报告校对。输出 UTF-8；普通文件按原文件名和扩展名直接导出，不再打包；ZIP 输入仍导出 ZIP，包内其他条目保留。</p></div><div class="drop" id="drop"><b>点击选择或拖入词库文件</b><small>支持 .dict.yaml / .yaml / .yml / .txt / .tsv / .zip，可多选</small><input type="file" id="pick" multiple accept=".zip,.dict.yaml,.yaml,.yml,.txt,.tsv,application/zip,text/plain"></div><div class="bar hide" id="bar"><i id="fill"></i></div><div id="downloads"></div><p id="msg" class="msg"></p><details id="detail" class="hide"><summary>查看报告</summary><pre id="report"></pre></details><p class="sub">所有词库处理都在本机完成，没有上传任何文件。保存此 HTML 后可离线使用，无外部 CDN。</p><details><summary>辅助码表来源、规则与许可证</summary><p>本页内嵌四张离线主码表，按固定来源版本生成：墨奇、自然码、小鹤使用 amzxyz/rime-wanxiang commit <code>47f0c48787ce08d6c37526a2612163a946de5668</code>；小鹤为其中“野鹤”列对应的万象野鹤扩展（不是未修改的官方小鹤表）。渊默码使用 LikeLucia/momo commit <code>18dbd2f801b79b498ed577825891fc560954caeb</code> 的当前 <code>aux_code.csv</code> 主码。</p><p>每个字取来源顺序中的首个完整两字母码；完整多码组合保留在离线源表，页面按首码规则工作。原版音托为原网页内置两码表，保留为兼容选项；默认辅助码类型为渊默码。墨奇、自然码、小鹤来源授权文字按 NOTICE 保留：amzxyz/rime-wanxiang 为 CC BY 4.0；相关墨奇来源另有 MIT 说明。渊默当前数据来源未声明可确认许可证，标为 NOASSERTION，不代称 MIT 或其他许可证。</p></details><details><summary>拼音库与许可证：pinyin-pro 3.27.0 / MIT</summary><pre>MIT License
 
 Copyright (c) 2022-present zh-lx
 
@@ -531,8 +531,55 @@ function headerColumns(st){const h=st.header;let found=false,a=null;
 }
 // 只做基本拼音形态校验，不声称识别所有双拼或形码。
 function validSyllable(s){let n=s.normalize('NFD').replace(/[\u0304\u0301\u030c\u0300]/g,'').normalize('NFC').toLowerCase();if(!/^[a-züvê]+[0-5]?$/.test(n))return false;n=n.replace(/[0-5]$/,'');return /[aeiouüvê]/.test(n)||/^(m|n|ng|hm|hng)$/.test(n)}
-function legacyConvertLine(raw,st){st.no++;const t=raw.replace(/^\uFEFF/,'').trim();if(st.phase==='start'){if(!t||t.startsWith('#'))return raw;if(t==='---'||/^%YAML\b/.test(t)){st.phase='header';return raw}st.phase='body'}if(st.phase==='header'){if(/^\.\.\.(?:\s+#.*)?$/.test(t)){headerColumns(st);st.phase='body';st.header=[]}else{st.header.push(raw);if(st.header.length>100000)throw Error('header 超过 100000 行且未闭合')}return raw}if(!t||t.startsWith('#'))return raw;
- const o=st.opt;let spans=[];if(o.sep==='tab'){let start=0;for(let i=0;i<=raw.length;i++)if(i===raw.length||raw[i]==='\t'){spans.push([start,i]);start=i+1}}else{for(const m of raw.matchAll(/\S+/g))spans.push([m.index,m.index+m[0].length])}
+// 自动识别只接受完整音节，避免把 extra、note 等备注当作拼音列。
+function matchesCode(code,word,opt){
+ const chars=Array.from(word),tokens=code.trim().split(/[\s'’]+/).filter(Boolean);
+ if(!chars.length||!chars.every(c=>/^(?:\p{Unified_Ideograph}|〇)$/u.test(c))||tokens.length!==chars.length)return false;
+ return tokens.every(token=>{
+  const base=token.split(opt.aux)[0];if(!validSyllable(base))return false;
+  const n=base.normalize('NFD').replace(/[\u0304\u0301\u030c\u0300]/g,'').normalize('NFC').toLowerCase().replace(/[0-5]$/,'').replace(/ü/g,'v');
+  return /^(?:(?:zh|ch|sh|[bpmfdtnlgkhjqxzcsrwy])?(?:a|o|e|ê|ai|ei|ao|ou|an|en|ang|eng|ong|i|ia|ie|iao|iu|ian|in|iang|ing|iong|u|ua|uo|ue|uai|ui|uan|un|uang|ueng|v|ve|van|vn|er)|m|n|ng|hm|hng)$/.test(n);
+ });
+}
+function parseRow(raw,opt,w,codeColumns){
+ let spans=[];
+ // 生成文件始终用 Tab 分列；在空白模式中也优先保留这些明确边界与空字段。
+ if(opt.sep==='tab'||raw.includes('\t')){
+  let start=0;for(let i=0;i<=raw.length;i++)if(i===raw.length||raw[i]==='\t'){spans.push([start,i]);start=i+1}
+ }else{
+  for(const m of raw.matchAll(/\S+/g))spans.push([m.index,m.index+m[0].length]);
+  const candidates=new Map(),field=i=>spans[i]?raw.slice(...spans[i]).replace(/^\uFEFF/,''):'';
+  function add(p,end,word){
+   if(end>spans.length||!spans[p]||!spans[end-1]||!matchesCode(raw.slice(spans[p][0],spans[end-1][1]),word,opt))return;
+   const grouped=[...spans.slice(0,p),[spans[p][0],spans[end-1][1]],...spans.slice(end)];candidates.set(JSON.stringify(grouped),grouped);
+  }
+  for(const p of new Set(codeColumns)){
+   if(p===w||p<0||p>=spans.length)continue;
+   if(p>w){
+    const word=field(w),count=Array.from(word).length;let n=0;
+    for(let end=p;end<spans.length;end++){
+     n+=field(end).split(/[\s'’]+/).filter(Boolean).length;
+     if(n===count){add(p,end+1,word);break}if(n>count)break;
+    }
+   }else{
+    // code 在 text 前时，音节合并后才得到逻辑词语列。
+    for(let actual=w;actual<spans.length;actual++)add(p,p+actual-w+1,field(actual));
+   }
+  }
+  if(candidates.size>1)return{ambiguous:true};
+  if(candidates.size===1)spans=candidates.values().next().value;
+ }
+ return{spans,fields:spans.map(([a,b])=>raw.slice(a,b))};
+}
+function plainLayout(fields,opt){
+ const word=(fields[opt.w]||'').replace(/^\uFEFF/,''),columns=[...new Set([opt.p,opt.w+1])].filter(p=>p!==opt.w&&p<fields.length);
+ const matches=columns.filter(p=>matchesCode(fields[p],word,opt));
+ if(matches.length>1)return{ambiguous:true};
+ const p=matches.length?matches[0]:columns.find(p=>fields[p]==='');
+ return p===undefined?null:{input:fields,w:opt.w,p,has:true};
+}
+function legacyConvertLine(raw,st,parsed=null){st.no++;const t=raw.replace(/^\uFEFF/,'').trim();if(st.phase==='start'){if(!t||t.startsWith('#'))return raw;if(t==='---'||/^%YAML\b/.test(t)){st.phase='header';return raw}st.phase='body'}if(st.phase==='header'){if(/^\.\.\.(?:\s+#.*)?$/.test(t)){headerColumns(st);st.phase='body';st.header=[]}else{st.header.push(raw);if(st.header.length>100000)throw Error('header 超过 100000 行且未闭合')}return raw}if(!t||t.startsWith('#'))return raw;
+ const o=st.opt,row=parsed||parseRow(raw,o,o.w,[o.p]);if(row.ambiguous)return note(st,'拼音列有歧义，请改用 Tab 分列',raw);const spans=row.spans;
  const field=i=>spans[i]?raw.slice(...spans[i]):'';const word=field(o.w).replace(/^\uFEFF/,'');if(!word)return note(st,'缺少词语列',raw);if(!Array.from(word).every(c=>/^(?:\p{Unified_Ideograph}|〇)$/u.test(c)))return note(st,'混合非汉字',raw);const py=field(o.p);if(!py.trim())return note(st,'无 code',raw);
  const tokens=py.match(/[^\s'’]+/g)||[],bases=tokens.map(x=>x.split(o.aux)[0]);if(!tokens.length||bases.some(x=>!validSyllable(x)))return note(st,'拼音列不合法',raw);const chars=Array.from(word);if(chars.length!==tokens.length)return note(st,'字音数量不匹配',raw);let missing=chars.filter(c=>!st.opt.table.has(c)||!/^[a-z]{2}$/i.test(st.opt.table.get(c)));if(missing.length){missing.forEach(c=>st.missing.add(c));return note(st,'缺辅助码',raw)}if(!o.replace&&tokens.some(x=>x.includes(o.aux)))return note(st,'已有辅助码',raw);let i=0;const out=py.replace(/[^\s'’]+/g,()=>bases[i]+o.aux+st.opt.table.get(chars[i++]));st.coded++;const [a,b]=spans[o.p];return raw.slice(0,a)+out+raw.slice(b)
 }
@@ -561,22 +608,25 @@ function autoConvert(raw,st){
  if(!st.autoPhase){if(!t||t.startsWith('#'))return raw;if(t==='---'||/^%YAML\b/.test(t)){st.autoPhase='header';st.autoLines=[{raw}];return null}st.autoPhase='body'}
  if(st.autoPhase==='header'){st.autoLines.push({raw});if(st.autoLines.length>100000)throw Error('header 过长');if(/^\.\.\.(?:\s+#.*)?$/.test(t)){const h=autoHeader(st);st.autoPhase='body';return h.join('\n')}return null}
  if(!t||t.startsWith('#'))return raw;
- const fields=st.opt.sep==='space'?raw.trim().split(/\s+/):raw.split('\t');let l=st.layout;
- // 显式 columns 仍严格核对；默认布局按当前行识别，允许长短行混合。
+ let l=st.layout;const wcol=l?(l.standard?0:l.w):st.opt.w,codeColumns=l?(l.standard?[1]:(l.has?[l.p]:[])):[st.opt.p,st.opt.w+1];
+ const row=parseRow(raw,st.opt,wcol,codeColumns);if(row.ambiguous)return note(st,'拼音列有歧义，请改用 Tab 分列',raw);const fields=row.fields;
+ // 音节先合并成逻辑字段，再检查显式 columns 与默认 Rime 布局。
  if(l?.standard)l=defaultRimeLayout(fields,st.no);
+ else if(!l){l=plainLayout(fields,st.opt);if(l?.ambiguous)return note(st,'拼音列有歧义，请确认拼音列',raw)}
  if(l&&!l.standard&&fields.length!==l.input.length)throw Error('第 '+st.no+' 行列数与 columns 不符');
  const w=l?l.w:st.opt.w,word=(fields[w]||'').replace(/^\uFEFF/,'');
  if(!word)return note(st,'缺少词语列',raw);
  if(!Array.from(word).every(c=>/^(?:\p{Unified_Ideograph}|〇)$/u.test(c)))return note(st,'混合非汉字',raw);
  if(l?.has&&fields[l.p].trim()){
    if(st.opt.mode==='autoOnly')return note(st,'已有拼音保留',raw);
-   const old=st.opt;st.opt={...old,w:l.w,p:l.p};st.no--;try{return legacyConvertLine(raw,st)}finally{st.opt=old}
+   const old=st.opt;st.opt={...old,w:l.w,p:l.p};st.no--;try{return legacyConvertLine(raw,st,row)}finally{st.opt=old}
  }
  const toneType=st.opt.toneType||'symbol';const po={type:'array',toneType};if(toneType==='none')po.v=true;const syll=pinyinPro.pinyin(word,po).map(x=>toneType==='num'?x.toLowerCase().replace(/ü/g,'v'):x.toLowerCase());
  if(syll.length!==Array.from(word).length||syll.some(x=>!validSyllable(x)))return note(st,'未识别读音',raw);
  if(st.opt.mode==='autoAux'){const chars=Array.from(word),missing=chars.filter(c=>!st.opt.table.has(c)||!/^[a-z]{2}$/i.test(st.opt.table.get(c)));if(missing.length){missing.forEach(c=>st.missing.add(c));return note(st,'缺辅助码',raw)}for(let i=0;i<syll.length;i++)syll[i]+=st.opt.aux+st.opt.table.get(chars[i])}
  const py=syll.join(' ');let out;
  if(l?.standard){out=[word,py,fields.find((_,i)=>i!==w)||'0']}else{out=fields.slice();if(l?.has)out[l.p]=py;else out.splice(l?l.p:w+1,0,py)}
+ if(out.length)out[0]=out[0].replace(/^\uFEFF/,'');
  st.coded++;return (raw.startsWith('\uFEFF')?'\uFEFF':'')+out.join('\t')
 }
 function convertLine(raw,st){return autoMode(st)?autoConvert(raw,st):legacyConvertLine(raw,st)}

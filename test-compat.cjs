@@ -33,7 +33,7 @@ async function convert(text, overrides={}) {
 }
 const header = '---\nname: sample\n...\n';
 let passed = 0;
-async function test(label, fn) {await fn(); passed++; console.log('PASS '+label);}
+async function test(label, fn) {if(process.env.DICT_TEST_FILTER&&!label.includes(process.env.DICT_TEST_FILTER))return;await fn(); passed++; console.log('PASS '+label);}
 function bases(s) {return s.replace(/;[^\s'’]*/g, '');}
 // 原 autoHeader 使用 join('\n')，既有的 CRLF 头部会转成 LF；词条正文另验字节。
 function lines(s) {return s.split(/\r?\n/);}
@@ -128,6 +128,105 @@ function lines(s) {return s.split(/\r?\n/);}
     const r=await convert('\uFEFF---\nname: test\n...\n# keep\n你好 ni\'hao 120',{sep:'space'});
     assert(r.text.startsWith('\uFEFF---\nname: test\n...\n# keep\n'));
     assert.match(r.text,/你好 ni;[a-z]{2}'hao;[a-z]{2} 120$/);
+  });
+  await test('repeat plain: generated TXT/TSV code is reused with all tables, modes and tone settings',async()=>{
+    for(const mode of ['autoOnly','autoAux'])for(const toneType of ['symbol','none'])for(const [auxType,table] of api.tables){
+      for(const input of ['你好\n','你好\t88\textra\n','88\t你好\textra\n']){
+        const options={mode,toneType,auxType,table,...(input.startsWith('88')?{w:1,p:0}:{})};
+        const first=await convert(input,options),second=await convert(first.text,options);
+        assert.equal(second.text,first.text,JSON.stringify({input,mode,toneType,auxType}));
+      }
+    }
+  });
+  await test('repeat plain: existing pinyin is preserved and auxiliary codes update in place',async()=>{
+    const input='你好\tnǐ hǎo\t0088\textra\n重睡\tchóng;xx shuì;yy\t00400\n';
+    assert.equal((await convert(input,{mode:'autoOnly'})).text,input);
+    const aux=await convert(input),again=await convert(aux.text);
+    assert.equal(aux.text,again.text);assert.match(aux.text,/chóng;/);assert.match(aux.text,/\t00400\n$/);
+    const rows=aux.text.trimEnd().split('\n').map(x=>x.split('\t'));
+    assert.equal(rows[0].length,4);assert.equal(rows[0][2],'0088');assert.equal(rows[0][3],'extra');
+    assert.equal(rows[1].length,3);
+    const keep=await convert(input,{replace:false});assert.equal(keep.text.split('\n')[1],input.split('\n')[1]);
+  });
+  await test('repeat plain: custom code column, empty code cell, apostrophe and metadata are kept',async()=>{
+    const custom='0088\tnǐ hǎo\t你好\textra\n';
+    assert.equal((await convert(custom,{mode:'autoOnly',w:2,p:1})).text,custom);
+    assert.equal((await convert('你好\t\t0088\n',{mode:'autoOnly'})).text,'你好\tnǐ hǎo\t0088\n');
+    assert.equal((await convert("西安\txī'ān\t12\n",{mode:'autoOnly'})).text,"西安\txī'ān\t12\n");
+    assert.equal((await convert('你\tnote\n',{mode:'autoOnly'})).text,'你\tnǐ\tnote\n');
+  });
+  await test('space round trip: spaced syllables form one code field in plain and Rime inputs',async()=>{
+    const inputs=['你好 ni hao 120\n','你好 nǐ hǎo 120 extra\n','你好\n','你好 120 extra\n',header+'你好 nǐ hǎo 120\n'];
+    for(const mode of ['autoOnly','autoAux'])for(const toneType of ['symbol','none'])for(const input of inputs){
+      const options={mode,toneType,sep:'space'},first=await convert(input,options),again=await convert(first.text,options);
+      assert.equal(again.text,first.text,JSON.stringify({input,mode,toneType}));
+      assert.equal(first.st.counts['字音数量不匹配']||0,0);
+    }
+    assert.equal((await convert('你好 nǐ hǎo 00120 extra\n',{mode:'autoOnly',sep:'space'})).text,'你好 nǐ hǎo 00120 extra\n');
+    const existing=await convert('你好 nǐ hǎo 00120 extra\n',{mode:'existing',sep:'space'});
+    assert.match(existing.text,/^你好 nǐ;[a-z]{2} hǎo;[a-z]{2} 00120 extra\n$/);
+    assert.equal((await convert(existing.text,{mode:'existing',sep:'space'})).text,existing.text);
+  });
+  await test('space round trip: apostrophe compatibility, custom columns, numbers and trailing metadata',async()=>{
+    for(const input of ["西安 xi'an 120\n",'绿女 lǜ nǚ 0\n','西安 xi1 an1 120\n']){
+      const first=await convert(input,{sep:'space'});assert.equal((await convert(first.text,{sep:'space'})).text,first.text);
+    }
+    const opt={mode:'autoOnly',sep:'space',w:1,p:2};
+    assert.equal((await convert('88 你好 nǐ hǎo extra\n',opt)).text,'88 你好 nǐ hǎo extra\n');
+    const reversed={mode:'autoOnly',sep:'space',w:2,p:1};
+    assert.equal((await convert('88 nǐ hǎo 你好 extra\n',reversed)).text,'88 nǐ hǎo 你好 extra\n');
+    const explicit='---\ncolumns: [weight, code, text]\n...\n120 nǐ hǎo 你好\n';
+    assert.equal((await convert(explicit,{mode:'autoOnly',sep:'space'})).text,explicit);
+  });
+  await test('space round trip: generated Tab fields preserve empty cells, mixed text, BOM and CRLF',async()=>{
+    const input='\uFEFF你好\t\t0088\t\textra\r\n你 A\tni a\t12\r\n';
+    const first=await convert(input,{mode:'autoOnly',sep:'space'});
+    assert.equal(first.text,'\uFEFF你好\tnǐ hǎo\t0088\t\textra\r\n你 A\tni a\t12\r\n');
+    assert.equal((await convert(first.text,{mode:'autoOnly',sep:'space'})).text,first.text);
+  });
+  await test('repeat plain: ambiguous code columns are preserved and reported instead of guessed',async()=>{
+    const input='你好\tnǐ hǎo\tnǐ hǎo\n';
+    const r=await convert(input,{mode:'autoOnly',p:2});
+    assert.equal(r.text,input);assert.equal(r.st.counts['拼音列有歧义，请确认拼音列'],1);assert.equal(r.st.coded,0);
+    const weight='88\t你好\t0\n',opt={mode:'autoOnly',w:1,p:0};
+    const first=await convert(weight,opt);assert.equal(first.text,'88\t你好\tnǐ hǎo\t0\n');
+    assert.equal((await convert(first.text,opt)).text,first.text);
+  });
+  await test('space round trip: Rime declared code positions and replace=false use grouped syllables',async()=>{
+    for(const h of ['---\ncolumns: [text, code, weight]\n...\n','---\n...\n']){
+      for(const mode of ['autoOnly','autoAux','existing']){
+        const input=h+'你好 nǐ;xx hǎo;yy 00120\n',o={mode,sep:'space',replace:false};
+        const first=await convert(input,o);assert.equal(first.text,input);
+      }
+    }
+    const rows='  你好   nǐ    hǎo   00120 extra  \n西安 xī’ān 120\n';
+    const r=await convert(rows,{mode:'existing',sep:'space'});
+    assert.match(r.text,/^  你好   nǐ;[a-z]{2}    hǎo;[a-z]{2}   00120 extra  \n/);
+    assert.equal((await convert(r.text,{mode:'existing',sep:'space'})).text,r.text);
+    const expanded='𰻞\n';
+    for(const mode of ['autoOnly','autoAux']){
+      const first=await convert(expanded,{mode});assert.equal((await convert(first.text,{mode})).text,first.text);
+    }
+  });
+  await test('ZIP repeat plain: space input and generated TSV round trip without duplicate code fields',async()=>{
+    element('sep').value='space';element('mode').value='autoOnly';
+    try{
+      let file=new Blob([]),z=new api.Zip();
+      for(const [name,text] of [['dict/a.txt','你好 ni hao 00120\n'],['dict/b.tsv','学习\t99\n']]){
+        const bytes=Buffer.from(text);z.add(name,[deflateRawSync(bytes)],(api.crcAdd(0xffffffff,bytes)^0xffffffff)>>>0,bytes.length,deflateRawSync(bytes).length,8);
+      }
+      file=z.finish();file.name='repeat.zip';
+      const previous=[];
+      for(let turn=0;turn<2;turn++){
+        downloads.length=0;ctx.captureSave=(blob,name)=>downloads.push({blob,name});vm.runInContext('save=captureSave',ctx);
+        await api.run([file]);assert.equal(element('msg').className,'msg ok');assert.equal(downloads.length,1);
+        const entries=await api.readZipEntries(downloads[0].blob);
+        const texts=await Promise.all(Array.from(entries,e=>new Response(api.checkedStream(e)).text()));
+        if(turn===0){previous.push(...texts);assert.equal(texts[0],'你好 ni hao 00120\n');assert.equal(texts[1],'学习\txué xí\t99\n');}
+        else assert.deepEqual(texts,previous);
+        file=downloads[0].blob;file.name='repeat.zip';
+      }
+    }finally{element('sep').value='tab';element('mode').value='autoAux';}
   });
   await test('ZIP deflate/store round trip preserves nested path and non-dictionary payload, CRC checked',async()=>{
     const z=new api.Zip(), entries=[['Rime/sample/mixed-layout.dict.yaml',Buffer.from(yui),8],['Rime/sample/assets.bin',Buffer.from([0,1,2,3,255]),8],['Rime/sample/',Buffer.alloc(0),0]];
