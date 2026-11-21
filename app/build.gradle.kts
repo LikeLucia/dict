@@ -96,6 +96,10 @@ dependencies {
     implementation("androidx.graphics:graphics-path:1.1.0")
     implementation(group = "", name = "quickjs-android-0.9.2-16kb", ext = "aar")
 
+    implementation("io.github.suqi8.coui.kmp:coui-ui-android:2.1.0")
+    implementation("io.github.suqi8.coui.kmp:coui-preference-android:2.1.0")
+    implementation("io.github.suqi8.coui.kmp:coui-icons-android:2.1.0")
+
     implementation("top.yukonga.miuix.kmp:miuix-ui:0.9.5-beta03")
     implementation("top.yukonga.miuix.kmp:miuix-glass:0.9.5-beta03")
     implementation("top.yukonga.miuix.kmp:miuix-preference:0.9.5-beta03")

@@ -3,54 +3,60 @@ package kirakira.dokidoki.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
-import kirakira.dokidoki.ui.components.DictCard
-import kirakira.dokidoki.ui.components.FixedTopScrollPage
-import kirakira.dokidoki.ui.components.DictTopBar
-import kirakira.dokidoki.ui.components.SectionHeader
-import kirakira.dokidoki.ui.components.rememberMiuixIndication
-import kirakira.dokidoki.ui.theme.DictTheme
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.basic.ArrowRight
-
-private val AboutGradientLightStart = Color(0xFF2C7AF4)
-private val AboutGradientLightEnd = Color(0xFF2DBEBA)
-private val AboutGradientDarkStart = Color(0xFF1E52CD)
-private val AboutGradientDarkEnd = Color(0xFF1E8C8C)
-
-private val AboutAccentBarColors = listOf(
-    Color(0xFF3482FF),
-    Color(0xFF4CAF50),
-    Color(0xFFFF9800),
-    Color(0xFF9C50FF),
-    Color(0xFF26C6DA),
-    Color(0xFFF44336),
-    Color(0xFFFFD54F),
-    Color(0xFF3F51B5),
-    Color(0xFF009688),
-    Color(0xFF03A9F4),
-    Color(0xFFFF7043),
-    Color(0xFF795548),
-)
+import io.github.suqi8.coui.kmp.basic.BasicComponent
+import io.github.suqi8.coui.kmp.basic.ButtonDefaults
+import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
+import io.github.suqi8.coui.kmp.basic.Card
+import io.github.suqi8.coui.kmp.basic.CardListGroup
+import io.github.suqi8.coui.kmp.basic.Icon
+import io.github.suqi8.coui.kmp.basic.IconButton
+import io.github.suqi8.coui.kmp.basic.Scaffold
+import io.github.suqi8.coui.kmp.basic.Text
+import io.github.suqi8.coui.kmp.basic.TextButton
+import io.github.suqi8.coui.kmp.basic.TopAppBar
+import io.github.suqi8.coui.kmp.basic.VerticalScrollBar
+import io.github.suqi8.coui.kmp.basic.rememberScrollBarAdapter
+import io.github.suqi8.coui.kmp.icon.COUIIcons
+import io.github.suqi8.coui.kmp.icon.extended.Back
+import io.github.suqi8.coui.kmp.interfaces.ExperimentalScrollBarApi
+import io.github.suqi8.coui.kmp.preference.ArrowPreference
+import io.github.suqi8.coui.kmp.preference.PreferenceCategory
+import io.github.suqi8.coui.kmp.theme.COUITheme
+import io.github.suqi8.coui.kmp.theme.darkColorScheme
+import io.github.suqi8.coui.kmp.theme.lightColorScheme
+import io.github.suqi8.coui.kmp.utils.rememberCOUIFlingBehavior
 
 private const val URL_SOURCE = "https://github.com/LikeLucia/dict"
 private const val URL_MIUIX = "https://github.com/compose-miuix-ui/miuix"
@@ -61,282 +67,325 @@ private const val URL_RIME_WANXIANG = "https://github.com/amzxyz/rime-wanxiang"
 private const val URL_MOQIMA_TABLES = "https://github.com/gaboolic/moqima-tables"
 private const val URL_MOMO = "https://github.com/yuanz-12/momo"
 
+private val HeroHeight = 240.dp
+private val HeroCornerRadius = 24.dp
+private val HeroLogoTop = 66.dp
+private val HeroButtonGap = 32.dp
+private val HeroTextColor = Color.White
+private val HeroBuildNumberColor = Color(0xD9FFFFFF)
+private val RatioBarHeight = 10.dp
+private val RatioBarGap = 2.dp
+
+@OptIn(ExperimentalScrollBarApi::class)
 @Composable
 fun AboutScreen(
     onBack: () -> Unit,
     onOpenSourceLicenses: () -> Unit,
     versionName: String,
     versionCode: Long,
+    isDark: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val p = DictTheme.palette
     val context = LocalContext.current
-    FixedTopScrollPage(
-        modifier = modifier,
-        topBar = {
-            DictTopBar(
-                title = "关于",
-                onBack = onBack,
-                actionSize = 40.dp,
-                actionIconSize = 22.dp,
-            )
-        },
-    ) {
-        Spacer(Modifier.height(16.dp))
-
-        DictCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .height(232.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = if (p.isDark) {
-                                listOf(AboutGradientDarkStart, AboutGradientDarkEnd)
-                            } else {
-                                listOf(AboutGradientLightStart, AboutGradientLightEnd)
-                            },
-                        ),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        "kirakira",
-                        fontSize = 42.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = p.onAccent,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "版本 $versionName",
-                        fontSize = 12.5.sp,
-                        color = p.onAccent.copy(alpha = 0.84f),
-                    )
-                    Spacer(Modifier.height(20.dp))
-                    val pillShape = RoundedCornerShape(19.dp)
-                    val pillInteraction = remember { MutableInteractionSource() }
-                    val pillIndication = rememberMiuixIndication()
-                    Box(
-                        modifier = Modifier
-                            .width(118.dp)
-                            .height(38.dp)
-                            .clip(pillShape)
-                            .background(p.onAccent)
-                            .clickable(
-                                interactionSource = pillInteraction,
-                                indication = pillIndication,
-                            ) { openExternalLink(context, URL_SOURCE) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "查看源代码",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = p.accent,
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        DictCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .height(108.dp),
-        ) {
+    val colors = remember(isDark) {
+        if (isDark) darkColorScheme() else lightColorScheme()
+    }
+    COUITheme(colors = colors) {
+        val scrollBehavior = COUIScrollBehavior()
+        val listState = rememberLazyListState()
+        Scaffold(
+            modifier = modifier.fillMaxSize(),
+            topBar = {
+                TopAppBar(
+                    title = "关于",
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onBack,
+                            material = true,
+                        ) {
+                            Icon(COUIIcons.Back, contentDescription = "返回")
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                    showDivider = false,
+                )
+            },
+        ) { padding ->
             Box(Modifier.fillMaxSize()) {
-                Column(Modifier.fillMaxWidth()) {
-                    AboutRow(title = "名称", value = "kirakira")
-                    AboutRow(title = "组件", value = "4 屏 · 16 个源码文件", last = true)
-                }
-                Row(
+                LazyColumn(
+                    state = listState,
                     modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(start = 10.dp, end = 16.dp, bottom = 8.dp)
-                        .fillMaxWidth()
-                        .height(6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        .fillMaxSize()
+                        .padding(top = 12.dp)
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
+                    contentPadding = padding,
+                    flingBehavior = rememberCOUIFlingBehavior(),
                 ) {
-                    AboutAccentBarColors.forEach { color ->
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(color),
+                    item(key = "hero") {
+                        AboutHero(
+                            versionName = versionName,
+                            onViewSource = { openExternalLink(context, URL_SOURCE) },
                         )
                     }
+                    item(key = "summary") {
+                        Card(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 16.dp),
+                        ) {
+                            CardListGroup {
+                                item {
+                                    BasicComponent(
+                                        title = "名称",
+                                        endActions = { EndValue("kirakira") },
+                                    )
+                                }
+                                item(showDivider = false) {
+                                    ComponentCountRow()
+                                }
+                            }
+                        }
+                    }
+                    item(key = "details") {
+                        PreferenceCategory("详细信息")
+                        Card(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 16.dp),
+                        ) {
+                            CardListGroup {
+                                item {
+                                    BasicComponent(
+                                        title = "版本",
+                                        endActions = { EndValue("$versionName ($versionCode)") },
+                                    )
+                                }
+                                item {
+                                    BasicComponent(
+                                        title = "设计语言",
+                                        endActions = { EndValue("ColorOS 17 · COUI") },
+                                    )
+                                }
+                                item {
+                                    BasicComponent(
+                                        title = "平台",
+                                        endActions = { EndValue("Android") },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    item(key = "project") {
+                        PreferenceCategory("项目")
+                        Card(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 16.dp),
+                        ) {
+                            CardListGroup {
+                                item {
+                                    LinkRow(
+                                        title = "项目主页",
+                                        value = "LikeLucia/dict",
+                                        url = URL_SOURCE,
+                                        context = context,
+                                    )
+                                }
+                                item {
+                                    ArrowPreference(
+                                        title = "源代码许可",
+                                        endActions = { EndValue("${SourceLicenseEntries.size} 项") },
+                                        onClick = onOpenSourceLicenses,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    item(key = "credits") {
+                        PreferenceCategory("鸣谢")
+                        Card(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 16.dp),
+                        ) {
+                            CardListGroup {
+                                item {
+                                    BasicComponent(
+                                        title = "Compose",
+                                        endActions = { EndValue("UI 框架") },
+                                    )
+                                }
+                                item { LinkRow("Miuix", "组件和动效 · 设计语言", URL_MIUIX, context) }
+                                item { LinkRow("COUI", "组件和动效 · 设计语言", URL_COUI, context) }
+                                item { LinkRow("QuickJS", "词库处理引擎", URL_QUICKJS, context) }
+                                item { LinkRow("pinyin-pro", "拼音生成", URL_PINYIN_PRO, context) }
+                                item { LinkRow("rime-wanxiang", "自然码 / 万象野鹤扩展表", URL_RIME_WANXIANG, context) }
+                                item { LinkRow("moqima-tables", "墨奇辅助码", URL_MOQIMA_TABLES, context) }
+                                item { LinkRow("momo", "渊默码", URL_MOMO, context) }
+                            }
+                        }
+                    }
+                    item(key = "tail") {
+                        Box(Modifier.height(32.dp))
+                    }
                 }
-            }
-        }
-
-        SectionHeader("详细信息", modifier = Modifier.padding(start = 2.dp))
-
-        DictCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .height(156.dp),
-        ) {
-            Column(Modifier.fillMaxSize()) {
-                AboutRow(title = "版本", value = "$versionName ($versionCode)")
-                AboutRow(title = "设计语言", value = "Miuix · COUI")
-                AboutRow(title = "平台", value = "Android", last = true)
-            }
-        }
-
-        SectionHeader("项目", modifier = Modifier.padding(start = 2.dp))
-
-        DictCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .height(104.dp),
-        ) {
-            Column(Modifier.fillMaxSize()) {
-                AboutRow(
-                    title = "项目主页",
-                    value = "LikeLucia/dict",
-                    showArrow = true,
-                    onClick = { openExternalLink(context, URL_SOURCE) },
-                )
-                AboutRow(
-                    title = "源代码许可",
-                    value = "${SourceLicenseEntries.size} 项",
-                    showArrow = true,
-                    last = true,
-                    onClick = onOpenSourceLicenses,
-                )
-            }
-        }
-
-        SectionHeader("鸣谢", modifier = Modifier.padding(start = 2.dp))
-
-        DictCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .height(416.dp),
-        ) {
-            Column(Modifier.fillMaxSize()) {
-                AboutRow(title = "Compose", value = "UI 框架")
-                AboutRow(
-                    title = "Miuix",
-                    value = "组件和动效 · 设计语言",
-                    onClick = { openExternalLink(context, URL_MIUIX) },
-                )
-                AboutRow(
-                    title = "COUI",
-                    value = "设计语言",
-                    onClick = { openExternalLink(context, URL_COUI) },
-                )
-                AboutRow(
-                    title = "QuickJS",
-                    value = "词库处理引擎",
-                    onClick = { openExternalLink(context, URL_QUICKJS) },
-                )
-                AboutRow(
-                    title = "pinyin-pro",
-                    value = "拼音生成",
-                    onClick = { openExternalLink(context, URL_PINYIN_PRO) },
-                )
-                AboutRow(
-                    title = "rime-wanxiang",
-                    value = "自然码 / 万象野鹤扩展表",
-                    onClick = { openExternalLink(context, URL_RIME_WANXIANG) },
-                )
-                AboutRow(
-                    title = "moqima-tables",
-                    value = "墨奇辅助码",
-                    onClick = { openExternalLink(context, URL_MOQIMA_TABLES) },
-                )
-                AboutRow(
-                    title = "momo",
-                    value = "渊默码",
-                    last = true,
-                    onClick = { openExternalLink(context, URL_MOMO) },
+                VerticalScrollBar(
+                    adapter = rememberScrollBarAdapter(listState),
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight(),
+                    trackPadding = padding,
                 )
             }
         }
     }
-
 }
 
 @Composable
-private fun AboutRow(
-    title: String,
-    value: String? = null,
-    showArrow: Boolean = false,
-    last: Boolean = false,
-    onClick: (() -> Unit)? = null,
+private fun AboutHero(
+    versionName: String,
+    onViewSource: () -> Unit,
 ) {
-    val p = DictTheme.palette
-    val interaction = remember { MutableInteractionSource() }
-    val indication = rememberMiuixIndication()
+    val colors = COUITheme.colorScheme
+    val background = Brush.linearGradient(
+        listOf(colors.violet, colors.primary, colors.cyan),
+        start = Offset.Zero,
+        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+    )
     Box(
         modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 16.dp)
             .fillMaxWidth()
-            .height(52.dp)
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(
-                        interactionSource = interaction,
-                        indication = indication,
-                    ) { onClick() }
-                } else {
-                    Modifier
-                },
-            ),
+            .height(HeroHeight)
+            .clip(RoundedCornerShape(HeroCornerRadius))
+            .background(background),
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 10.dp, end = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .background(
+                    Brush.radialGradient(
+                        listOf(Color.White.copy(alpha = 0.28f), Color.Transparent),
+                        center = Offset(0f, 0f),
+                        radius = 900f,
+                    ),
+                ),
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = HeroLogoTop - 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(title, fontSize = 14.5.sp, color = p.text)
-            Spacer(Modifier.weight(1f))
-            if (value != null) {
-                Text(
-                    value,
-                    fontSize = 13.5.sp,
-                    color = p.text2,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 200.dp),
-                )
-                if (showArrow) {
-                    Spacer(Modifier.width(8.dp))
-                    Icon(
-                        MiuixIcons.Basic.ArrowRight,
-                        contentDescription = null,
-                        modifier = Modifier.size(width = 9.dp, height = 13.dp),
-                        tint = p.text3,
-                    )
-                }
-            }
-        }
-        if (!last) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 10.dp, end = 24.dp)
-                    .fillMaxWidth()
-                    .height(0.7.dp)
-                    .background(p.divider),
+            Text(
+                text = "kirakira",
+                color = HeroTextColor,
+                fontSize = 52.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = "版本 $versionName",
+                color = HeroBuildNumberColor,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+            )
+            TextButton(
+                text = "查看源代码",
+                onClick = onViewSource,
+                modifier = Modifier.padding(top = HeroButtonGap - 12.dp),
+                minHeight = 40.dp,
+                insideMargin = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                colors = ButtonDefaults.textButtonColorsTransparent(textColor = HeroTextColor),
+                textStyle = COUITheme.textStyles.buttonM,
             )
         }
     }
 }
 
+@Composable
+private fun ComponentCountRow() {
+    val colors = COUITheme.colorScheme
+    val palette = listOf(
+        colors.blue, colors.green, colors.orange, colors.purple, colors.cyan, colors.red,
+        colors.yellow, colors.violet, colors.mint, colors.azure, colors.orangeVariant,
+    )
+    val segmentCount = 12
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = 12.dp, bottom = 14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "组件",
+                style = COUITheme.textStyles.headlineXS,
+                color = colors.labelPrimary,
+            )
+            Text(
+                text = "4 屏 · 16 个源码文件",
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp),
+                style = COUITheme.textStyles.bodyM,
+                color = colors.labelSecondary,
+                textAlign = TextAlign.End,
+                maxLines = 1,
+            )
+        }
+        Canvas(
+            modifier = Modifier
+                .padding(top = 7.dp)
+                .fillMaxWidth()
+                .height(RatioBarHeight)
+                .clip(RoundedCornerShape(RatioBarHeight)),
+        ) {
+            drawRect(colors.fillThin)
+            val gap = RatioBarGap.toPx()
+            val usable = size.width - gap * (segmentCount - 1)
+            val segmentWidth = usable / segmentCount
+            var x = 0f
+            repeat(segmentCount) { index ->
+                drawRoundRect(
+                    color = palette[index % palette.size],
+                    topLeft = Offset(x, 0f),
+                    size = Size(segmentWidth, size.height),
+                    cornerRadius = CornerRadius.Zero,
+                )
+                x += segmentWidth + gap
+            }
+        }
+    }
+}
+
+@Composable
+private fun EndValue(text: String) {
+    Text(
+        text = text,
+        style = COUITheme.textStyles.bodyM,
+        color = COUITheme.colorScheme.labelTertiary,
+        textAlign = TextAlign.End,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
+@Composable
+private fun LinkRow(
+    title: String,
+    value: String,
+    url: String,
+    context: Context,
+) {
+    ArrowPreference(
+        title = title,
+        endActions = { EndValue(value) },
+        onClick = { openExternalLink(context, url) },
+    )
+}
 
 private fun openExternalLink(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, url.toUri())

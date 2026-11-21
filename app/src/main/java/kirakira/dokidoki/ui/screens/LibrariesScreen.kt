@@ -146,7 +146,7 @@ internal val SourceLicenseEntries = listOf(
     SourceLicenseEntry("运行依赖", "Guava ListenableFuture", "1.0", "AndroidX 并发接口兼容组件", "Apache License 2.0", listOf(
         SourceLicenseLink("项目主页", "https://github.com/google/guava"), SourceLicenseLink("许可证原文", "https://github.com/google/guava/blob/master/COPYING"),
     )),
-    SourceLicenseEntry("设计参考", "COUI", "2.1.0", "关于页视觉设计参考；本地 Compose 自绘，未引入运行时依赖", "Apache License 2.0", listOf(
+    SourceLicenseEntry("运行依赖", "COUI", "2.1.0", "关于页 UI 组件、偏好设置组件与图标", "Apache License 2.0", listOf(
         SourceLicenseLink("项目主页", COUI), SourceLicenseLink("许可证原文", COUI_LICENSE),
     )),
     SourceLicenseEntry("内置数据来源", "Rime Wanxiang 码表", "提交 47f0c487", "墨奇、自然码、万象野鹤扩展码表；万象野鹤扩展并非未经修改的官方小鹤码表", "CC BY 4.0 与相关墨奇 MIT 声明", listOf(

@@ -35,6 +35,7 @@ import kirakira.dokidoki.data.ProcessResult
 import kirakira.dokidoki.data.QueueFile
 import kirakira.dokidoki.ui.components.DictCard
 import kirakira.dokidoki.ui.components.FixedTopScrollPage
+import kirakira.dokidoki.ui.components.LocalDictTopBarScrollBehavior
 import kirakira.dokidoki.ui.components.SectionHeader
 import kirakira.dokidoki.ui.components.SegmentSlider
 import kirakira.dokidoki.ui.components.StatusBadge
@@ -44,6 +45,7 @@ import kirakira.dokidoki.ui.theme.DictTheme
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
@@ -113,28 +115,35 @@ fun HomeScreen(
 @Composable
 private fun HomeHeader() {
     val p = DictTheme.palette
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .height(44.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("kirakira", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = p.text, lineHeight = 34.sp)
-        Spacer(Modifier.width(14.dp))
-        Text("词库离线处理", fontSize = 13.sp, color = p.text2, modifier = Modifier.padding(top = 7.dp))
-        Spacer(Modifier.weight(1f))
-        Box(
-            modifier = Modifier
-                .height(20.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(p.tint)
-                .padding(horizontal = 10.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("本机完成 · 不上传", fontSize = 10.sp, color = p.onTint)
-        }
-    }
+    TopAppBar(
+        title = "kirakira",
+        subtitle = "词库离线处理",
+        modifier = Modifier.fillMaxWidth(),
+        color = p.bg,
+        titleColor = p.text,
+        largeTitleColor = p.text,
+        subtitleColor = p.text2,
+        defaultWindowInsetsPadding = false,
+        titlePadding = 24.dp,
+        actionIconPadding = 24.dp,
+        scrollBehavior = LocalDictTopBarScrollBehavior.current,
+        actions = {
+            Box(
+                modifier = Modifier
+                    .height(20.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(p.tint)
+                    .padding(horizontal = 10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "本机完成 · 不上传",
+                    fontSize = 10.sp,
+                    color = p.onTint,
+                )
+            }
+        },
+    )
 }
 
 @Composable

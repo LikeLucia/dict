@@ -375,14 +375,13 @@ fun DictApp(viewModel: MainViewModel) {
                                 val pkgInfo = packageInfo.value
                                 val versionName = pkgInfo?.versionName ?: "unknown"
                                 val versionCode = pkgInfo?.let { PackageInfoCompat.getLongVersionCode(it) } ?: 0L
-                                FullScreenContentPage {
-                                    AboutScreen(
-                                        onBack = { aboutOpen = false },
-                                        onOpenSourceLicenses = { sourceLicensesOpen = true },
-                                        versionName = versionName,
-                                        versionCode = versionCode,
-                                    )
-                                }
+                                AboutScreen(
+                                    onBack = { aboutOpen = false },
+                                    onOpenSourceLicenses = { sourceLicensesOpen = true },
+                                    versionName = versionName,
+                                    versionCode = versionCode,
+                                    isDark = dark,
+                                )
                             },
                             detail = {
                                 FullScreenContentPage {
@@ -401,8 +400,7 @@ fun DictApp(viewModel: MainViewModel) {
 @Composable
 private fun FullScreenContentPage(content: @Composable BoxScope.() -> Unit) {
     Box(
-        modifier = Modifier.fillMaxSize().background(DictTheme.palette.bg)
-            .windowInsetsPadding(WindowInsets.statusBars),
+        modifier = Modifier.fillMaxSize().background(DictTheme.palette.bg),
         content = content,
     )
 }

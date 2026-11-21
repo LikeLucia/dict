@@ -14,9 +14,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +34,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
@@ -48,10 +51,14 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.PopupLayoutPosition
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.ScrollBehavior
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.popupClipReveal
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
+import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.basic.Check
@@ -165,9 +172,17 @@ fun FixedTopPage(
     topBar: @Composable () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(modifier.fillMaxSize().padding(top = 4.dp)) {
-        topBar()
-        content()
+    val scrollBehavior = MiuixScrollBehavior()
+    CompositionLocalProvider(LocalDictTopBarScrollBehavior provides scrollBehavior) {
+        Column(
+            modifier
+                .fillMaxSize()
+                .padding(top = 4.dp)
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+        ) {
+            topBar()
+            content()
+        }
     }
 }
 
@@ -190,10 +205,7 @@ fun FixedTopScrollPage(
     }
 }
 
-private val DictTopBarTitleSize = 20.sp
-private val DictTopBarIconSize = 28.dp
-private val DictTopBarActionSize = 48.dp
-private val DictTopBarSecondaryTextSize = 13.sp
+internal val LocalDictTopBarScrollBehavior = staticCompositionLocalOf<ScrollBehavior?> { null }
 
 @Composable
 fun DictTopBar(
@@ -204,43 +216,42 @@ fun DictTopBar(
     searchActive: Boolean = false,
     onSearchClick: (() -> Unit)? = null,
     onSelectAll: (() -> Unit)? = null,
-    actionSize: Dp = DictTopBarActionSize,
-    actionIconSize: Dp = DictTopBarIconSize,
+    actionSize: Dp = 48.dp,
+    actionIconSize: Dp = 28.dp,
     trailingActionOffsetY: Dp = 0.dp,
 ) {
     val p = DictTheme.palette
-    Layout(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .heightIn(min = 56.dp),
-        content = {
-            Box {
-                if (onBack != null) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.size(actionSize),
-                        backgroundColor = p.card,
-                        cornerRadius = actionSize / 2,
-                        minHeight = actionSize,
-                        minWidth = actionSize,
-                    ) {
-                        Icon(
-                            MiuixIcons.Basic.ArrowRight, "返回",
-                            modifier = Modifier.size(actionIconSize).rotate(180f), tint = p.text,
-                        )
-                    }
+    TopAppBar(
+        title = title,
+        modifier = modifier.fillMaxWidth(),
+        color = p.bg,
+        titleColor = p.text,
+        largeTitleColor = p.text,
+        defaultWindowInsetsPadding = false,
+        titlePadding = 24.dp,
+        navigationIconPadding = 24.dp,
+        actionIconPadding = 16.dp,
+        scrollBehavior = LocalDictTopBarScrollBehavior.current,
+        navigationIcon = {
+            if (onBack != null) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.size(actionSize),
+                    backgroundColor = p.card,
+                    cornerRadius = actionSize / 2,
+                    minHeight = actionSize,
+                    minWidth = actionSize,
+                ) {
+                    Icon(
+                        MiuixIcons.Basic.ArrowRight,
+                        contentDescription = "返回",
+                        modifier = Modifier.size(actionIconSize).rotate(180f),
+                        tint = p.text,
+                    )
                 }
             }
-            Text(
-                title,
-                fontSize = DictTopBarTitleSize,
-                fontWeight = FontWeight.Bold,
-                color = p.text,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        },
+        actions = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -258,7 +269,7 @@ fun DictTopBar(
                     ) {
                         Text(
                             badge,
-                            fontSize = DictTopBarSecondaryTextSize,
+                            fontSize = 13.sp,
                             color = p.onTint,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -275,7 +286,8 @@ fun DictTopBar(
                         minWidth = actionSize,
                     ) {
                         Icon(
-                            MiuixIcons.Basic.Search, if (searchActive) "关闭搜索" else "搜索",
+                            MiuixIcons.Basic.Search,
+                            contentDescription = if (searchActive) "关闭搜索" else "搜索",
                             modifier = Modifier.size(actionIconSize),
                             tint = if (searchActive) p.onTint else p.text2,
                         )
@@ -284,13 +296,13 @@ fun DictTopBar(
                 if (onSelectAll != null) {
                     Box(
                         modifier = Modifier
-                            .heightIn(min = DictTopBarActionSize)
+                            .heightIn(min = 48.dp)
                             .clickable(onClick = onSelectAll),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             "全选",
-                            fontSize = DictTopBarSecondaryTextSize,
+                            fontSize = 13.sp,
                             color = p.accent,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -299,25 +311,7 @@ fun DictTopBar(
                 }
             }
         },
-    ) { measurables, constraints ->
-        val width = constraints.maxWidth
-        val loose = constraints.copy(minWidth = 0, minHeight = 0)
-        val leading = measurables[0].measure(loose.copy(maxWidth = width / 2))
-        val trailing = measurables[2].measure(loose.copy(maxWidth = width / 2))
-        val gap = 4.dp.roundToPx()
-        val start = leading.width + if (leading.width > 0) gap else 0
-        val end = width - trailing.width - if (trailing.width > 0) gap else 0
-        val titlePlaceable = measurables[1].measure(loose.copy(maxWidth = (end - start).coerceAtLeast(0)))
-        val height = maxOf(constraints.minHeight, leading.height, titlePlaceable.height, trailing.height)
-        // Center in the window unless the back/search/count controls need that space.
-        val titleX = ((width - titlePlaceable.width) / 2)
-            .coerceIn(start, (end - titlePlaceable.width).coerceAtLeast(start))
-        layout(width, height) {
-            leading.placeRelative(0, (height - leading.height) / 2)
-            titlePlaceable.placeRelative(titleX, (height - titlePlaceable.height) / 2)
-            trailing.placeRelative(width - trailing.width, (height - trailing.height) / 2)
-        }
-    }
+    )
 }
 
 @Composable
@@ -486,12 +480,12 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
             GlassNavigationItem(MiuixIcons.Glass.SettingsOutline, "设置"),
         )
     }
-    val barHeight = 56.dp
+    val barHeight = 54.dp
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(54.dp),
+            .padding(horizontal = 28.dp)
+            .height(barHeight),
         contentAlignment = Alignment.Center,
     ) {
         GlassNavigationBar(
@@ -501,15 +495,22 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
             backdrop = null,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(barHeight)
-                .graphicsLayer(scaleX = 0.94f, scaleY = 0.94f),
+                .height(barHeight),
             defaultWindowInsetsPadding = false,
-            shadow = null,
+            shadow = GlassShadows.Float,
             height = barHeight,
-            selectedColor = p.accent,
-            unselectedColor = p.text3,
-            indicatorColor = p.card2,
-            indicatorPressedColor = p.card2,
+            selectedColor = p.text,
+            unselectedColor = p.text,
+            indicatorColor = if (p.isDark) {
+                Color.White.copy(alpha = 0.12f)
+            } else {
+                Color.Black.copy(alpha = 0.10f)
+            },
+            indicatorPressedColor = if (p.isDark) {
+                Color.White.copy(alpha = 0.18f)
+            } else {
+                Color.Black.copy(alpha = 0.16f)
+            },
         )
     }
 }
