@@ -177,7 +177,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="v${VERSION_NAME}-${VERSION_CODE}"
-          ARGS=(--title "kirakira v${VERSION_NAME}-${VERSION_CODE}" --notes "Version: ${VERSION_NAME} (${VERSION_CODE})" --target "$GITHUB_SHA")
+          ARGS=(--title "kirakira" --notes "Version: ${VERSION_NAME} (${VERSION_CODE})" --target "$GITHUB_SHA")
           if [ "$DRAFT" = "true" ]; then
             ARGS+=(--draft)
           else
