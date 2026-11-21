@@ -181,7 +181,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="v${VERSION_NAME}"
-          ARGS=(--title "dict v${VERSION_NAME}" --notes "Version: ${VERSION_NAME} (${VERSION_CODE})" --target "${{ steps.bump.outputs.commit }}")
+          ARGS=(--title "kirakira v${VERSION_NAME}" --notes "Version: ${VERSION_NAME} (${VERSION_CODE})" --target "${{ steps.bump.outputs.commit }}")
           if [ "$DRAFT" = "true" ]; then
             ARGS+=(--draft)
           else
