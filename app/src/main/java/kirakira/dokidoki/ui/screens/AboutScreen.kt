@@ -66,6 +66,7 @@ fun AboutScreen(
     onBack: () -> Unit,
     onOpenSourceLicenses: () -> Unit,
     versionName: String,
+    versionCode: Long,
     modifier: Modifier = Modifier,
 ) {
     val p = DictTheme.palette
@@ -186,8 +187,8 @@ fun AboutScreen(
                 .height(156.dp),
         ) {
             Column(Modifier.fillMaxSize()) {
-                AboutRow(title = "版本", value = versionName)
-                AboutRow(title = "设计语言", value = "Miuix · COUI 2.1.0")
+                AboutRow(title = "版本", value = "$versionName ($versionCode)")
+                AboutRow(title = "设计语言", value = "Miuix · COUI")
                 AboutRow(title = "平台", value = "Android", last = true)
             }
         }

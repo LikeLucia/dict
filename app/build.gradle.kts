@@ -1,7 +1,25 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.compose")
+}
+
+val versionPropertiesFile = rootProject.file("version.properties")
+val versionProperties = Properties().apply {
+    versionPropertiesFile.inputStream().use { load(it) }
+}
+val isCiBuild = !System.getenv("CI").isNullOrBlank()
+val buildsApk = gradle.startParameter.taskNames.any { requested ->
+    val taskName = requested.substringAfterLast(':')
+    taskName == "build" || taskName.startsWith("assemble") ||
+        taskName.startsWith("bundle") || taskName.startsWith("install")
+}
+var buildVersionCode = versionProperties.getProperty("versionCode").toInt()
+if (buildsApk && !isCiBuild) {
+    buildVersionCode += 1
+    versionPropertiesFile.writeText("versionCode=$buildVersionCode\n")
 }
 
 android {
@@ -17,7 +35,7 @@ android {
         applicationId = "kirakira.dokidoki"
         minSdk = 24
         targetSdk = 37
-        versionCode = 33
+        versionCode = buildVersionCode
         versionName = "2.0"
         ndk {
             abiFilters += listOf("arm64-v8a")

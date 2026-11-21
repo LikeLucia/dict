@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.view.WindowCompat
 import kirakira.dokidoki.data.AuxType
 import kirakira.dokidoki.data.ambiguityGroups
@@ -373,11 +374,13 @@ fun DictApp(viewModel: MainViewModel) {
                             base = {
                                 val pkgInfo = packageInfo.value
                                 val versionName = pkgInfo?.versionName ?: "unknown"
+                                val versionCode = pkgInfo?.let { PackageInfoCompat.getLongVersionCode(it) } ?: 0L
                                 FullScreenContentPage {
                                     AboutScreen(
                                         onBack = { aboutOpen = false },
                                         onOpenSourceLicenses = { sourceLicensesOpen = true },
                                         versionName = versionName,
+                                        versionCode = versionCode,
                                     )
                                 }
                             },
