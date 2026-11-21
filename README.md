@@ -53,11 +53,22 @@ app/src/main/java/kirakira/dokidoki/
 
 产物：`app/build/outputs/apk/debug/app-debug.apk`。
 
+## 签名与发布
+
+在 GitHub Actions 中运行 `Build signed APK` 工作流即可生成已签名的 Release APK，构建完成后下载 `dict-<version>.apk` 与 `SHA256SUMS.txt`。工作流使用仓库中已保存的 Secrets：
+
+- `KEYSTORE_BASE64`：签名密钥库的 base64 内容
+- `DICT_STORE_PASS`：密钥库密码
+- `DICT_KEY_PASS`：密钥密码；未设置时使用 `DICT_STORE_PASS`
+- `key_alias`：工作流输入，默认 `ksm`
+
+Gradle 通过 `RELEASE_KEYSTORE_PATH`、`RELEASE_STORE_PASSWORD`、`RELEASE_KEY_ALIAS`、`RELEASE_KEY_PASSWORD` 环境变量读取签名配置。未提供这些环境变量时，Release 构建回退到 debug 签名，仅用于调试。
+
 ## 版本说明
 
 - namespace 与 applicationId：`kirakira.dokidoki`
 - versionName `2.0`，versionCode 33
-- Release 构建当前使用 debug 证书签名，正式发布前应配置独立签名。
+- Release 签名由 GitHub Actions 使用仓库 Secrets 完成。
 - 从旧版 1.1.0（WebView 版本）升级时，因签名不同需先备份数据并卸载旧版。
 
 ## 依赖

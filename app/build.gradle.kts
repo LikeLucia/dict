@@ -28,6 +28,20 @@ android {
         compose = true
     }
 
+    // Release signing: use the release keystore when its path is provided (CI),
+    // otherwise fall back to the debug certificate for local preview builds.
+    val releaseKeystorePath = providers.environmentVariable("RELEASE_KEYSTORE_PATH").orNull
+    val releaseStorePassword = providers.environmentVariable("RELEASE_STORE_PASSWORD").orNull
+    if (!releaseKeystorePath.isNullOrBlank()) {
+        signingConfigs.create("release") {
+            storeFile = file(releaseKeystorePath)
+            storePassword = releaseStorePassword
+            keyAlias = providers.environmentVariable("RELEASE_KEY_ALIAS").orNull ?: "ksm"
+            keyPassword = providers.environmentVariable("RELEASE_KEY_PASSWORD").orNull ?: releaseStorePassword
+            storeType = providers.environmentVariable("RELEASE_STORE_TYPE").orNull ?: "PKCS12"
+        }
+    }
+
     // Compact Release: shrink unused code and resources; dependency versions remain pinned.
     buildTypes {
         getByName("release") {
@@ -35,8 +49,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Local preview only: sign with the existing debug certificate.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
