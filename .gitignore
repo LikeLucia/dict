@@ -1,27 +1,6 @@
-# Signing material and credentials
-*.p12
-*.pfx
-*.jks
-*.keystore
-*.pem
-*.key
-.env
-.env.*
-!.env.example
-
-# Local SDK configuration and tool downloads
+.gradle/
+build/
+app/build/
 local.properties
-android/tools/
-android/assets/
-render-tools/
-.venv/
-
-# Build outputs and local verification artifacts
-**/build/
-*.apk
-*.aab
-*.idsig
-*.log
-__pycache__/
-*.pyc
-.DS_Store
+*.iml
+.idea/

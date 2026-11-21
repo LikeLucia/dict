@@ -1,0 +1,465 @@
+package kirakira.dokidoki.ui.screens
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Build
+import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import kirakira.dokidoki.data.AmbiguousEntry
+import kirakira.dokidoki.data.AmbiguousFileGroup
+import kirakira.dokidoki.data.AmbiguousDetailPage
+import kotlinx.coroutines.CancellationException
+import kirakira.dokidoki.ui.components.DictTopBar
+import kirakira.dokidoki.ui.components.FixedTopPage
+import kirakira.dokidoki.ui.components.rememberMiuixIndication
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.TextFieldDefaults
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.Search
+import top.yukonga.miuix.kmp.icon.glass.File
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+private const val DETAIL_PAGE_SIZE = 200
+
+@Composable
+fun AmbiguityDetailScreen(
+    group: AmbiguousFileGroup,
+    isActive: Boolean,
+    onBack: () -> Unit,
+    onLoadPage: suspend (String, Int, Int, String) -> AmbiguousDetailPage,
+    modifier: Modifier = Modifier,
+) {
+    var query by remember { mutableStateOf("") }
+    var searchVisible by remember { mutableStateOf(false) }
+    var searchFocusRequest by remember { mutableIntStateOf(0) }
+    var wasActive by remember { mutableStateOf(isActive) }
+    val activeState = rememberUpdatedState(isActive)
+    val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    fun toggleSearch() {
+        if (searchVisible) {
+            searchVisible = false
+            query = ""
+            focusManager.clearFocus()
+            keyboard?.hide()
+        } else {
+            searchVisible = true
+            searchFocusRequest += 1
+        }
+    }
+    LaunchedEffect(searchFocusRequest) {
+        if (searchFocusRequest == 0) return@LaunchedEffect
+        delay(40)
+        if (activeState.value && searchVisible) {
+            focusRequester.requestFocus()
+            keyboard?.show()
+        }
+    }
+    LaunchedEffect(isActive) {
+        if (isActive) {
+            wasActive = true
+        } else if (wasActive) {
+            focusManager.clearFocus()
+            keyboard?.hide()
+            wasActive = false
+        }
+    }
+    val q = query.trim()
+    var pageIndex by remember(group.fileId, q) { mutableIntStateOf(0) }
+    var shown by remember(group.fileId, q, pageIndex) { mutableStateOf(emptyList<AmbiguousEntry>()) }
+    val offsets = remember(group.fileId, q) { mutableStateListOf(0) }
+    var nextOffset by remember(group.fileId, q, pageIndex) { mutableStateOf<Int?>(null) }
+    var loading by remember(group.fileId, q, pageIndex) { mutableStateOf(true) }
+    var loadError by remember(group.fileId, q, pageIndex) { mutableStateOf<String?>(null) }
+    LaunchedEffect(group, q, pageIndex) {
+        try {
+            val offset = offsets[pageIndex]
+            val loaded = if (group.summary != null) {
+                if (q.isNotEmpty()) delay(150)
+                onLoadPage(group.fileId, offset, DETAIL_PAGE_SIZE, q)
+            } else {
+                val numeric = q.isNotEmpty() && q.all(Char::isDigit)
+                val exact = q.drop(1).takeIf { q.startsWith("l", true) && it.isNotEmpty() && it.all(Char::isDigit) }
+                val rows = group.entries.filter { entry ->
+                    entry.message.contains(q, true) || entry.pinyin.contains(q, true) ||
+                        entry.readings.any { reading -> reading.character.contains(q) || reading.used.contains(q, true) ||
+                            reading.others.any { it.contains(q, true) } } ||
+                        (numeric && entry.line.toString().contains(q)) || entry.line.toString() == exact
+                }
+                AmbiguousDetailPage(rows.drop(offset).take(DETAIL_PAGE_SIZE),
+                    (offset + DETAIL_PAGE_SIZE).takeIf { it < rows.size })
+            }
+            shown = loaded.entries
+            nextOffset = loaded.nextOffset
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            loadError = "明细读取失败：" + (e.message ?: "文件已移除或不可读")
+        } finally {
+            loading = false
+        }
+    }
+    val listState = rememberLazyListState()
+    LaunchedEffect(q, pageIndex) {
+        if (listState.layoutInfo.totalItemsCount > 0) listState.scrollToItem(0)
+    }
+    val lastRowKey = "line:${group.fileId}:${shown.lastOrNull()?.line ?: 0}"
+
+    FixedTopPage(
+        modifier = modifier,
+        topBar = {
+            DictTopBar(
+                title = "多音字详情",
+                onBack = onBack,
+                badge = group.entryCount.toString() + " 行",
+                searchActive = searchVisible,
+                onSearchClick = { toggleSearch() },
+                actionSize = 40.dp,
+                actionIconSize = 22.dp,
+            )
+            AnimatedVisibility(
+                visible = searchVisible,
+                enter = fadeIn(tween(120)) + expandVertically(tween(170)),
+                exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
+            ) {
+                Column {
+                    Spacer(Modifier.height(16.dp))
+                    SearchField(query, { query = it }, focusRequester)
+                }
+            }
+        },
+    ) {
+        Column(Modifier.weight(1f).fillMaxWidth()) {
+            Box(
+                Modifier.weight(1f).fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(bottom = 24.dp),
+            ) {
+                if (shown.isNotEmpty()) {
+                    FileCardsBackdrop(
+                        listState = listState,
+                        fileId = group.fileId,
+                        lastRowKey = lastRowKey,
+                        modifier = Modifier.matchParentSize(),
+                    )
+                }
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().clipToBounds(),
+                    contentPadding = PaddingValues(0.dp),
+                    overscrollEffect = null,
+                ) {
+                    item(key = "top-spacing", contentType = "top-spacing") {
+                        Spacer(Modifier.height(16.dp))
+                    }
+                    if (shown.isEmpty()) {
+                        item(key = "empty", contentType = "empty-state") {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).height(72.dp),
+                                insideMargin = PaddingValues(0.dp),
+                            ) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text(if (loading) "读取中…" else loadError ?: "没有匹配的行", fontSize = 12.5.sp, color = MiuixTheme.colorScheme.onBackgroundVariant)
+                                }
+                            }
+                        }
+                    } else {
+                        item(key = "file:${group.fileId}", contentType = "file-header") {
+                            Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Card(
+                                        modifier = Modifier.size(30.dp),
+                                        cornerRadius = 9.dp,
+                                        insideMargin = PaddingValues(0.dp),
+                                        colors = CardDefaults.defaultColors(
+                                            color = MiuixTheme.colorScheme.tertiaryContainer,
+                                            contentColor = MiuixTheme.colorScheme.onTertiaryContainer,
+                                        ),
+                                    ) {
+                                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                            Icon(MiuixIcons.Glass.File, null, Modifier.size(16.dp), tint = MiuixTheme.colorScheme.onTertiaryContainer)
+                                        }
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        text = group.fileName,
+                                        modifier = Modifier.weight(1f),
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MiuixTheme.colorScheme.onBackground,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = group.entryCount.toString() + " 行",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MiuixTheme.colorScheme.primary,
+                                    )
+                                }
+                                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                            }
+                        }
+                        itemsIndexed(
+                            items = shown,
+                            key = { _, entry -> "line:${group.fileId}:${entry.line}" },
+                            contentType = { _, _ -> "polyphonic-line" },
+                        ) { index, entry ->
+                            DetailEntryRow(
+                                entry,
+                                showDivider = index != shown.lastIndex,
+                                modifier = Modifier.padding(horizontal = 24.dp),
+                            )
+                        }
+                        if (pageIndex > 0 || nextOffset != null) {
+                            item(key = "pagination:" + group.fileId + ":" + pageIndex, contentType = "pagination") {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    if (pageIndex > 0) Text("上一页", modifier = Modifier.clickable { pageIndex-- }, color = MiuixTheme.colorScheme.primary)
+                                    else Spacer(Modifier.width(1.dp))
+                                    Text("第 " + (pageIndex + 1) + " 页", fontSize = 11.sp, color = MiuixTheme.colorScheme.onBackgroundVariant)
+                                    val next = nextOffset
+                                    if (next != null) Text("下一页", modifier = Modifier.clickable {
+                                        if (pageIndex + 1 == offsets.size) offsets.add(next)
+                                        pageIndex++
+                                    }, color = MiuixTheme.colorScheme.primary)
+                                    else Spacer(Modifier.width(1.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+@Composable
+private fun FileCardsBackdrop(
+    listState: LazyListState,
+    fileId: String,
+    lastRowKey: String,
+    modifier: Modifier = Modifier,
+) {
+    SubcomposeLayout(modifier.clipToBounds()) { constraints ->
+        val info = listState.layoutInfo
+        val viewportOffset = -info.viewportStartOffset
+        val outset = 48.dp.roundToPx()
+        val visibleItems = info.visibleItemsInfo.filter { item ->
+            val key = item.key as? String ?: return@filter false
+            key == "file:$fileId" || key.startsWith("line:$fileId:")
+        }
+        val top = visibleItems.firstOrNull { it.key == "file:$fileId" }?.let {
+            it.offset + viewportOffset
+        } ?: -outset
+        val bottom = visibleItems.firstOrNull { it.key == lastRowKey }?.let {
+            it.offset + it.size + viewportOffset
+        } ?: (constraints.maxHeight + outset)
+        val cardHeight = (bottom - top).coerceAtLeast(1)
+        val card = subcompose(fileId) {
+            Card(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                insideMargin = PaddingValues(0.dp),
+            ) { }
+        }.single().measure(Constraints.fixed(constraints.maxWidth, cardHeight))
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            card.placeRelative(0, top)
+        }
+    }
+}
+
+@Composable
+private fun DetailEntryRow(entry: AmbiguousEntry, showDivider: Boolean, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val interaction = remember { MutableInteractionSource() }
+    val indication = rememberMiuixIndication()
+    val colors = MiuixTheme.colorScheme
+    Column(modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Card(
+                modifier = Modifier.widthIn(min = 44.dp).wrapContentWidth(unbounded = true).heightIn(min = 32.dp)
+                    .clickable(interactionSource = interaction, indication = indication) {
+                        copyDetailText(context, entry.line.toString())
+                    },
+                cornerRadius = 10.dp,
+                insideMargin = PaddingValues(horizontal = 6.dp),
+                colors = CardDefaults.defaultColors(
+                    color = colors.tertiaryContainer,
+                    contentColor = colors.onTertiaryContainer,
+                ),
+            ) {
+                Box(
+                    modifier = Modifier.heightIn(min = 32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "L${entry.line}",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.onTertiaryContainer,
+                        maxLines = 1,
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = entry.message,
+                modifier = Modifier.weight(1f),
+                fontSize = 12.sp,
+                color = colors.onBackground,
+                maxLines = 3,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+        }
+        if (entry.pinyin.isNotBlank()) {
+            CopyableReading(
+                value = entry.pinyin,
+                label = "当前读音：" + entry.pinyin,
+                modifier = Modifier.padding(start = 16.dp),
+            )
+        } else {
+            Text(
+                text = "当前行未记录有效读音",
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                fontSize = 10.5.sp,
+                color = colors.onBackgroundVariant,
+            )
+        }
+        entry.readings.forEach { reading ->
+            Text(
+                text = reading.character + when {
+                    reading.used.isBlank() -> " · 可选读音"
+                    reading.toneUnspecified -> " · 可选读音（原行未标声调）"
+                    else -> " · 其他读音"
+                },
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp),
+                fontSize = 10.5.sp,
+                color = colors.onBackgroundVariant,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                reading.others.forEach { other -> CopyableReading(value = other) }
+            }
+        }
+        if (showDivider) {
+            HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.7.dp, color = colors.dividerLine)
+        }
+    }
+}
+
+@Composable
+private fun CopyableReading(value: String, label: String = value, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val interaction = remember { MutableInteractionSource() }
+    val indication = rememberMiuixIndication()
+    Text(
+        label, fontSize = 11.5.sp, color = MiuixTheme.colorScheme.primary,
+        modifier = modifier.clip(RoundedCornerShape(7.dp))
+            .clickable(interactionSource = interaction, indication = indication) { copyDetailText(context, value) }
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+    )
+}
+
+private fun copyDetailText(context: Context, text: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("多音字详情", text))
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+    }
+}
+
+@Composable
+private fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    focusRequester: FocusRequester,
+) {
+    val focusManager = LocalFocusManager.current
+    val colors = MiuixTheme.colorScheme
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).height(52.dp).focusRequester(focusRequester),
+        colors = TextFieldDefaults.textFieldColors(
+            backgroundColor = colors.surfaceContainerHigh,
+            labelColor = colors.onBackgroundVariant,
+            borderColor = colors.primary,
+        ),
+        cornerRadius = 26.dp,
+        label = "搜行号 / 词语 / 读音",
+        useLabelAsPlaceholder = true,
+        textStyle = MiuixTheme.textStyles.main.copy(fontSize = 14.sp),
+        leadingIcon = {
+            Icon(
+                MiuixIcons.Basic.Search,
+                contentDescription = null,
+                modifier = Modifier.padding(start = 16.dp, end = 10.dp).size(17.dp),
+                tint = colors.onBackgroundVariant,
+            )
+        },
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+        singleLine = true,
+    )
+}
+

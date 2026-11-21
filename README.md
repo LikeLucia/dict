@@ -1,84 +1,104 @@
-# dict
+# kirakira · Android（Kotlin + Compose + Miuix）
 
-离线词库处理工具：为 Rime YAML、TXT、TSV 和 ZIP 词库补拼音、生成或替换辅助码。处理在本机完成，网页和 Android 应用都不上传词库。
+离线词库处理工具的原生 Android 实现，使用 Kotlin + Compose + Miuix，业务处理通过内嵌 QuickJS 接入离线词库处理脚本。支持导入、处理并导出 Rime YAML / TXT / TSV / ZIP 词库。
 
-## 下载
+## 功能范围
 
-在 [Releases](https://github.com/LikeLucia/dict/releases) 下载：
+- 四个平级 Tab：首页 / 词库 / 报告 / 设置
+- 首页：动态统计、导入词库（系统 SAF 多选）、处理状态与按文件字节更新的进度卡（行数 / 预计总时长 / 百分比，空闲时显示待导入词库）、处理队列卡（当前文件“处理中”、其余“排队中”，默认显示 3 个，可展开查看全部，完成或取消后隐藏）、处理方式滑块、辅助码快捷行、最近使用（最多 3 个非“待处理”记录，点击跳转并定位词库）、底部开始处理 / 取消处理
+- 词库：顶栏放大镜控制搜索框显隐（显示后自动聚焦并唤起输入法，再次点击隐藏并退出输入），类型筛选、按修改时间/文件大小/文件名排序及倒序开关、词库文件列表、状态徽章；长按进入多选，选择状态再次长按全选，可批量导出或删除
+- 处理设置：主题模式下拉（跟随系统 / 浅色 / 深色）、处理方式单选（刷拼音和辅助码 / 仅刷拼音 / 仅刷辅助码 / 仅删辅助码）、辅助码类型（渊默码 / 自然码 / 小鹤 / 墨奇）、固定辅助码分隔符“;”、替换已有辅助码、替换已有拼音、补充权重、拼音声调、输出分隔符（Tab / 空白）、输入编码（UTF-8 / GB18030）、词语列 / 拼音列、导出路径（默认 Download）、同名文件策略（覆盖原文件 / 不覆盖并自动加序号）；辅助码类型和拼音声调向下展开，其余设置项向上展开，展开面板右边缘恢复为距卡片右侧 20dp，面板边缘向对应设置行内收 6dp
+- 处理报告：显示处理行数、补拼音、替换辅助码和多音字行数。报告总览按导入记录及 ZIP 内词库条目展示文件列表与明细行数，同名导入记录分别保留；总览卡片的放大镜用于按文件名筛选，点击文件进入独立的多音字详情页，不再使用文件区块收起 / 展开方式。详情页顶栏放大镜控制搜索框显隐，打开后自动聚焦并唤起输入法；支持搜索词语、涉及的多音字、当前读音、其它可选读音和行号，纯数字按行号包含匹配，`L123` / `l123` 按行号精确匹配
+- 导入与队列：单文件或批量导入后自动排队处理；同一轮队列统一使用启动时的处理设置。待处理或处理失败的词库可通过“开始处理”再次进入队列
+- 自动导出：只有来自单文件导入的记录，在本轮队列仅成功处理一个文件、没有处理失败、仅产生一个输出文件，且未检出多音字行时，才会自动发起导出；含多音字、批量处理或手动启动处理的结果留在词库页手动导出
+- 已取消或已处理完成的词库不会再次进入处理队列；需要重新处理时再次导入词库
+- 主题、处理方式、辅助码类型、拼音声调、输出分隔符、输入编码、补充权重、替换已有辅助码、替换已有拼音、词语列/拼音列、词库排序方式/倒序、导出路径与同名文件策略通过 DataStore 持久化；深浅主题共用同一套布局，仅颜色 token 不同
+- 会话恢复：导入记录、待处理输入文件、处理结果文件和报告保存到应用私有的 `noBackupFilesDir/kirakira-session` 目录；重新启动后恢复已保存的记录与可用结果。恢复记录不会自动续跑原处理队列，待处理或失败项可手动开始处理
+- 文件与导出：使用系统 SAF 多选导入，支持 ZIP 条目处理及 UTF-8 / GB18030 词库正文解码；自动导出和词库页手动导出均优先使用配置的路径。Android 10+ 未设置自定义目录时直接写入 Download；自定义目录使用 SAF 持久授权；旧系统未配置自定义目录时回退系统保存窗口。词库正文、临时输出及批量 ZIP 使用文件流读写；报告明细另外全量保存在会话模型中
+- 多音字统计与明细：生成拼音时按内置 `zi.dict.yaml` 权重表选择多音字的最高权重读音；识别到的至少两个汉字、含多音字的词条均计入统计，包括已有拼音及保留原拼音的行。详情显示最终行的当前读音和其它可选读音，点击行号或读音可复制。每次导入使用独立记录 ID，同名或同 URI 的重复导入分别保留；ZIP 内词库条目使用各自的详情分组。报告汇总当前保存的处理结果，删除记录时同步移除对应报告
+- 多音字明细完整保留，不设每文件 60 条上限；JavaScript / Kotlin 桥接按每批最多 256 条读取，批次大小不限制总条数。普通处理诊断样本使用独立的 `samples` 字段，最多保留 60 条，与多音字详情分别管理
+- 替换已有拼音默认关闭：已有拼音段原样保留，只有缺拼音的行才补拼音；开启后仅刷拼音和刷拼音和辅助码模式会按词语重新生成拼音并替换已有拼音段，已有辅助码后缀与权重保持不变。仅刷辅助码、仅删辅助码模式始终保留已有拼音
+- 处理引擎通过 `ProcessingEngine` 接口解耦：当前使用内嵌 QuickJS 运行离线处理脚本与 pinyin-pro 3.27.0，Kotlin 侧负责文件流、ZIP、进度回调、报告接收和结果文件管理
+- 16 KB 页面大小兼容：QuickJS 使用本地重新编译的 16 KB 对齐 AAR，graphics-path 原生库带 16 KB RELRO 补丁，APK 内所有 arm64 原生库均通过 LOAD/RELRO/ZIP 对齐检查
+- Miuix 动效与交互：设置开关使用 Miuix Switch（弹簧滑块与触感反馈），处理进度使用 Miuix LinearProgressIndicator，常用点击区域使用 MiuixIndication；处理方式使用无按压灰遮罩的滑块式分段切换；四个主栏目使用 HorizontalPager 配合 miuix `springAnimateToPage` 弹簧切换（322.2 stiffness、32.31 阻尼分子、0.5 可见阈值），底栏点击驱动且禁用滑动；详情页使用 500ms Miuix 曲线双层转场（详情层全宽滑入/滑出，底层 25% 视差与 0.9 透明度，50% 黑色遮罩，移动前缘按设备圆角裁切），进度在 graphicsLayer/绘制阶段读取；可展开菜单使用 Miuix ListPopup 的 spring 缩放、clip-reveal 和遮罩动画
+- 处理实现：引擎按需加载，导入后后台预热；正文按 8192 行分块处理，使用自缓冲行读取器 / BufferedOutputStream，ZIP 非词库条目的内容通过文件流保留；多音字详情按批次跨桥接接收后完整保存，随会话持久化。启动配置合并为单个 ThemeSnapshot 数据流，设置页与列表减少重复计算和重组
+- 导出策略：同名文件默认“不覆盖，自动加序号”，也可选择覆盖模式；导出采用临时文件写入流程，写完后执行目标名称设置及旧文件清理。Download 同名检测针对根目录；自定义 SAF 目录会区分文件和文件夹，避免将文件夹作为覆盖对象
 
-- `dict-1.1.0.apk`：Android 6.0+，Kotlin 宿主 + Android 系统 WebView。
-- `SHA256SUMS.txt`：APK 的 SHA-256 校验值。
+## 工程结构
 
-源码、测试和离线页面保存在本仓库中。
-
-APK 使用包名 `local.ksm.aux`，显示名为 `dict`，版本 `1.1.0`（versionCode 8）。本版本按发布者选择采用新签名，安装前请先保存旧应用中未导出的结果，再卸载旧版后安装。系统 WebView 需要支持 `DecompressionStream('deflate-raw')`、Streams 和 GB18030 `TextDecoder`。
-
-## 词库格式
-
-无 `columns` 的 Rime 词库按默认 `text/code/weight` 列位逐行识别，允许同一文件混合以下形式：
-
-- 只有词语；
-- 词语 + 数字权重；
-- 词语 + 已有编码；
-- 词语 + 已有编码 + 权重。
-
-已有拼音读音和数值权重保留，缺编码的行才补拼音；辅助码是否替换由页面选项决定。缺权重或权重字段为空时补 `120`，已有 `0`、`000` 等数值保持原样。三种处理方式均应用这项规则，包括已有拼音和辅助码但没有权重的行。Rime 自定义 `columns` 按声明定位；缺 `weight` 声明时追加声明和字段。混合非汉字、列边界有歧义等行会保留并报告。
-
-## TXT/TSV 与空白分隔输入
-
-纯文本自动模式会在所选拼音列及词语后的生成位置识别已有拼音：完整音节数与汉字数匹配时复用该列，空拼音列原位补音；未识别到已有拼音才在词语后新增列。数字权重和额外字段继续保留。多个候选列都像拼音时保留原行并报告，请确认列号或改用 Tab 明确分列。
-
-“空白”模式支持以空格连接多音节，例如：
-
-```text
-你好 nǐ hǎo 120
+```
+app/src/main/java/kirakira/dokidoki/
+├── MainActivity.kt          # edge-to-edge 入口、ViewModel 创建
+├── App.kt                   # Tab 导航、文件选择、导出、下拉弹层宿主
+├── data/
+│   ├── Model.kt             # ProcessOptions / ProcessResult / ProcessingEngine / 数据模型
+│   ├── MainViewModel.kt     # StateFlow、自动处理队列、会话保存/恢复、批量导出与删除
+│   ├── JsProcessingEngine.kt# QuickJS 处理引擎（使用 assets 内的原处理脚本）
+│   ├── AuxTables.kt         # 四套辅助码表加载
+│   ├── ThemeStore.kt        # DataStore 主题与处理设置持久化
+│   ├── ExportStore.kt       # Download / SAF 目录导出与 ZIP 输出
+│   └── ExportNaming.kt      # 导出文件名、冲突序号与 MIME 类型
+└── ui/
+    ├── theme/DictTheme.kt   # 双主题 token + MiuixTheme 映射
+    ├── components/Common.kt # 卡片、顶栏、底栏、按钮、下拉弹层等
+    └── screens/             # Home / Lib / Settings / Report / AmbiguityDetail 页面
 ```
 
-解析时按词语字数将音节合并为一个逻辑拼音字段，也保留旧撇号形式兼容。只要输入包含 Tab，就优先按 Tab 分列，拼音内部的空格和空字段会保留，因此程序生成的 Tab 输出可以沿用“空白”设置再次导入。自动生成的新拼音仍以空格连接。
+处理资源位于 `app/src/main/assets/`：
 
-同一设置下已识别的输出再次处理不会新增拼音列；更换码表、替换选项或列设置可能改变结果。词语本身含空格、备注恰好与拼音形态相同等有歧义的数据应使用明确列边界并核对报告。页面已将无条件“重复处理保持幂等”改为沿用已识别拼音列的说明。
+- `pinyin-pro.js`：pinyin-pro 3.27.0（MIT）
+- `dict_engine.js`：原页面词库处理逻辑的离线版本，含 CRC/ZIP、Rime columns、TXT/TSV 与权重处理
+- `aux_tables.tsv.deflate`：墨奇 / 自然码 / 小鹤 / 渊默码四套主码表
+- `zi_weights.json.deflate`：从用户提供 `zi.dict.yaml` 提取的多音字字符读音权重表
+- `THIRD_PARTY_NOTICES.md`：第三方来源与许可证索引
 
-1.1.0 同步包含 TXT/TSV 重刷与空白多音节修复。辅助码提供墨奇、自然码、小鹤（万象野鹤扩展）、渊默码四种；已移除原版音托。声调选项显示为“有声调/无声调”，只影响新生成的拼音。
+## 构建
 
-## 从源码构建 APK
+环境要求：JDK 17（编译）、Android SDK Platform 37.2、Build-Tools 37.0.0。
 
-构建脚本使用 Kotlin 编译器、Android SDK 的 `android.jar`、`aapt`、`zipalign`、`apksigner` 和 R8，不依赖 Gradle。环境变量：
+`local.properties` 指向本机 SDK：
 
-- `ANDROID_JAR`：Android 平台 `android.jar`，建议 API 23 或更高；
-- `R8_JAR`：R8 jar，默认 `android/tools/r8.jar`；
-- `JAVA_HOME`：JDK 路径；
-- `KOTLIN_STDLIB`：Kotlin 标准库 jar，默认 `/usr/share/java/kotlin-stdlib.jar`；
-- `KOTLIN_STDLIB_JDK7`：同版本 Kotlin JDK7 扩展 jar，默认与标准库同目录的 `kotlin-stdlib-jdk7.jar`。
+```properties
+sdk.dir=/root/android-sdk
+```
 
-首版验证环境为 JDK 17、Kotlin 1.3.31、Android API 23、R8 8.3.37、Node 24。测试需要支持 Web Streams 和 `deflate-raw` 的现代 Node。R8 可从 https://storage.googleapis.com/r8-releases/raw/8.3.37/r8.jar 下载到 `android/tools/r8.jar`。
-
-准备依赖后运行：
+构建命令：
 
 ```bash
-node test-compat.cjs
-node test-bridge.cjs
-python3 android/build.py
+cd /root/workspace/dict-android
+/tmp/gradle-9.9.1/gradle-9.9.1/bin/gradle :app:assembleDebug
+# 或使用项目自带 wrapper（首次运行会下载 Gradle 9.9.1）
+# ./gradlew :app:assembleDebug
 ```
 
-上面的命令构建未签名的 `android/build/dict-1.1.0-unsigned.apk`。签名材料不要放进仓库；需要签名时，在环境变量中提供 `DICT_KEYSTORE`、`DICT_STORE_PASS`、`DICT_KEY_ALIAS`，可选 `DICT_KEY_PASS`，然后运行：
+产物：
 
-```bash
-python3 android/build.py --keystore /path/to/release.keystore --alias dict
+```
+app/build/outputs/apk/debug/app-debug.apk
 ```
 
-需要生成图标资源时，先安装 CairoSVG，然后在受控环境运行：
+当前 APK 使用现有本地测试签名，namespace 与 applicationId 均为 `kirakira.dokidoki`，版本 `2.0`（versionCode 33），应用图标使用 https://github.com/LikeLucia/dict 项目的 `cimu_foreground` 矢量图与 `ic_launcher_105` 自适应/单色资源；APK 仅打包 `arm64-v8a` 原生库。QuickJS 字符串通道改为复用单实例，支持连续处理多个词库文件。若手机已安装旧版 1.1.0（WebView 版本），因签名不同需先导出旧数据并卸载旧版再安装；升级正式版时请保持同一签名。
 
-```bash
-python3 -m pip install --target render-tools cairosvg
-python3 android/build.py --regenerate-icons
-```
+## 预览与验收
 
-源码仓库不包含签名私钥、R8 jar、构建目录、Python 依赖目录或 APK。`tests/mixed-layout.dict.yaml` 是公开的合成回归样例，不包含用户词库。
+- 定稿图：`/sdcard/Download/DSH-Go/dict-miuix-ui/`
+- 本工程用同一套 Compose UI 代码生成桌面验收图：`/root/workspace/dict-render/previews/`
+- 验收重点：四屏比例、底栏胶囊、顶栏布局、双主题颜色、首页滑块式处理方式、设置下拉方向与右边缘位置、报告文件列表、独立多音字详情页及两级搜索、报告统计间距
+- 说明：桌面预览用同一 Compose 布局渲染，仅用来检查排版；真正 Android 运行仍以 APK 为准
 
-## 测试
+## 依赖
 
-`test-compat.cjs` 使用公开样例覆盖混合列、三种处理模式、四类码表、声调、替换开关、显式 `columns`、TXT/TSV、BOM、ZIP Store/Deflate 和 CRC。`test-bridge.cjs` 覆盖 Android 导出桥的分块传输、连续导出和失败中止。测试运行在 Node 中，不等同于真机 WebView 或系统文件选择器测试。
+- Kotlin 2.4.21 / Compose Multiplatform 1.13.0-rc01 / AGP 9.5.1
+- `top.yukonga.miuix.kmp:miuix-ui:0.9.5-beta03`
+- `miuix-glass`、`miuix-preference`、`miuix-icons`、`miuix-glass-icons`
+- 关于页设计参考：COUI 2.1.0（本地 Compose 自绘，不引入 COUI 运行时依赖）
+- AndroidX Activity Compose 1.13.0、Lifecycle ViewModel Compose 2.11.0、DataStore Preferences 1.3.0、Graphics Path 1.1.0
+- `app/libs/quickjs-android-0.9.2-16kb.aar`（基于 app.cash.quickjs 0.9.2 源码重新编译 arm64 库，Apache-2.0，内嵌 QuickJS 2021-03-27，MIT；源码归档内含该 AAR）
 
-## 许可证与来源
+## 实现说明
 
-项目中的页面保留了内嵌第三方来源和许可证文本：`pinyin-pro 3.27.0`（MIT）、`amzxyz/rime-wanxiang` 相关表（CC BY 4.0/相关 MIT 说明）和渊默码表来源说明。渊默码表页面标记为 `NOASSERTION`；发布者应在继续分发前自行核对相应数据的分发条件。项目源码本身未在本次工作区另行声明许可证。
+- QuickJS 运行离线词库处理脚本；补充权重、列位置、声调、输出分隔符、辅助码及拼音替换选项通过 `__start` 传入，Kotlin 侧将词库正文分块提交，并接收输出行和多音字报告
+- 文件选择使用 Android 系统 SAF；自动导出遵循上文的单文件、单输出、无多音字等条件，并优先写入配置路径；其他处理结果可在词库页长按进入多选后手动导出
+- 导出一个处理结果时保留其原文件名；选中多个处理结果导出时打包为 `dict-batch.zip`，ZIP 中重名输出条目自动追加序号。ZIP 输入对应的处理结果仍为 ZIP，内部词库条目处理后写回，非词库条目保留内容
+- Miuix 玻璃模糊在 API < 33 设备按库的 fallback 降级为半透明/纯色面板
+- 本地预览 Release APK 使用现有 debug 证书签名；真机安装和系统文件窗口仍需单独验收
