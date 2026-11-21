@@ -60,8 +60,8 @@ Release 构建使用仓库中已保存的 Secrets（`KEYSTORE_BASE64`、`DICT_ST
 - `KEYSTORE_BASE64`：签名密钥库的 base64 内容
 - `DICT_STORE_PASS`：密钥库密码
 - `DICT_KEY_PASS`：密钥密码；未设置时使用 `DICT_STORE_PASS`
-- `publish_release`：工作流输入，默认创建 GitHub Release；关闭后只上传 Actions artifact
-- `draft`：工作流输入，默认创建草稿 Release
+- `publish_release`：工作流输入，默认创建 GitHub Release；关闭后不创建 Release
+- `draft`：工作流输入，默认直接发布；勾选后创建草稿
 - `key_alias`：工作流输入，默认 `ksm`
 
 Gradle 通过 `RELEASE_KEYSTORE_PATH`、`RELEASE_STORE_PASSWORD`、`RELEASE_KEY_ALIAS`、`RELEASE_KEY_PASSWORD` 环境变量读取签名配置。未提供这些环境变量时，Release 构建回退到 debug 签名，仅用于调试。
