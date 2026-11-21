@@ -1,11 +1,13 @@
-# 手动构建已签名的 Release APK。
+# 手动构建已签名的 Release APK，并可发布到 GitHub Release。
+#
+# 启用方式：将本文件放到 .github/workflows/signed-apk.yml。
 #
 # 需要的仓库 Secrets：
 #   KEYSTORE_BASE64: release keystore 的 base64 内容
 #   DICT_STORE_PASS: keystore 密码
 #   DICT_KEY_PASS: key 密码，未设置时与 DICT_STORE_PASS 相同
 
-name: Build signed APK
+name: Release signed APK
 
 on:
   workflow_dispatch:
@@ -15,9 +17,19 @@ on:
         required: true
         default: ksm
         type: string
+      publish_release:
+        description: Publish the signed APK as a GitHub Release
+        required: true
+        default: true
+        type: boolean
+      draft:
+        description: Create the GitHub Release as a draft
+        required: true
+        default: true
+        type: boolean
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: signed-apk-${{ github.ref }}
@@ -136,3 +148,21 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Publish GitHub Release
+        if: ${{ inputs.publish_release }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          DRAFT: ${{ inputs.draft }}
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION_NAME}"
+          ARGS=(--title "dict v${VERSION_NAME}" --notes "Version: ${VERSION_NAME} (${VERSION_CODE})" --target "$GITHUB_SHA")
+          if [ "$DRAFT" = "true" ]; then
+            ARGS+=(--draft)
+          else
+            ARGS+=(--latest)
+          fi
+          gh release create "$TAG" "dist/dict-${VERSION_NAME}.apk" "dist/SHA256SUMS.txt" "${ARGS[@]}"
