@@ -26,7 +26,7 @@ on:
       draft:
         description: Create the GitHub Release as a draft
         required: true
-        default: true
+        default: false
         type: boolean
 
 permissions:
@@ -43,10 +43,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -70,7 +70,7 @@ jobs:
           echo "$ANDROID_HOME/build-tools/37.0.0" >> "$GITHUB_PATH"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Read and bump version
         id: version
@@ -170,16 +170,6 @@ jobs:
           git push origin HEAD:main
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Upload signed APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: dict-${{ steps.version.outputs.name }}-run-${{ github.run_number }}
-          path: |
-            dist/dict-${{ steps.version.outputs.name }}.apk
-            dist/SHA256SUMS.txt
-          if-no-files-found: error
-          retention-days: 14
-
       - name: Publish GitHub Release
         if: ${{ inputs.publish_release }}
         shell: bash
@@ -191,7 +181,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="v${VERSION_NAME}"
-          ARGS=(--title "dict v${VERSION_NAME}" --notes "Version: ${VERSION_NAME} (${VERSION_CODE})" --target "${{ steps.bump.outputs.commit }}")
+          ARGS=(--title "kirakira v${VERSION_NAME}" --notes "Version: ${VERSION_NAME} (${VERSION_CODE})" --target "${{ steps.bump.outputs.commit }}")
           if [ "$DRAFT" = "true" ]; then
             ARGS+=(--draft)
           else
