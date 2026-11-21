@@ -83,21 +83,27 @@ jobs:
           CURRENT_CODE="$(grep ^versionCode= version.properties | cut -d= -f2)"
           test -n "$CURRENT_NAME"
           test -n "$CURRENT_CODE"
+          LATEST_RELEASE_NAME="$(git ls-remote --tags origin | awk -F'refs/tags/' '{print $2}' | sed 's/\^{}//' | sed -n 's/^v//p' | grep -E '^[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -V | tail -n1 || true)"
+          VERSION_BASE="$CURRENT_NAME"
+          if [ -n "$LATEST_RELEASE_NAME" ]; then
+            VERSION_BASE="$(printf '%s\n%s\n' "$CURRENT_NAME" "$LATEST_RELEASE_NAME" | sort -V | tail -n1)"
+          fi
           if [ "$PUBLISH_RELEASE" = "true" ]; then
-            MAJOR="${CURRENT_NAME%%.*}"
-            MINOR="${CURRENT_NAME#*.}"
+            MAJOR="${VERSION_BASE%%.*}"
+            MINOR="${VERSION_BASE#*.}"
+            MINOR="${MINOR%%.*}"
             RELEASE_NAME="${MAJOR}.$((MINOR + 1))"
             RELEASE_CODE="$CURRENT_CODE"
             VERSION_MODE="release"
           else
-            RELEASE_NAME="$CURRENT_NAME"
+            RELEASE_NAME="$VERSION_BASE"
             RELEASE_CODE=$((CURRENT_CODE + 1))
             VERSION_MODE="ci"
           fi
           echo "name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
           echo "code=$RELEASE_CODE" >> "$GITHUB_OUTPUT"
           echo "mode=$VERSION_MODE" >> "$GITHUB_OUTPUT"
-          echo "${VERSION_MODE}: ${CURRENT_NAME}/${CURRENT_CODE} -> ${RELEASE_NAME}/${RELEASE_CODE}"
+          echo "${VERSION_MODE}: base=${VERSION_BASE}, latest release=${LATEST_RELEASE_NAME:-none}, source=${CURRENT_NAME}/${CURRENT_CODE} -> ${RELEASE_NAME}/${RELEASE_CODE}"
       - name: Refuse to reuse a released version
         if: ${{ inputs.publish_release }}
         shell: bash
