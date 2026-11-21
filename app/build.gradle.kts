@@ -10,16 +10,17 @@ val versionPropertiesFile = rootProject.file("version.properties")
 val versionProperties = Properties().apply {
     versionPropertiesFile.inputStream().use { load(it) }
 }
-val isCiBuild = !System.getenv("CI").isNullOrBlank()
+val isCiBuild = !System.getenv("CI").isNullOrBlank() || !System.getenv("GITHUB_ACTIONS").isNullOrBlank()
 val buildsApk = gradle.startParameter.taskNames.any { requested ->
     val taskName = requested.substringAfterLast(':')
     taskName == "build" || taskName.startsWith("assemble") ||
         taskName.startsWith("bundle") || taskName.startsWith("install")
 }
-var buildVersionCode = versionProperties.getProperty("versionCode").toInt()
+val buildVersionName = System.getenv("RELEASE_VERSION_NAME") ?: versionProperties.getProperty("versionName", "2.0")
+var buildVersionCode = System.getenv("RELEASE_VERSION_CODE")?.toIntOrNull() ?: versionProperties.getProperty("versionCode").toInt()
 if (buildsApk && !isCiBuild) {
     buildVersionCode += 1
-    versionPropertiesFile.writeText("versionCode=$buildVersionCode\n")
+    versionPropertiesFile.writeText("versionCode=$buildVersionCode\nversionName=$buildVersionName\n")
 }
 
 android {
@@ -36,7 +37,7 @@ android {
         minSdk = 24
         targetSdk = 37
         versionCode = buildVersionCode
-        versionName = "2.0"
+        versionName = buildVersionName
         ndk {
             abiFilters += listOf("arm64-v8a")
         }

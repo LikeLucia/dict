@@ -1,4 +1,5 @@
 # 手动构建已签名的 Release APK，并可发布到 GitHub Release。
+# 每次运行会把 minor 版本递增（例如 2.0 -> 2.1），构建后写回 version.properties。
 #
 # 启用方式：将本文件放到 .github/workflows/signed-apk.yml。
 #
@@ -37,6 +38,7 @@ concurrency:
 
 jobs:
   build-signed:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -64,16 +66,22 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Read app version
+      - name: Read and bump version
         id: version
         shell: bash
         run: |
           set -euo pipefail
-          VERSION_NAME="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -n1)"
-          VERSION_CODE="$(sed -n 's/^versionCode=\([0-9][0-9]*\)$/\1/p' version.properties | head -n1)"
-          test -n "$VERSION_NAME"
-          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
-          echo "code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          CURRENT_NAME="$(grep ^versionName= version.properties | cut -d= -f2)"
+          CURRENT_CODE="$(grep ^versionCode= version.properties | cut -d= -f2)"
+          test -n "$CURRENT_NAME"
+          test -n "$CURRENT_CODE"
+          MAJOR="${CURRENT_NAME%%.*}"
+          MINOR="${CURRENT_NAME#*.}"
+          NEXT_NAME="${MAJOR}.$((MINOR + 1))"
+          NEXT_CODE=$((CURRENT_CODE + 1))
+          echo "name=$NEXT_NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$NEXT_CODE" >> "$GITHUB_OUTPUT"
+          echo "Bump version: ${CURRENT_NAME} -> ${NEXT_NAME}, versionCode ${CURRENT_CODE} -> ${NEXT_CODE}"
 
       - name: Refuse to reuse a released version
         shell: bash
@@ -93,6 +101,8 @@ jobs:
           DICT_STORE_PASS: ${{ secrets.DICT_STORE_PASS }}
           DICT_KEY_PASS: ${{ secrets.DICT_KEY_PASS }}
           DICT_KEY_ALIAS: ${{ inputs.key_alias }}
+          RELEASE_VERSION_NAME: ${{ steps.version.outputs.name }}
+          RELEASE_VERSION_CODE: ${{ steps.version.outputs.code }}
         run: |
           set -euo pipefail
           KEYSTORE="$RUNNER_TEMP/release-keystore.p12"
@@ -138,6 +148,22 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Commit version bump
+        id: bump
+        shell: bash
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          set -euo pipefail
+          printf "versionCode=%s\nversionName=%s\n" "$VERSION_CODE" "$VERSION_NAME" > version.properties
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.properties
+          git commit -m "chore: bump version to v${VERSION_NAME}"
+          git push origin HEAD:main
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
@@ -159,7 +185,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="v${VERSION_NAME}"
-          ARGS=(--title "dict v${VERSION_NAME}" --notes "Version: ${VERSION_NAME} (${VERSION_CODE})" --target "$GITHUB_SHA")
+          ARGS=(--title "dict v${VERSION_NAME}" --notes "Version: ${VERSION_NAME} (${VERSION_CODE})" --target "${{ steps.bump.outputs.commit }}")
           if [ "$DRAFT" = "true" ]; then
             ARGS+=(--draft)
           else
