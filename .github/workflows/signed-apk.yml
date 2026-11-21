@@ -1,5 +1,5 @@
 # 手动构建已签名的 Release APK，并可发布到 GitHub Release。
-# versionName 保持源码值；versionCode 按源码发布，源码未更新时在上一发布基础上 +1。
+# Release 模式递增 versionName；CI 模式只递增 versionCode，versionName 保持原样。
 #
 # 启用方式：将本文件放到 .github/workflows/signed-apk.yml。
 #
@@ -72,43 +72,47 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Read release version
+      - name: Read and compute version
         id: version
         shell: bash
+        env:
+          PUBLISH_RELEASE: ${{ inputs.publish_release }}
         run: |
           set -euo pipefail
-          VERSION_NAME="$(grep ^versionName= version.properties | cut -d= -f2)"
-          SOURCE_CODE="$(grep ^versionCode= version.properties | cut -d= -f2)"
-          test -n "$VERSION_NAME"
-          test -n "$SOURCE_CODE"
-          LAST_CODE=0
-          while read -r tag; do
-            case "$tag" in
-              "v${VERSION_NAME}-"*)
-                code="${tag#v${VERSION_NAME}-}"
-                if [[ "$code" =~ ^[0-9]+$ ]] && [ "$code" -gt "$LAST_CODE" ]; then
-                  LAST_CODE="$code"
-                fi
-                ;;
-            esac
-          done < <(git ls-remote --tags origin | awk -F'refs/tags/' '{print $2}' | sed 's/\^{}//')
-          if [ "$SOURCE_CODE" -gt "$LAST_CODE" ]; then
-            RELEASE_CODE="$SOURCE_CODE"
-          else
-            RELEASE_CODE=$((LAST_CODE + 1))
+          CURRENT_NAME="$(grep ^versionName= version.properties | cut -d= -f2)"
+          CURRENT_CODE="$(grep ^versionCode= version.properties | cut -d= -f2)"
+          test -n "$CURRENT_NAME"
+          test -n "$CURRENT_CODE"
+          LATEST_RELEASE_NAME="$(git ls-remote --tags origin | awk -F'refs/tags/' '{print $2}' | sed 's/\^{}//' | sed -n 's/^v//p' | grep -E '^[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -V | tail -n1 || true)"
+          VERSION_BASE="$CURRENT_NAME"
+          if [ -n "$LATEST_RELEASE_NAME" ]; then
+            VERSION_BASE="$(printf '%s\n%s\n' "$CURRENT_NAME" "$LATEST_RELEASE_NAME" | sort -V | tail -n1)"
           fi
-          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          if [ "$PUBLISH_RELEASE" = "true" ]; then
+            MAJOR="${VERSION_BASE%%.*}"
+            MINOR="${VERSION_BASE#*.}"
+            MINOR="${MINOR%%.*}"
+            RELEASE_NAME="${MAJOR}.$((MINOR + 1))"
+            RELEASE_CODE="$CURRENT_CODE"
+            VERSION_MODE="release"
+          else
+            RELEASE_NAME="$VERSION_BASE"
+            RELEASE_CODE=$((CURRENT_CODE + 1))
+            VERSION_MODE="ci"
+          fi
+          echo "name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
           echo "code=$RELEASE_CODE" >> "$GITHUB_OUTPUT"
-          echo "Release version: ${VERSION_NAME} (${RELEASE_CODE}) [source versionCode=${SOURCE_CODE}, last release=${LAST_CODE}]"
+          echo "mode=$VERSION_MODE" >> "$GITHUB_OUTPUT"
+          echo "${VERSION_MODE}: base=${VERSION_BASE}, latest release=${LATEST_RELEASE_NAME:-none}, source=${CURRENT_NAME}/${CURRENT_CODE} -> ${RELEASE_NAME}/${RELEASE_CODE}"
       - name: Refuse to reuse a released version
+        if: ${{ inputs.publish_release }}
         shell: bash
         env:
           VERSION_NAME: ${{ steps.version.outputs.name }}
-          VERSION_CODE: ${{ steps.version.outputs.code }}
         run: |
           set -euo pipefail
-          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION_NAME}-${VERSION_CODE}" >/dev/null; then
-            echo "::error::Tag v${VERSION_NAME}-${VERSION_CODE} already exists."
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION_NAME}" >/dev/null; then
+            echo "::error::Tag v${VERSION_NAME} already exists. Bump versionCode and versionName before signing a new release."
             exit 1
           fi
 
@@ -152,9 +156,9 @@ jobs:
           test -f "$APK"
 
           mkdir -p dist
-          cp "$APK" "dist/kirakira-${VERSION_NAME}-${VERSION_CODE}.apk"
-          apksigner verify --verbose --print-certs "dist/kirakira-${VERSION_NAME}-${VERSION_CODE}.apk" | tee "$RUNNER_TEMP/apksigner.txt"
-          (cd dist && sha256sum "kirakira-${VERSION_NAME}-${VERSION_CODE}.apk" > SHA256SUMS.txt)
+          cp "$APK" "dist/kirakira-${VERSION_NAME}.apk"
+          apksigner verify --verbose --print-certs "dist/kirakira-${VERSION_NAME}.apk" | tee "$RUNNER_TEMP/apksigner.txt"
+          (cd dist && sha256sum "kirakira-${VERSION_NAME}.apk" > SHA256SUMS.txt)
 
           {
             echo "### Signed kirakira APK"
@@ -166,6 +170,23 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Commit version update
+        id: bump
+        shell: bash
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_MODE: ${{ steps.version.outputs.mode }}
+        run: |
+          set -euo pipefail
+          printf "versionCode=%s\nversionName=%s\n" "$VERSION_CODE" "$VERSION_NAME" > version.properties
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.properties
+          git commit -m "chore: ${VERSION_MODE} version ${VERSION_NAME} (${VERSION_CODE})"
+          git push origin HEAD:main
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Publish GitHub Release
         if: ${{ inputs.publish_release }}
         shell: bash
@@ -176,11 +197,11 @@ jobs:
           DRAFT: ${{ inputs.draft }}
         run: |
           set -euo pipefail
-          TAG="v${VERSION_NAME}-${VERSION_CODE}"
-          ARGS=(--title "kirakira" --notes "Version: ${VERSION_NAME} (${VERSION_CODE})" --target "$GITHUB_SHA")
+          TAG="v${VERSION_NAME}"
+          ARGS=(--title "kirakira-${VERSION_NAME}" --notes "Version: ${VERSION_NAME} (${VERSION_CODE})" --target "${{ steps.bump.outputs.commit }}")
           if [ "$DRAFT" = "true" ]; then
             ARGS+=(--draft)
           else
             ARGS+=(--latest)
           fi
-          gh release create "$TAG" "dist/kirakira-${VERSION_NAME}-${VERSION_CODE}.apk" "dist/SHA256SUMS.txt" "${ARGS[@]}"
+          gh release create "$TAG" "dist/kirakira-${VERSION_NAME}.apk" "dist/SHA256SUMS.txt" "${ARGS[@]}"
