@@ -55,7 +55,7 @@ app/src/main/java/kirakira/dokidoki/
 
 ## 签名与发布
 
-在 GitHub Actions 中运行 `Build signed APK` 工作流即可生成已签名的 Release APK，构建完成后下载 `dict-<version>.apk` 与 `SHA256SUMS.txt`。工作流使用仓库中已保存的 Secrets：
+Release 构建使用仓库中已保存的 Secrets（`KEYSTORE_BASE64`、`DICT_STORE_PASS`，`DICT_KEY_PASS` 可选）。工作流模板见 `ci/signed-apk.yml`：把它放到 `.github/workflows/signed-apk.yml` 后，可在 Actions 页面运行 `Build signed APK`，构建完成后下载 `dict-<version>.apk` 与 `SHA256SUMS.txt`。
 
 - `KEYSTORE_BASE64`：签名密钥库的 base64 内容
 - `DICT_STORE_PASS`：密钥库密码
