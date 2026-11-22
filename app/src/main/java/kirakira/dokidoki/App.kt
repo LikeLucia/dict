@@ -279,7 +279,6 @@ fun DictApp(viewModel: MainViewModel) {
                                                                 items = items,
                                                                 selectedIndex = selected,
                                                                 key = menu.name,
-                                                                expandAbove = menu != SettingsMenu.AUX_TYPE && menu != SettingsMenu.TONE,
                                                                 alignToAnchorRight = true,
                                                                 endInset = 20.dp,
                                                                 verticalInset = 6.dp,

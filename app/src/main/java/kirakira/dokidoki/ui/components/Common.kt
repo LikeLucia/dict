@@ -533,7 +533,6 @@ data class DropdownSpec(
     val items: List<String>,
     val selectedIndex: Int,
     val key: String = "",
-    val expandAbove: Boolean = false,
     val alignToAnchorRight: Boolean = false,
     val endInset: Dp = 0.dp,
     /** Positive overlaps the anchor row; negative leaves a gap. */
@@ -574,8 +573,11 @@ fun DropdownOverlay(
         val panelX = desiredX.coerceIn(12.dp, maxPanelX)
         val anchorTop = with(density) { spec.anchor.top.toDp() }
         val anchorBottom = with(density) { spec.anchor.bottom.toDp() }
-        val canShowAbove = anchorTop - panelHeight + spec.verticalInset >= 12.dp
-        val showAbove = spec.expandAbove && canShowAbove
+        // 按页面剩余空间决定展开方向：下方放得下就向下，放不下才翻到上方（上方更大时）。
+        val spaceBelow = maxHeight - anchorBottom - 12.dp
+        val spaceAbove = anchorTop - 12.dp
+        val needed = panelHeight - spec.verticalInset
+        val showAbove = spaceBelow < needed && spaceAbove > spaceBelow
         val desiredY = if (showAbove) {
             anchorTop - panelHeight + spec.verticalInset
         } else {

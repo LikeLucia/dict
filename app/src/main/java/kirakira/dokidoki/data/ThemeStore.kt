@@ -15,7 +15,7 @@ private val Context.settingsDataStore by preferencesDataStore(name = "dict_setti
 
 data class SavedSettings(
     val processMode: ProcessMode = ProcessMode.PINYIN_AND_AUX,
-    val auxType: AuxType = AuxType.YUANMO,
+    val auxType: AuxType = AuxType.KIRAKIRA,
     val tone: ToneMode = ToneMode.TONED,
     val outputDelimiter: OutputDelimiter = OutputDelimiter.TAB,
     val inputEncoding: InputEncoding = InputEncoding.UTF8,
@@ -69,7 +69,7 @@ class ThemeStore(private val context: Context) {
         processMode = ProcessMode.entries.firstOrNull { it.name == this[processModeKey] }
             ?: ProcessMode.PINYIN_AND_AUX,
         auxType = AuxType.entries.firstOrNull { it.name == this[auxTypeKey] }
-            ?: AuxType.YUANMO,
+            ?: AuxType.KIRAKIRA,
         tone = ToneMode.entries.firstOrNull { it.name == this[toneKey] }
             ?: ToneMode.TONED,
         outputDelimiter = OutputDelimiter.entries.firstOrNull { it.name == this[outputDelimiterKey] }

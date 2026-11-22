@@ -57,7 +57,7 @@ data class QueueFile(
 
 data class ProcessOptions(
     val mode: ProcessMode = ProcessMode.PINYIN_AND_AUX,
-    val auxType: AuxType = AuxType.YUANMO,
+    val auxType: AuxType = AuxType.KIRAKIRA,
     val auxSeparator: String = ";",
     val replaceAux: Boolean = true,
     val replacePinyin: Boolean = false,
@@ -208,7 +208,7 @@ data class DictUiState(
     val selectedTab: Int = 0,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val processMode: ProcessMode = ProcessMode.PINYIN_AND_AUX,
-    val auxType: AuxType = AuxType.YUANMO,
+    val auxType: AuxType = AuxType.KIRAKIRA,
     val auxSeparator: String = ";",
     val replaceAux: Boolean = true,
     val replacePinyin: Boolean = false,
