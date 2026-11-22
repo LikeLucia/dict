@@ -38,13 +38,14 @@ class AuxTables(context: Context) {
                     BufferedReader(InputStreamReader(input, Charsets.UTF_8), 1 shl 16).useLines { lines ->
                         lines.forEach { line ->
                             if (line.isEmpty()) return@forEach
-                            val parts = line.split('\t', limit = 5)
+                            val parts = line.split('\t', limit = 6)
                             if (parts.size < 5) return@forEach
                             val char = parts[0]
                             if (parts[1].isNotEmpty() && parts[1] != "-") result[AuxType.MOQI]!![char] = parts[1]
                             if (parts[2].isNotEmpty() && parts[2] != "-") result[AuxType.ZIRAN]!![char] = parts[2]
                             if (parts[3].isNotEmpty() && parts[3] != "-") result[AuxType.XIAOHE]!![char] = parts[3]
                             if (parts[4].isNotEmpty() && parts[4] != "-") result[AuxType.YUANMO]!![char] = parts[4]
+                            if (parts.size > 5 && parts[5].isNotEmpty() && parts[5] != "-") result[AuxType.KIRAKIRA]!![char] = parts[5]
                         }
                     }
                 }

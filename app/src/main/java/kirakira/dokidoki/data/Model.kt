@@ -14,6 +14,7 @@ enum class AuxType(val label: String, val key: String) {
     ZIRAN("自然码", "ziranma"),
     XIAOHE("小鹤（万象野鹤扩展）", "xiaohe"),
     MOQI("墨奇", "moqi"),
+    KIRAKIRA("kirakira", "kirakira"),
 }
 
 enum class ThemeMode(val label: String) {

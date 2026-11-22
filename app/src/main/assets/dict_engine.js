@@ -124,6 +124,8 @@ function __matchesStandardSyllable(base){
  if(__strictSyllableCache.size<__SYLLABLE_CACHE_LIMIT)__strictSyllableCache.set(base,result);
  return result;
 }
+// 辅助码允许一字多码（如 momo / kirakira 的兼容码）：逗号分隔的多个两字母码。
+function validAux(code){return typeof code==='string'&&/^[a-z]{2}(?:,[a-z]{2})*$/i.test(code)}
 // 自动识别只接受完整音节，避免把 extra、note 等备注当作拼音列。
 function matchesCode(code,word,opt){
  const chars=Array.from(word),tokens=code.trim().split(/[\s'’]+/).filter(Boolean);
@@ -174,7 +176,7 @@ function plainLayout(fields,opt){
 function legacyConvertLine(raw,st,parsed=null){st.no++;const t=raw.replace(/^\uFEFF/,'').trim();if(st.phase==='start'){if(!t||t.startsWith('#'))return raw;if(t==='---'||/^%YAML\b/.test(t)){st.phase='header';return raw}st.phase='body'}if(st.phase==='header'){if(/^\.\.\.(?:\s+#.*)?$/.test(t)){headerColumns(st);st.phase='body';st.header=[]}else{st.header.push(raw);if(st.header.length>100000)throw Error('header 超过 100000 行且未闭合')}return raw}if(!t||t.startsWith('#'))return raw;
  const o=st.opt,row=parsed||parseRow(raw,o,o.w,[o.p]);if(row.ambiguous)return note(st,'拼音列有歧义，请改用 Tab 分列',raw);const spans=row.spans;
  const field=i=>spans[i]?raw.slice(...spans[i]):'';const word=field(o.w).replace(/^\uFEFF/,'');if(!word)return note(st,'缺少词语列',raw);if(!Array.from(word).every(c=>isHan(c)))return note(st,'混合非汉字',raw);const py=field(o.p);if(!py.trim())return note(st,'无 code',raw);
- const tokens=py.match(/[^\s'’]+/g)||[],bases=tokens.map(x=>x.split(o.aux)[0]);if(!tokens.length||bases.some(x=>!validSyllable(x)))return note(st,'拼音列不合法',raw);const chars=Array.from(word);if(chars.length!==tokens.length)return note(st,'字音数量不匹配',raw);let missing=chars.filter(c=>!st.opt.table.has(c)||!/^[a-z]{2}$/i.test(st.opt.table.get(c)));if(missing.length){missing.forEach(c=>st.missing.add(c));return note(st,'缺辅助码',raw)}if(!o.replace&&tokens.some(x=>x.includes(o.aux)))return note(st,'已有辅助码',raw);let i=0;const out=py.replace(/[^\s'’]+/g,()=>bases[i]+o.aux+st.opt.table.get(chars[i++]));st.coded++;st.auxAdded=(st.auxAdded||0)+1;const [a,b]=spans[o.p];return raw.slice(0,a)+out+raw.slice(b)
+ const tokens=py.match(/[^\s'’]+/g)||[],bases=tokens.map(x=>x.split(o.aux)[0]);if(!tokens.length||bases.some(x=>!validSyllable(x)))return note(st,'拼音列不合法',raw);const chars=Array.from(word);if(chars.length!==tokens.length)return note(st,'字音数量不匹配',raw);let missing=chars.filter(c=>!st.opt.table.has(c)||!validAux(st.opt.table.get(c)));if(missing.length){missing.forEach(c=>st.missing.add(c));return note(st,'缺辅助码',raw)}if(!o.replace&&tokens.some(x=>x.includes(o.aux)))return note(st,'已有辅助码',raw);let i=0;const out=py.replace(/[^\s'’]+/g,()=>bases[i]+o.aux+st.opt.table.get(chars[i++]));st.coded++;st.auxAdded=(st.auxAdded||0)+1;const [a,b]=spans[o.p];return raw.slice(0,a)+out+raw.slice(b)
 }
 function stripAuxFromRow(raw,st,row,p){
  const spans=row.spans;if(!spans||!spans[p])return raw;
@@ -272,7 +274,7 @@ function replacePinyinInRow(raw,st,row,w,p,addAux,replaceAux){
  const chars=Array.from(word),syll=generateSyllables(word,st);
  if(!syll)return note(st,'未识别读音',raw);
  if(addAux){
-  const missing=chars.filter(c=>!o.table.has(c)||!/^[a-z]{2}$/i.test(o.table.get(c)));
+  const missing=chars.filter(c=>!o.table.has(c)||!validAux(o.table.get(c)));
   if(missing.length){missing.forEach(c=>st.missing.add(c));return note(st,'缺辅助码',raw)}
  }
  const [a,b]=spans[p],py=raw.slice(a,b),tokens=py.match(/[^\s'’]+/g)||[];
@@ -407,7 +409,7 @@ function autoConvert(raw,st,delimiter=''){
  if(st.opt.mode==='existing'||st.opt.mode==='strip')return weighted(note(st,'无 code',raw));
  let syll=generateSyllables(word,st);
  if(!syll)return weighted(note(st,'未识别读音',raw));
- if(st.opt.mode==='autoAux'){const chars=Array.from(word),missing=chars.filter(c=>!st.opt.table.has(c)||!/^[a-z]{2}$/i.test(st.opt.table.get(c)));if(missing.length){missing.forEach(c=>st.missing.add(c));return weighted(note(st,'缺辅助码',raw))}for(let i=0;i<syll.length;i++)syll[i]+=st.opt.aux+st.opt.table.get(chars[i])}
+ if(st.opt.mode==='autoAux'){const chars=Array.from(word),missing=chars.filter(c=>!st.opt.table.has(c)||!validAux(st.opt.table.get(c)));if(missing.length){missing.forEach(c=>st.missing.add(c));return weighted(note(st,'缺辅助码',raw))}for(let i=0;i<syll.length;i++)syll[i]+=st.opt.aux+st.opt.table.get(chars[i])}
  const py=syll.join(' ');let out;
  if(l?.standard){
   const rest=fields.slice(1);
