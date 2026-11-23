@@ -202,7 +202,7 @@ private fun ImportCard(onImport: () -> Unit) {
             Column {
                 Text("导入词库", fontSize = 15.5.sp, fontWeight = FontWeight.Bold, color = p.text)
                 Spacer(Modifier.height(4.dp))
-                Text("Rime YAML · TXT · TSV · ZIP", fontSize = 11.sp, color = p.text2)
+                Text("YAML · TXT · TSV · ZIP", fontSize = 11.sp, color = p.text2)
             }
         }
     }

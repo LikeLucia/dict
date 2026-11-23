@@ -284,10 +284,10 @@ fun emptyProcessResult(): ProcessResult = ProcessResult(
 )
 
 val SampleFiles = listOf(
-    DictFile("万象.dict.yaml", "Rime YAML · 1.2 MB · 昨天", FileStatus.AUX_DONE, id = "sample", sizeBytes = 1_258_291, hasOutput = true, modifiedAt = 6L),
-    DictFile("八股文.dict.yaml", "Rime YAML · 860 KB · 3 天前", FileStatus.PINYIN_DONE, sizeBytes = 880_640, hasOutput = true, modifiedAt = 5L),
+    DictFile("万象.dict.yaml", "YAML · 1.2 MB · 昨天", FileStatus.AUX_DONE, id = "sample", sizeBytes = 1_258_291, hasOutput = true, modifiedAt = 6L),
+    DictFile("八股文.dict.yaml", "YAML · 860 KB · 3 天前", FileStatus.PINYIN_DONE, sizeBytes = 880_640, hasOutput = true, modifiedAt = 5L),
     DictFile("user_words.txt", "TXT · 12 KB · 上周", FileStatus.PENDING, sizeBytes = 12_288, modifiedAt = 4L),
     DictFile("术语库.tsv", "TSV · 204 KB · 上周", FileStatus.AUX_DONE, sizeBytes = 208_896, hasOutput = true, modifiedAt = 3L),
     DictFile("moqi_backup.zip", "ZIP · 4.8 MB · 上月", FileStatus.PENDING, sizeBytes = 5_033_164, modifiedAt = 2L),
-    DictFile("自定义词条.dict.yaml", "Rime YAML · 96 KB · 上月", FileStatus.PINYIN_DONE, sizeBytes = 98_304, hasOutput = true, modifiedAt = 1L),
+    DictFile("自定义词条.dict.yaml", "YAML · 96 KB · 上月", FileStatus.PINYIN_DONE, sizeBytes = 98_304, hasOutput = true, modifiedAt = 1L),
 )
