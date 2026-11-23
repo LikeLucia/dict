@@ -569,6 +569,10 @@ data class DropdownSpec(
     val anchor: Rect,
     val items: List<String>,
     val selectedIndex: Int,
+    /** 需要同时勾选多项时传入；非空时忽略 [selectedIndex]。 */
+    val selectedIndexes: Set<Int>? = null,
+    /** 在这些下标之前画一条分隔线，用于分组。 */
+    val dividerBefore: Set<Int> = emptySet(),
     val key: String = "",
     val alignToAnchorRight: Boolean = false,
     val endInset: Dp = 0.dp,
@@ -599,7 +603,9 @@ fun DropdownOverlay(
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onDismiss() },
     ) {
         val panelWidth = 196.dp
-        val panelHeight = (spec.items.size * 52 + 12).dp
+        val dividerCount = spec.dividerBefore.count { it in 1..spec.items.lastIndex }
+        // 每条分隔线占 0.7dp 线 + 上下各 6dp 间距。
+        val panelHeight = (spec.items.size * 52 + 12 + dividerCount * 13).dp
         val anchorRight = with(density) { spec.anchor.right.toDp() }
         val maxPanelX = (maxWidth - panelWidth - 12.dp).coerceAtLeast(12.dp)
         val desiredX = if (spec.alignToAnchorRight) {
@@ -669,38 +675,51 @@ fun DropdownOverlay(
                     animationSpec = tween(durationMillis = 120),
                     label = "dropdown-item-mask",
                 )
+                // 勾选状态：多选看 selectedIndexes，单选看 selectedIndex。
+                val checked = spec.selectedIndexes?.contains(index) ?: (index == spec.selectedIndex)
                 val topPad = if (index == 0) 6.dp else 0.dp
                 val bottomPad = if (index == spec.items.lastIndex) 6.dp else 0.dp
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp + topPad + bottomPad)
-                        .background(itemMask)
-                        .clickable(
-                            interactionSource = itemInteraction,
-                            indication = null,
-                        ) { onSelect(index) }
-                        .padding(top = topPad, bottom = bottomPad),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        item,
-                        fontSize = 15.sp,
-                        fontWeight = if (index == spec.selectedIndex) FontWeight.Bold else FontWeight.Normal,
-                        color = if (index == spec.selectedIndex) p.accent else p.text,
-                        modifier = Modifier
-                            .padding(start = 18.dp)
-                            .weight(1f),
-                    )
-                    if (index == spec.selectedIndex) {
-                        Icon(
-                            MiuixIcons.Basic.Check,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .padding(end = 18.dp)
-                                .size(16.dp),
-                            tint = p.accent,
+                Column(Modifier.fillMaxWidth()) {
+                    if (index in spec.dividerBefore && index > 0) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 18.dp, vertical = 6.dp)
+                                .height(0.7.dp)
+                                .background(p.divider),
                         )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp + topPad + bottomPad)
+                            .background(itemMask)
+                            .clickable(
+                                interactionSource = itemInteraction,
+                                indication = null,
+                            ) { onSelect(index) }
+                            .padding(top = topPad, bottom = bottomPad),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            item,
+                            fontSize = 15.sp,
+                            fontWeight = if (checked) FontWeight.Bold else FontWeight.Normal,
+                            color = if (checked) p.accent else p.text,
+                            modifier = Modifier
+                                .padding(start = 18.dp)
+                                .weight(1f),
+                        )
+                        if (checked) {
+                            Icon(
+                                MiuixIcons.Basic.Check,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .padding(end = 18.dp)
+                                    .size(16.dp),
+                                tint = p.accent,
+                            )
+                        }
                     }
                 }
             }

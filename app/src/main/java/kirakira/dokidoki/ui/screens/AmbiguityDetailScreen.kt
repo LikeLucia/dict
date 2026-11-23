@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Indication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -18,10 +19,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -34,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.SubcomposeLayout
@@ -43,14 +49,18 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kirakira.dokidoki.data.AmbiguousEntry
 import kirakira.dokidoki.data.AmbiguousFileGroup
 import kirakira.dokidoki.data.AmbiguousDetailPage
 import kotlinx.coroutines.CancellationException
 import kirakira.dokidoki.ui.components.DictTopBar
+import kirakira.dokidoki.ui.theme.DictTheme
 import kirakira.dokidoki.ui.components.FixedTopPage
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import top.yukonga.miuix.kmp.basic.Card
@@ -61,6 +71,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.glass.File
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -149,6 +160,23 @@ fun AmbiguityDetailScreen(
     val listState = rememberLazyListState()
     LaunchedEffect(q, pageIndex) {
         if (listState.layoutInfo.totalItemsCount > 0) listState.scrollToItem(0)
+    }
+    val scope = rememberCoroutineScope()
+    // 右下角翻页按钮的显示条件：不在顶部显示「回到顶部」，不在底部显示「翻到底部」。
+    val notAtTop by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            info.visibleItemsInfo.isNotEmpty() &&
+                (info.visibleItemsInfo.first().index > 0 || listState.firstVisibleItemScrollOffset > 0)
+        }
+    }
+    val notAtBottom by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf false
+            val viewportHeight = info.viewportEndOffset - info.viewportStartOffset
+            last.index < info.totalItemsCount - 1 || last.offset + last.size > viewportHeight - 1
+        }
     }
     val lastRowKey = "line:${group.fileId}:${shown.lastOrNull()?.line ?: 0}"
 
@@ -283,6 +311,28 @@ fun AmbiguityDetailScreen(
                         }
                     }
                 }
+                DetailJumpButtons(
+                    notAtTop = notAtTop,
+                    notAtBottom = notAtBottom,
+                    onJumpTop = {
+                        scope.launch { listState.animateScrollToItem(0) }
+                    },
+                    onJumpBottom = {
+                        scope.launch {
+                            val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                            listState.animateScrollToItem(lastIndex)
+                            // 本页到底后还有下一页：接着翻页。
+                            val next = nextOffset
+                            if (next != null) {
+                                if (pageIndex + 1 == offsets.size) offsets.add(next)
+                                pageIndex++
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 20.dp, bottom = 16.dp),
+                )
             }
         }
     }
@@ -318,6 +368,69 @@ private fun FileCardsBackdrop(
         layout(constraints.maxWidth, constraints.maxHeight) {
             card.placeRelative(0, top)
         }
+    }
+}
+
+/** 右下角翻页按钮：上箭头回到顶部，下箭头滚到底部并翻页；背景与尺寸对齐顶栏的圆形动作按钮。 */
+@Composable
+private fun DetailJumpButtons(
+    notAtTop: Boolean,
+    notAtBottom: Boolean,
+    onJumpTop: () -> Unit,
+    onJumpBottom: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val p = DictTheme.palette
+    val indication = rememberMiuixIndication()
+    val buttonSize = 40.dp
+    val iconSize = 22.dp
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        AnimatedVisibility(
+            visible = notAtTop,
+            enter = fadeIn(tween(120)) + expandVertically(tween(170)),
+            exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
+        ) {
+            JumpButton("回到顶部", -90f, buttonSize, iconSize, p.card, p.text2, indication, onJumpTop)
+        }
+        AnimatedVisibility(
+            visible = notAtBottom,
+            enter = fadeIn(tween(120)) + expandVertically(tween(170)),
+            exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
+        ) {
+            JumpButton("翻到底部", 90f, buttonSize, iconSize, p.card, p.text2, indication, onJumpBottom)
+        }
+    }
+}
+
+@Composable
+private fun JumpButton(
+    description: String,
+    rotation: Float,
+    size: Dp,
+    iconSize: Dp,
+    background: Color,
+    tint: Color,
+    indication: Indication,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(background)
+            .clickable(interactionSource = null, indication = indication, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            MiuixIcons.Basic.ArrowRight,
+            contentDescription = description,
+            modifier = Modifier.size(iconSize).rotate(rotation),
+            tint = tint,
+        )
     }
 }
 

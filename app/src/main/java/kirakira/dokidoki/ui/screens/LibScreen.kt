@@ -69,8 +69,6 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
 import top.yukonga.miuix.kmp.glass.GlassMotion
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Switch
-import top.yukonga.miuix.kmp.basic.SwitchDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
@@ -240,8 +238,6 @@ fun LibScreen(
             item(key = "controls") {
                 SortHeader(
                     label = state.sortMode.label + if (state.sortDescending) " ↓" else " ↑",
-                    descending = state.sortDescending,
-                    onDescending = onSortDescending,
                     onOpen = onOpenSortMenu,
                 )
             }
@@ -286,8 +282,6 @@ fun LibScreen(
 @Composable
 private fun SortHeader(
     label: String,
-    descending: Boolean,
-    onDescending: (Boolean) -> Unit,
     onOpen: (Rect) -> Unit,
 ) {
     val p = DictTheme.palette
@@ -300,10 +294,6 @@ private fun SortHeader(
     ) {
         Text("全部词库", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = p.text2)
         Spacer(Modifier.weight(1f))
-        Text("倒序", fontSize = 10.5.sp, color = p.text2)
-        Spacer(Modifier.width(6.dp))
-        SortSwitch(descending, onDescending)
-        Spacer(Modifier.width(10.dp))
         Row(
             modifier = Modifier.captureDropdownAnchor(anchor).clickable { onOpen(anchor.bounds()) },
             verticalAlignment = Alignment.CenterVertically,
@@ -318,21 +308,6 @@ private fun SortHeader(
             )
         }
     }
-}
-
-@Composable
-private fun SortSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
-    val p = DictTheme.palette
-    Switch(
-        checked = checked,
-        onCheckedChange = onChange,
-        colors = SwitchDefaults.switchColors(
-            checkedTrackColor = p.switchOn,
-            uncheckedTrackColor = p.switchOff,
-            checkedThumbColor = p.onAccent,
-            uncheckedThumbColor = p.onAccent,
-        ),
-    )
 }
 
 @Composable

@@ -34,10 +34,10 @@ enum class OutputDelimiter(val label: String, val engineValue: String) {
 }
 
 enum class FileSortMode(val label: String) {
-    // 弹窗展示顺序：文件名、修改时间、文件大小。
+    // 修改时间与文件名互换位置：文件名、文件大小、修改时间。
     NAME("文件名"),
-    MODIFIED("修改时间"),
     SIZE("文件大小"),
+    MODIFIED("修改时间"),
 }
 
 enum class InputEncoding(val label: String, val engineValue: String) {

@@ -87,6 +87,12 @@ import kotlin.math.sqrt
 
 private const val MIUIX_DETAIL_DURATION = 500
 
+/** 排序弹窗：正序、倒序，然后是三个排序依据（顺序与 FileSortMode 一致）。 */
+private val SORT_MENU_ITEMS = listOf("正序", "倒序") + FileSortMode.entries.map { it.label }
+
+/** 排序依据在弹窗里的起始下标。 */
+private const val SORT_MENU_FIRST_MODE = 2
+
 /** Miuix nav 默认程序化过渡曲线（response 0.8 / damping 0.95），固定系数预计算。 */
 private class MiuixPageEasing(
     response: Double = 0.8,
@@ -247,10 +253,17 @@ fun DictApp(viewModel: MainViewModel) {
                                                         onFocusHandled = viewModel::clearLibraryFocus,
                                                         onSortDescending = viewModel::setSortDescending,
                                                         onOpenSortMenu = { anchor ->
+                                                            // 前两项是排序方向，其后是三个排序依据；
+                                                            // 方向与依据各自独立勾选，用分隔线隔开。
                                                             dropdown = DropdownSpec(
                                                                 anchor = anchor,
-                                                                items = FileSortMode.entries.map { it.label },
-                                                                selectedIndex = state.sortMode.ordinal,
+                                                                items = SORT_MENU_ITEMS,
+                                                                selectedIndex = 0,
+                                                                selectedIndexes = buildSet {
+                                                                    add(if (state.sortDescending) 1 else 0)
+                                                                    add(SORT_MENU_FIRST_MODE + state.sortMode.ordinal)
+                                                                },
+                                                                dividerBefore = setOf(2),
                                                                 key = "SORT",
                                                             )
                                                         },
@@ -349,7 +362,12 @@ fun DictApp(viewModel: MainViewModel) {
                                     when (spec.key) {
                                         "THEME" -> viewModel.setThemeMode(ThemeMode.entries[index])
                                         "AUX_TYPE" -> viewModel.setAuxType(AuxType.entries[index])
-                                        "SORT" -> viewModel.setSortMode(FileSortMode.entries[index])
+                                        "SORT" -> when {
+                                            index == 0 -> viewModel.setSortDescending(false)
+                                            index == 1 -> viewModel.setSortDescending(true)
+                                            else -> FileSortMode.entries.getOrNull(index - SORT_MENU_FIRST_MODE)
+                                                ?.let(viewModel::setSortMode)
+                                        }
                                         "TONE" -> viewModel.setTone(ToneMode.entries[index])
                                         "OUTPUT_DELIMITER" -> viewModel.setOutputDelimiter(OutputDelimiter.entries[index])
                                         "INPUT_ENCODING" -> viewModel.setInputEncoding(InputEncoding.entries[index])
