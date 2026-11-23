@@ -174,7 +174,7 @@ fun SectionHeader(
 fun DictScaffoldPage(
     modifier: Modifier = Modifier,
     topBar: @Composable () -> Unit,
-    content: @Composable (PaddingValues) -> Unit,
+    content: @Composable ColumnScope.(PaddingValues) -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     CompositionLocalProvider(LocalDictTopBarScrollBehavior provides scrollBehavior) {
