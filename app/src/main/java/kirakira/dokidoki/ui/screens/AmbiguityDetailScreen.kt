@@ -578,12 +578,13 @@ private fun DetailEntryRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Card(
-                modifier = Modifier.widthIn(min = 44.dp).wrapContentWidth(unbounded = true).heightIn(min = 32.dp)
+                // 行号徽章加宽：最小宽度与水平内边距都调大，数字不再显得局促。
+                modifier = Modifier.widthIn(min = 52.dp).wrapContentWidth(unbounded = true).heightIn(min = 32.dp)
                     .clickable(interactionSource = interaction, indication = indication) {
                         copyDetailText(context, entry.line.toString())
                     },
                 cornerRadius = 10.dp,
-                insideMargin = PaddingValues(horizontal = 6.dp),
+                insideMargin = PaddingValues(horizontal = 10.dp),
                 colors = CardDefaults.defaultColors(
                     color = colors.tertiaryContainer,
                     contentColor = colors.onTertiaryContainer,
