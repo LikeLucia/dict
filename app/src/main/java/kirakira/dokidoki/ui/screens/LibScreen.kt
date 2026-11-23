@@ -408,29 +408,51 @@ private fun FilterChips(
     val indicatorLeft = remember { Animatable(0f) }
     val indicatorRight = remember { Animatable(0f) }
     var initialized by remember { mutableStateOf(false) }
-    // 胶囊位置只在点击切换时定位一次，之后不随滚动改变。
-    // 选中项的屏幕位置由 layoutInfo 提供（与 drawBehind 同一坐标系）。
+    // 与视频里的效果一致：胶囊贴着选中的标签走，标签滑出屏幕就不画。
+    // 位置取自 layoutInfo，坐标系与 drawBehind 相同。
     val selectedBounds = remember(chipListState, selected, labels.size) {
         derivedStateOf {
             val info = chipListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == selected }
-            if (info == null) null else info.offset.toFloat() to (info.offset + info.size).toFloat()
+                ?: return@derivedStateOf null
+            val viewportStart = chipListState.layoutInfo.viewportStartOffset
+            val viewportEnd = chipListState.layoutInfo.viewportEndOffset
+            // 完全滚出可视区：不显示胶囊。
+            if (info.offset + info.size <= viewportStart || info.offset >= viewportEnd) {
+                return@derivedStateOf null
+            }
+            // 部分露出时按可视区裁切，避免画到胶囊外面。
+            val left = maxOf(info.offset, viewportStart).toFloat()
+            val right = minOf(info.offset + info.size, viewportEnd).toFloat()
+            left to right
         }
     }
+    // 滚动时跟随（不做过渡），点击切换时走弹簧过渡。
     LaunchedEffect(selected) {
-        val (left, right) = selectedBounds.value ?: run {
-            // 选中项还不在可视区：等它出现再定位。
-            snapshotFlow { selectedBounds.value }.firstOrNull() ?: return@LaunchedEffect
-        }
+        val bounds = selectedBounds.value ?: return@LaunchedEffect
         if (!initialized) {
             // 首帧直接落位，不从 0 号槽滑入。
-            indicatorLeft.snapTo(left)
-            indicatorRight.snapTo(right)
+            indicatorLeft.snapTo(bounds.first)
+            indicatorRight.snapTo(bounds.second)
             initialized = true
         } else {
-            // 点击切换：左右两条边各走一条弹簧。
-            launch { indicatorLeft.animateTo(left, GlassMotion.edgeSpring(left <= indicatorLeft.value)) }
-            launch { indicatorRight.animateTo(right, GlassMotion.edgeSpring(left > indicatorLeft.value)) }
+            launch { indicatorLeft.animateTo(bounds.first, GlassMotion.edgeSpring(bounds.first <= indicatorLeft.value)) }
+            launch { indicatorRight.animateTo(bounds.second, GlassMotion.edgeSpring(bounds.first > indicatorLeft.value)) }
         }
+    }
+    // 滚动过程中实时跟随选中标签，保持贴合。
+    LaunchedEffect(chipListState) {
+        snapshotFlow { chipListState.isScrollInProgress to selectedBounds.value }
+            .collect { (scrolling, bounds) ->
+                if (!scrolling) return@collect
+                if (bounds == null) {
+                    // 滑出可视区：收起到零宽，drawBehind 自然不画。
+                    indicatorLeft.snapTo(0f)
+                    indicatorRight.snapTo(0f)
+                } else {
+                    indicatorLeft.snapTo(bounds.first)
+                    indicatorRight.snapTo(bounds.second)
+                }
+            }
     }
     // 与底栏一致：深色白色淡填充，浅色黑色淡填充。
     val indicatorColor = if (p.isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f)
@@ -452,6 +474,8 @@ private fun FilterChips(
                     val left = indicatorLeft.value
                     val right = indicatorRight.value
                     if (right <= left) return@drawBehind
+                    // 超出容器范围就不画（选中标签已滚出可视区）。
+                    if (right <= 0f || left >= size.width) return@drawBehind
                     val height = size.height
                     drawRoundRect(
                         color = indicatorColor,
