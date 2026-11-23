@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -400,27 +401,31 @@ private fun FilterChips(
     onSelect: (Int) -> Unit,
 ) {
     val p = DictTheme.palette
+    val chipListState = rememberLazyListState()
+    // 指示器左右两条边各一条弹簧，切换时按方向分别使用 navIndicator / navIndicatorTrail。
     val indicatorLeft = remember { Animatable(0f) }
     val indicatorRight = remember { Animatable(0f) }
-    var trackWidth by remember { mutableIntStateOf(0) }
-    val slots = labels.size
-    val slotWidth = if (slots > 0 && trackWidth > 0) trackWidth.toFloat() / slots else 0f
-    LaunchedEffect(selected, slotWidth) {
-        if (slotWidth <= 0f) return@LaunchedEffect
-        val newLeft = selected * slotWidth
-        val newRight = newLeft + slotWidth
-        if (indicatorRight.value <= indicatorLeft.value) {
-            // 首次布局直接落位，不从 0 号槽滑入。
-            indicatorLeft.snapTo(newLeft)
-            indicatorRight.snapTo(newRight)
+    var initialized by remember { mutableStateOf(false) }
+    // 选中项在滚动视口里的实际位置（layoutInfo 的坐标系与 drawBehind 一致）。
+    val target = remember(chipListState, selected, labels.size) {
+        derivedStateOf {
+            val info = chipListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == selected }
+            if (info == null) null else info.offset.toFloat() to (info.offset + info.size).toFloat()
+        }
+    }
+    LaunchedEffect(selected) {
+        if (selected in labels.indices) chipListState.animateScrollToItem(selected)
+    }
+    LaunchedEffect(target.value, labels.size) {
+        val (left, right) = target.value ?: return@LaunchedEffect
+        if (!initialized) {
+            // 首帧直接落位，不从 0 号槽滑入。
+            indicatorLeft.snapTo(left)
+            indicatorRight.snapTo(right)
+            initialized = true
         } else {
-            // 与 GlassNavigationBar 一致：向左移动时前缘用 navIndicator，向右时后缘用 navIndicatorTrail。
-            launch {
-                indicatorLeft.animateTo(newLeft, GlassMotion.edgeSpring(newLeft <= indicatorLeft.value))
-            }
-            launch {
-                indicatorRight.animateTo(newRight, GlassMotion.edgeSpring(newLeft > indicatorLeft.value))
-            }
+            launch { indicatorLeft.animateTo(left, GlassMotion.edgeSpring(left <= indicatorLeft.value)) }
+            launch { indicatorRight.animateTo(right, GlassMotion.edgeSpring(left > indicatorLeft.value)) }
         }
     }
     // 与底栏一致：深色白色淡填充，浅色黑色淡填充。
@@ -433,13 +438,12 @@ private fun FilterChips(
         outSidePadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
         shadow = GlassShadows.Float,
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 // 胶囊高度 38dp。
                 .height(38.dp)
-                .onSizeChanged { trackWidth = it.width }
-                // 指示器画在等宽槽位坐标系里，位置完全由槽宽和左右两条边决定。
+                // 指示器画在滚动视口坐标系里，位置随选中项与滚动一起变化。
                 .drawBehind {
                     val left = indicatorLeft.value
                     val right = indicatorRight.value
@@ -452,37 +456,43 @@ private fun FilterChips(
                         cornerRadius = CornerRadius(height / 2f),
                     )
                 },
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            labels.forEachIndexed { index, label ->
-                val isSelected = index == selected
-                val textColor by animateColorAsState(
-                    targetValue = p.text,
-                    animationSpec = tween(160),
-                    label = "filter-chip-text",
-                )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(18.dp))
-                        // 关掉 clickable 自带的按压指示（ripple）：它是一层没有过渡的高亮，
-                        // 会和下面那条带弹簧动画的指示器胶囊叠成两层。选中态只由指示器胶囊表达。
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) { onSelect(index) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        label,
-                        fontSize = 11.5.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = textColor,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+            LazyRow(
+                state = chipListState,
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                itemsIndexed(labels) { index, label ->
+                    val isSelected = index == selected
+                    val textColor by animateColorAsState(
+                        targetValue = p.text,
+                        animationSpec = tween(160),
+                        label = "filter-chip-text",
                     )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            // 按内容宽度排布，长标签不再被压缩或截断。
+                            .wrapContentWidth()
+                            .clip(RoundedCornerShape(19.dp))
+                            // 关掉 clickable 自带的按压指示（ripple）：选中态只由指示器胶囊表达。
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { onSelect(index) }
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            label,
+                            fontSize = 11.5.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = textColor,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }
