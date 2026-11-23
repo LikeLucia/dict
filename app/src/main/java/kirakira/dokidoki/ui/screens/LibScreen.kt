@@ -1,7 +1,10 @@
 package kirakira.dokidoki.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,9 +33,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.text.KeyboardActions
@@ -40,7 +50,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kirakira.dokidoki.data.DictFile
@@ -55,6 +65,9 @@ import kirakira.dokidoki.ui.components.StatusBadge
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.theme.DictTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
+import top.yukonga.miuix.kmp.glass.GlassMotion
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.SwitchDefaults
@@ -66,6 +79,7 @@ import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.glass.File
+import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -190,20 +204,27 @@ fun LibScreen(
                 onSelectAll = if (state.selectionMode) onSelectAll else null,
                 actionSize = 40.dp,
                 actionIconSize = 22.dp,
+                // 分类标签放进顶栏的 bottomContent 槽位：与标题同属顶栏、随顶栏固定，
+                // 列表滚到底部也不消失；不再依赖 offset 做视觉偏移。
+                bottomContent = {
+                    FilterChips(
+                        selected = selectedFilter,
+                        onSelect = { selectedFilter = it },
+                    )
+                },
             )
-            Spacer(Modifier.height(16.dp))
             AnimatedVisibility(
                 visible = searchVisible,
                 enter = fadeIn(tween(120)) + expandVertically(tween(170)),
                 exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
             ) {
                 Column {
+                    Spacer(Modifier.height(16.dp))
                     SearchBar(
                         query = query,
                         onQueryChange = { query = it },
                         focusRequester = focusRequester,
                     )
-                    Spacer(Modifier.height(14.dp))
                 }
             }
         },
@@ -214,15 +235,12 @@ fun LibScreen(
             contentPadding = PaddingValues(bottom = 190.dp),
         ) {
             item(key = "controls") {
-                Column {
-                    FilterChips(selected = selectedFilter, onSelect = { selectedFilter = it })
-                    SortHeader(
-                        label = state.sortMode.label + if (state.sortDescending) " ↓" else " ↑",
-                        descending = state.sortDescending,
-                        onDescending = onSortDescending,
-                        onOpen = onOpenSortMenu,
-                    )
-                }
+                SortHeader(
+                    label = state.sortMode.label + if (state.sortDescending) " ↓" else " ↑",
+                    descending = state.sortDescending,
+                    onDescending = onSortDescending,
+                    onOpen = onOpenSortMenu,
+                )
             }
             if (visibleFiles.isEmpty()) {
                 item(key = "empty") { EmptyLibraryCard() }
@@ -328,7 +346,6 @@ private fun SearchBar(
             .padding(horizontal = 24.dp)
             .height(52.dp)
             .focusRequester(focusRequester),
-        insideMargin = DpSize(16.dp, 10.dp),
         colors = TextFieldDefaults.textFieldColors(
             backgroundColor = colors.surfaceContainerHigh,
             labelColor = colors.onBackgroundVariant,
@@ -352,37 +369,103 @@ private fun SearchBar(
     )
 }
 
+/**
+ * 分类标签：与底部导航栏同款的 miuix 玻璃胶囊（GlassFloatingToolbar）。
+ * 指示器沿用悬浮底栏的实现：左右两条边各用一条弹簧（GlassMotion.edgeSpring），
+ * 移动时前缘领先、后缘跟随，胶囊在途中被拉长，到位后回弹收拢；
+ * 文字配色也照底栏来——选中与否都读正文色，由指示器胶囊本身区分选中项。
+ */
 @Composable
-private fun FilterChips(selected: Int, onSelect: (Int) -> Unit) {
+private fun FilterChips(
+    selected: Int,
+    onSelect: (Int) -> Unit,
+) {
     val p = DictTheme.palette
     val labels = listOf("全部", "Rime YAML", "TXT", "TSV", "ZIP")
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    val slots = labels.size
+    val indicatorLeft = remember { Animatable(0f) }
+    val indicatorRight = remember { Animatable(0f) }
+    var trackWidth by remember { mutableIntStateOf(0) }
+    val slotWidth = if (slots > 0 && trackWidth > 0) trackWidth.toFloat() / slots else 0f
+    LaunchedEffect(selected, slotWidth) {
+        if (slotWidth <= 0f) return@LaunchedEffect
+        val newLeft = selected * slotWidth
+        val newRight = newLeft + slotWidth
+        if (indicatorRight.value <= indicatorLeft.value) {
+            // 首次布局直接落位，不从 0 号槽滑入。
+            indicatorLeft.snapTo(newLeft)
+            indicatorRight.snapTo(newRight)
+        } else {
+            // 与 GlassNavigationBar 一致：向左移动时前缘用 navIndicator，向右时后缘用 navIndicatorTrail。
+            launch {
+                indicatorLeft.animateTo(newLeft, GlassMotion.edgeSpring(newLeft <= indicatorLeft.value))
+            }
+            launch {
+                indicatorRight.animateTo(newRight, GlassMotion.edgeSpring(newLeft > indicatorLeft.value))
+            }
+        }
+    }
+    // 与底栏一致：深色白色淡填充，浅色黑色淡填充。
+    val indicatorColor = if (p.isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f)
+    GlassFloatingToolbar(
+        modifier = Modifier.fillMaxWidth(),
+        backdrop = null,
+        fill = p.card,
+        cornerRadius = 26.dp,
+        outSidePadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
+        shadow = GlassShadows.Float,
     ) {
-        labels.forEachIndexed { index, label ->
-            val isSelected = index == selected
-            Box(
-                modifier = Modifier
-                    .height(40.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(if (isSelected) p.card else p.card2)
-                    .then(
-                        if (isSelected) Modifier.border(0.8.dp, p.navStroke, RoundedCornerShape(20.dp))
-                        else Modifier,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                // 胶囊高度 38dp。
+                .height(38.dp)
+                .onSizeChanged { trackWidth = it.width }
+                // 指示器画在等宽槽位坐标系里，位置完全由槽宽和左右两条边决定。
+                .drawBehind {
+                    val left = indicatorLeft.value
+                    val right = indicatorRight.value
+                    if (right <= left) return@drawBehind
+                    val height = size.height
+                    drawRoundRect(
+                        color = indicatorColor,
+                        topLeft = Offset(left, 0f),
+                        size = Size(right - left, height),
+                        cornerRadius = CornerRadius(height / 2f),
                     )
-                    .clickable { onSelect(index) }
-                    .padding(horizontal = 12.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    label,
-                    fontSize = 11.5.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSelected) p.accent else p.text2,
+                },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            labels.forEachIndexed { index, label ->
+                val isSelected = index == selected
+                val textColor by animateColorAsState(
+                    targetValue = p.text,
+                    animationSpec = tween(160),
+                    label = "filter-chip-text",
                 )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(18.dp))
+                        // 关掉 clickable 自带的按压指示（ripple）：它是一层没有过渡的高亮，
+                        // 会和下面那条带弹簧动画的指示器胶囊叠成两层。选中态只由指示器胶囊表达。
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { onSelect(index) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        label,
+                        fontSize = 11.5.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = textColor,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }

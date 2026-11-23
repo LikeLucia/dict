@@ -180,7 +180,9 @@ fun DictScaffoldPage(
     CompositionLocalProvider(LocalDictTopBarScrollBehavior provides scrollBehavior) {
         Scaffold(
             modifier = modifier.fillMaxSize(),
-            topBar = topBar,
+            // Scaffold 的 topBar 槽位内部是 Box：直接展开多个子项会叠在同一原点，
+            // 搜索框因此压住大标题和状态栏。这里统一包一层 Column，标题在上、搜索框排在下方。
+            topBar = { Column(Modifier.fillMaxWidth()) { topBar() } },
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             containerColor = DictTheme.palette.bg,
         ) { padding ->
@@ -250,6 +252,8 @@ fun DictTopBar(
     actionSize: Dp = 48.dp,
     actionIconSize: Dp = 28.dp,
     trailingActionOffsetY: Dp = 0.dp,
+    /** 标题栏下方的固定内容（如分类标签）：随顶栏一起固定，不参与正文滚动。 */
+    bottomContent: @Composable () -> Unit = {},
 ) {
     val p = DictTheme.palette
     TopAppBar(
@@ -262,6 +266,7 @@ fun DictTopBar(
         titlePadding = 24.dp,
         navigationIconPadding = 24.dp,
         actionIconPadding = 16.dp,
+        bottomContent = bottomContent,
         scrollBehavior = LocalDictTopBarScrollBehavior.current,
         navigationIcon = {
             if (onBack != null) {
@@ -605,19 +610,28 @@ fun DropdownOverlay(
         val panelX = desiredX.coerceIn(12.dp, maxPanelX)
         val anchorTop = with(density) { spec.anchor.top.toDp() }
         val anchorBottom = with(density) { spec.anchor.bottom.toDp() }
-        // 按页面剩余空间决定展开方向：下方放得下就向下，放不下才翻到上方（上方更大时）。
-        val spaceBelow = maxHeight - anchorBottom - 12.dp
-        val spaceAbove = anchorTop - 12.dp
+        // 按整页可用区域判断上下：不扣状态栏，也不扣底部悬浮导航栏。
+        val usableTop = 8.dp
+        val usableBottom = (maxHeight - 8.dp).coerceAtLeast(usableTop + 1.dp)
+        val spaceBelow = usableBottom - anchorBottom - 12.dp
+        val spaceAbove = anchorTop - usableTop - 12.dp
         val needed = panelHeight - spec.verticalInset
-        val showAbove = spaceBelow < needed && spaceAbove > spaceBelow
+        // 方向规则：默认向下；只有下方放不下、而上方放得下时才翻到上方；
+        // 两边都放不下时取剩余空间更大的一侧。锚点在页面中部时上下都放得下，仍按默认向下，
+        // 不会因为「上方剩余量恰好更大」就无端上翻。
+        val showAbove = when {
+            spaceBelow >= needed -> false
+            spaceAbove >= needed -> true
+            else -> spaceAbove > spaceBelow
+        }
         val desiredY = if (showAbove) {
             anchorTop - panelHeight + spec.verticalInset
         } else {
             anchorBottom - spec.verticalInset
         }
         val panelY = desiredY.coerceIn(
-            12.dp,
-            (maxHeight - panelHeight - 12.dp).coerceAtLeast(12.dp),
+            usableTop,
+            (usableBottom - panelHeight).coerceAtLeast(usableTop),
         )
         Box(
             modifier = Modifier
