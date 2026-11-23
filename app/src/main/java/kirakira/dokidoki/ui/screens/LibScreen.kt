@@ -459,6 +459,8 @@ private fun FilterChips(
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
+                // 到顶端或末端就停住：关掉拉伸回弹，避免到头还能继续拖。
+                overscrollEffect = null,
             ) {
                 itemsIndexed(labels) { index, label ->
                     val isSelected = index == selected
