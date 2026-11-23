@@ -695,6 +695,8 @@ private fun CopyableReading(
     modifier: Modifier = Modifier,
     /** 为空时按默认行为复制；替换模式下由调用方传入替换动作。 */
     onClick: (() -> Unit)? = null,
+    /** 文字内边距；卡片内传 0 水平内边距，使文字与左侧行号徽章对齐。 */
+    contentPadding: PaddingValues = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
 ) {
     val context = LocalContext.current
     val interaction = remember { MutableInteractionSource() }
@@ -705,7 +707,7 @@ private fun CopyableReading(
             .clickable(interactionSource = interaction, indication = indication) {
                 onClick?.invoke() ?: copyDetailText(context, value)
             }
-            .padding(horizontal = 4.dp, vertical = 8.dp),
+            .padding(contentPadding),
     )
 }
 
