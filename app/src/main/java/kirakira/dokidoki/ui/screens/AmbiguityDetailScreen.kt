@@ -10,7 +10,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.clickable
@@ -347,11 +346,14 @@ fun AmbiguityDetailScreen(
                     onJumpBottom = {
                         // 只滚到本页底部，不自动翻页：翻页交给底部「下一页」，避免滚动完立刻跳页。
                         scope.launch {
+                            // 先收起顶栏再开始滚动：程序化滚动不派发 nestedScroll，
+                            // 若等滚完再收，整个滑动过程里标题都会停在展开态。
+                            val scrollable = listState.canScrollBackward || listState.canScrollForward
+                            if (scrollable) {
+                                syncTopBar(topBarScrollBehavior?.state, collapse = true, animate = false)
+                            }
                             val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
                             listState.animateScrollToItem(lastIndex)
-                            // 内容确实超过一屏时才收起顶栏，否则短列表不该出现折叠态。
-                            val scrollable = listState.canScrollBackward || listState.canScrollForward
-                            syncTopBar(topBarScrollBehavior?.state, collapse = scrollable)
                         }
                     },
                     modifier = Modifier
@@ -369,19 +371,21 @@ fun AmbiguityDetailScreen(
  * 而 animateScrollToItem 不会派发 nested scroll 事件，所以必须手动补齐，
  * 否则列表动了、顶栏高度不变，大标题会卡在原地。
  */
-private suspend fun syncTopBar(state: TopAppBarState?, collapse: Boolean) {
+private suspend fun syncTopBar(state: TopAppBarState?, collapse: Boolean, animate: Boolean = true) {
     if (state == null) return
     val target = if (collapse) state.heightOffsetLimit else 0f
-    if (state.heightOffset == target) {
-        if (!collapse) state.contentOffset = 0f
-        return
-    }
-    animate(
-        initialValue = state.heightOffset,
-        targetValue = target,
-        animationSpec = tween(240),
-    ) { value, _ ->
-        state.heightOffset = value
+    if (state.heightOffset != target) {
+        if (animate) {
+            androidx.compose.animation.core.animate(
+                initialValue = state.heightOffset,
+                targetValue = target,
+                animationSpec = tween(240),
+            ) { value, _ ->
+                state.heightOffset = value
+            }
+        } else {
+            state.heightOffset = target
+        }
     }
     if (!collapse) state.contentOffset = 0f
 }

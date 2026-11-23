@@ -226,10 +226,10 @@ data class DictUiState(
     val processedLines: Int = 0,
     val processedPinyin: Int = 0,
     val sortMode: FileSortMode = FileSortMode.NAME,
-    val sortDescending: Boolean = true,
+    val sortDescending: Boolean = false,
     /** 报告页多音字卡片的排序方式，与词库页相互独立。 */
     val reportSortMode: FileSortMode = FileSortMode.NAME,
-    val reportSortDescending: Boolean = true,
+    val reportSortDescending: Boolean = false,
     val exportDirectoryUri: String? = null,
     val exportDirectoryName: String = "Download",
     val exportConflictMode: ExportConflictMode = ExportConflictMode.RENAME,

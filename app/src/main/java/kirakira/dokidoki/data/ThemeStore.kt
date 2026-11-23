@@ -24,8 +24,11 @@ data class SavedSettings(
     val replacePinyin: Boolean = false,
     val wordColumn: Int = 1,
     val pinyinColumn: Int = 2,
-    val sortMode: FileSortMode = FileSortMode.MODIFIED,
-    val sortDescending: Boolean = true,
+    val sortMode: FileSortMode = FileSortMode.NAME,
+    val sortDescending: Boolean = false,
+    /** 报告页多音字卡片的排序方式，与词库页分开保存。 */
+    val reportSortMode: FileSortMode = FileSortMode.NAME,
+    val reportSortDescending: Boolean = false,
     val exportDirectoryUri: String? = null,
     val exportDirectoryName: String = "Download",
     val exportConflictMode: ExportConflictMode = ExportConflictMode.RENAME,
@@ -50,6 +53,8 @@ class ThemeStore(private val context: Context) {
     private val pinyinColumnKey = intPreferencesKey("pinyin_column")
     private val sortModeKey = stringPreferencesKey("sort_mode")
     private val sortDescendingKey = booleanPreferencesKey("sort_descending")
+    private val reportSortModeKey = stringPreferencesKey("report_sort_mode")
+    private val reportSortDescendingKey = booleanPreferencesKey("report_sort_descending")
     private val exportDirectoryUriKey = stringPreferencesKey("export_directory_uri")
     private val exportDirectoryNameKey = stringPreferencesKey("export_directory_name")
     private val exportConflictModeKey = stringPreferencesKey("export_conflict_mode")
@@ -82,8 +87,11 @@ class ThemeStore(private val context: Context) {
         wordColumn = this[wordColumnKey]?.takeIf { it > 0 } ?: 1,
         pinyinColumn = this[pinyinColumnKey]?.takeIf { it > 0 } ?: 2,
         sortMode = FileSortMode.entries.firstOrNull { it.name == this[sortModeKey] }
-            ?: FileSortMode.MODIFIED,
-        sortDescending = this[sortDescendingKey] ?: true,
+            ?: FileSortMode.NAME,
+        sortDescending = this[sortDescendingKey] ?: false,
+        reportSortMode = FileSortMode.entries.firstOrNull { it.name == this[reportSortModeKey] }
+            ?: FileSortMode.NAME,
+        reportSortDescending = this[reportSortDescendingKey] ?: false,
         exportDirectoryUri = this[exportDirectoryUriKey],
         exportDirectoryName = this[exportDirectoryNameKey]?.takeIf { it.isNotBlank() } ?: "Download",
         exportConflictMode = ExportConflictMode.entries.firstOrNull { it.name == this[exportConflictModeKey] }
@@ -139,6 +147,14 @@ class ThemeStore(private val context: Context) {
 
     suspend fun setSortDescending(descending: Boolean) {
         context.settingsDataStore.edit { it[sortDescendingKey] = descending }
+    }
+
+    suspend fun setReportSortMode(mode: FileSortMode) {
+        context.settingsDataStore.edit { it[reportSortModeKey] = mode.name }
+    }
+
+    suspend fun setReportSortDescending(descending: Boolean) {
+        context.settingsDataStore.edit { it[reportSortDescendingKey] = descending }
     }
 
     suspend fun setExportDirectory(uri: String?, name: String) {
