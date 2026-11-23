@@ -560,6 +560,11 @@ private fun LibRow(
             }
             if (!selectionMode) {
                 Spacer(Modifier.width(8.dp))
+                // 手动替换过多音字拼音的文件额外带一个标记，不覆盖原有处理状态。
+                if (file.polyphonicHandled) {
+                    PolyphonicBadge()
+                    Spacer(Modifier.width(6.dp))
+                }
                 StatusBadge(file.status.label, file.status.highlighted)
             }
         }
@@ -575,6 +580,22 @@ private fun LibRow(
         }
     }
 }
+/** 已手动替换过多音字拼音的标记。 */
+@Composable
+private fun PolyphonicBadge() {
+    val p = DictTheme.palette
+    Box(
+        modifier = Modifier
+            .height(20.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(p.card2)
+            .padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("多音字", fontSize = 10.sp, color = p.text2)
+    }
+}
+
 /** 词库修改时间：yy-MM-dd HH:mm:ss（modifiedAt 为毫秒时间戳，0 表示未知）。 */
 private fun formatModified(millis: Long): String? {
     if (millis <= 0L) return null

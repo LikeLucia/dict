@@ -155,6 +155,61 @@ internal class AmbiguousDetailWriter(private val directory: File) : AutoCloseabl
     }
 }
 
+/**
+ * 把输出文件里某一行的第 [syllableIndex] 个音节替换成 [reading]。
+ *
+ * 输出文件与源文件行号一一对应（引擎逐行输出，含头部与空行），列以 Tab 分隔，
+ * 拼音列由 [pinyinColumn]（1 起）指定。只替换目标音节，保留其辅助码后缀、
+ * 其余音节与权重等其它列。
+ */
+internal object OutputLinePatcher {
+    fun replaceReading(
+        output: File,
+        line: Int,
+        pinyinColumn: Int,
+        syllableIndex: Int,
+        reading: String,
+        auxSeparator: String,
+    ): Boolean {
+        if (line < 1 || pinyinColumn < 1 || syllableIndex < 0 || reading.isEmpty()) return false
+        if (!output.isFile) return false
+        val lines = output.readLines(Charsets.UTF_8)
+        if (line > lines.size) return false
+        val index = line - 1
+        val raw = lines[index]
+        if (!raw.contains('\t')) return false
+        val fields = raw.split('\t').toMutableList()
+        val column = pinyinColumn - 1
+        if (column >= fields.size) return false
+        val original = fields[column]
+        val tokens = original.split(Regex("[\\s'’]+")).filter { it.isNotEmpty() }
+        if (syllableIndex >= tokens.size) return false
+        val target = tokens[syllableIndex]
+        val suffix = target.substringAfter(auxSeparator, "")
+        val replaced = reading + if (suffix.isEmpty()) "" else auxSeparator + suffix
+        if (replaced == target) return false
+        var seen = -1
+        val rebuilt = original.replace(Regex("[^\\s'’]+")) { match ->
+            seen++
+            if (seen == syllableIndex) replaced else match.value
+        }
+        if (rebuilt == original) return false
+        fields[column] = rebuilt
+        lines[index] = fields.joinToString("\t")
+        val temp = File(output.parentFile, output.name + ".patch")
+        try {
+            temp.writeText(lines.joinToString("\n"), Charsets.UTF_8)
+            if (!temp.renameTo(output)) {
+                temp.copyTo(output, overwrite = true)
+                temp.delete()
+            }
+        } finally {
+            if (temp.exists()) temp.delete()
+        }
+        return true
+    }
+}
+
 data class AmbiguousDetailPage(val entries: List<AmbiguousEntry>, val nextOffset: Int?)
 
 internal object AmbiguousDetailReader {
@@ -221,6 +276,7 @@ internal object AmbiguousDetailReader {
                 used = reading.optString("used"),
                 others = List(others.length()) { others.optString(it) },
                 toneUnspecified = reading.optBoolean("toneUnspecified"),
+                index = reading.optInt("index", -1),
             )
         }
         return AmbiguousEntry(

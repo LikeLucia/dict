@@ -352,6 +352,14 @@ fun DictApp(viewModel: MainViewModel) {
                                                 isActive = detailVisible,
                                                 onBack = { detailFileId = null },
                                                 onLoadPage = viewModel::readAmbiguousPage,
+                                                onReplaceReading = { line, index, reading ->
+                                                    viewModel.replaceAmbiguousReading(
+                                                        fileId = group.fileId,
+                                                        line = line,
+                                                        syllableIndex = index,
+                                                        reading = reading,
+                                                    )
+                                                },
                                             )
                                         }
                                     }

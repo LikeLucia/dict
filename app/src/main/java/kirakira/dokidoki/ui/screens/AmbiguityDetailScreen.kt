@@ -13,6 +13,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -90,8 +91,12 @@ fun AmbiguityDetailScreen(
     isActive: Boolean,
     onBack: () -> Unit,
     onLoadPage: suspend (String, Int, Int, String) -> AmbiguousDetailPage,
+    /** 替换模式点读音时调用：把该读音写回输出文件对应行。返回是否成功。 */
+    onReplaceReading: suspend (line: Int, syllableIndex: Int, reading: String) -> Boolean,
     modifier: Modifier = Modifier,
 ) {
+    // 长按卡片进入替换模式：此时点读音是替换，而不是复制。
+    var replaceMode by remember(group.fileId) { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var searchVisible by remember { mutableStateOf(false) }
     var searchFocusRequest by remember { mutableIntStateOf(0) }
@@ -199,6 +204,13 @@ fun AmbiguityDetailScreen(
                 actionIconSize = 22.dp,
             )
             AnimatedVisibility(
+                visible = replaceMode,
+                enter = fadeIn(tween(120)) + expandVertically(tween(170)),
+                exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
+            ) {
+                ReplaceModeBar(onExit = { replaceMode = false })
+            }
+            AnimatedVisibility(
                 visible = searchVisible,
                 enter = fadeIn(tween(120)) + expandVertically(tween(170)),
                 exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
@@ -296,6 +308,9 @@ fun AmbiguityDetailScreen(
                             DetailEntryRow(
                                 entry,
                                 showDivider = index != shown.lastIndex,
+                                replaceMode = replaceMode,
+                                onLongPress = { replaceMode = true },
+                                onReplaceReading = onReplaceReading,
                                 modifier = Modifier.padding(horizontal = 24.dp),
                             )
                         }
@@ -524,12 +539,40 @@ private fun JumpButton(
 }
 
 @Composable
-private fun DetailEntryRow(entry: AmbiguousEntry, showDivider: Boolean, modifier: Modifier = Modifier) {
+private fun DetailEntryRow(
+    entry: AmbiguousEntry,
+    showDivider: Boolean,
+    replaceMode: Boolean,
+    onLongPress: () -> Unit,
+    onReplaceReading: suspend (line: Int, syllableIndex: Int, reading: String) -> Boolean,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val interaction = remember { MutableInteractionSource() }
     val indication = rememberMiuixIndication()
     val colors = MiuixTheme.colorScheme
-    Column(modifier.fillMaxWidth()) {
+    val scope = rememberCoroutineScope()
+    // 替换模式下点读音即替换；普通模式保持复制。
+    fun handleReading(reading: String, syllableIndex: Int) {
+        if (!replaceMode) {
+            copyDetailText(context, reading)
+            return
+        }
+        scope.launch {
+            val ok = onReplaceReading(entry.line, syllableIndex, reading)
+            Toast.makeText(
+                context,
+                if (ok) "已替换为 " + reading else "替换失败：该行没有可写入的输出",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+    Column(modifier.fillMaxWidth().combinedClickable(
+        interactionSource = interaction,
+        indication = indication,
+        onClick = {},
+        onLongClick = onLongPress,
+    )) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -600,7 +643,12 @@ private fun DetailEntryRow(entry: AmbiguousEntry, showDivider: Boolean, modifier
                 modifier = Modifier.fillMaxWidth().padding(start = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                reading.others.forEach { other -> CopyableReading(value = other) }
+                reading.others.forEach { other ->
+                    CopyableReading(
+                        value = other,
+                        onClick = if (replaceMode) ({ handleReading(other, reading.index) }) else null,
+                    )
+                }
             }
         }
         if (showDivider) {
@@ -609,15 +657,51 @@ private fun DetailEntryRow(entry: AmbiguousEntry, showDivider: Boolean, modifier
     }
 }
 
+/** 替换模式提示条：说明当前点击行为，并提供退出入口。 */
 @Composable
-private fun CopyableReading(value: String, label: String = value, modifier: Modifier = Modifier) {
+private fun ReplaceModeBar(onExit: () -> Unit) {
+    val colors = MiuixTheme.colorScheme
+    val indication = rememberMiuixIndication()
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "替换拼音模式：点读音即替换原有拼音",
+            modifier = Modifier.weight(1f),
+            fontSize = 11.5.sp,
+            color = colors.primary,
+        )
+        Text(
+            "退出",
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = colors.primary,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(interactionSource = null, indication = indication, onClick = onExit)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun CopyableReading(
+    value: String,
+    label: String = value,
+    modifier: Modifier = Modifier,
+    /** 为空时按默认行为复制；替换模式下由调用方传入替换动作。 */
+    onClick: (() -> Unit)? = null,
+) {
     val context = LocalContext.current
     val interaction = remember { MutableInteractionSource() }
     val indication = rememberMiuixIndication()
     Text(
         label, fontSize = 11.5.sp, color = MiuixTheme.colorScheme.primary,
         modifier = modifier.clip(RoundedCornerShape(7.dp))
-            .clickable(interactionSource = interaction, indication = indication) { copyDetailText(context, value) }
+            .clickable(interactionSource = interaction, indication = indication) {
+                onClick?.invoke() ?: copyDetailText(context, value)
+            }
             .padding(horizontal = 4.dp, vertical = 8.dp),
     )
 }

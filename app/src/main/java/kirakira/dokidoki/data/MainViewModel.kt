@@ -214,6 +214,7 @@ class MainViewModel(
                 uri = item.optNullableString("uri"),
                 hasOutput = item.optBoolean("hasOutput"),
                 modifiedAt = item.optLong("modifiedAt"),
+                polyphonicHandled = item.optBoolean("polyphonicHandled"),
             )
         }
         val resultObject = root.optJSONObject("resultsByFile") ?: JSONObject()
@@ -322,6 +323,7 @@ class MainViewModel(
         put("uri", file.uri ?: JSONObject.NULL)
         put("hasOutput", file.hasOutput)
         put("modifiedAt", file.modifiedAt)
+        put("polyphonicHandled", file.polyphonicHandled)
     }
 
     private fun encodeProcessResult(result: ProcessResult) = JSONObject().apply {
@@ -1203,6 +1205,41 @@ class MainViewModel(
             samples = samples,
             missingChars = missing.toString(),
         )
+    }
+
+    /**
+     * 多音字详情页替换拼音：只改写已处理的输出，不碰原始导入文件。
+     * 替换成功后把文件标记为已处理多音字并持久化会话。
+     */
+    suspend fun replaceAmbiguousReading(
+        fileId: String,
+        line: Int,
+        syllableIndex: Int,
+        reading: String,
+    ): Boolean = withContext(Dispatchers.IO) {
+        val output = outputsByFile[fileId].orEmpty().firstOrNull() ?: return@withContext false
+        val state = _state.value
+        val patched = OutputLinePatcher.replaceReading(
+            output = output.file,
+            line = line,
+            pinyinColumn = state.pinyinColumn,
+            syllableIndex = syllableIndex,
+            reading = reading,
+            auxSeparator = state.auxSeparator,
+        )
+        if (!patched) return@withContext false
+        _state.update { current ->
+            current.copy(
+                files = current.files.map {
+                    if (it.id == fileId) {
+                        it.copy(polyphonicHandled = true, hasOutput = true,
+                            meta = formatSize(it.sizeBytes) + " · 已处理")
+                    } else it
+                },
+            )
+        }
+        persistSession()
+        true
     }
 
     suspend fun readAmbiguousPage(fileId: String, offset: Int, limit: Int, query: String): AmbiguousDetailPage =

@@ -86,6 +86,8 @@ data class AmbiguousReading(
     val used: String,
     val others: List<String>,
     val toneUnspecified: Boolean = false,
+    /** 该字在本行词语里的音节下标（引擎输出，用于替换拼音时定位）。 */
+    val index: Int = -1,
 )
 
 data class AmbiguousEntry(
@@ -260,6 +262,8 @@ data class DictFile(
     val uri: String? = null,
     val hasOutput: Boolean = false,
     val modifiedAt: Long = 0L,
+    /** 是否在详情页手动替换过多音字拼音；词库页据此显示标记。 */
+    val polyphonicHandled: Boolean = false,
 )
 
 enum class FileStatus(val label: String, val highlighted: Boolean) {
