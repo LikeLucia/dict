@@ -78,8 +78,6 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
-import top.yukonga.miuix.kmp.basic.TabRow
-import top.yukonga.miuix.kmp.basic.TabRowDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 import top.yukonga.miuix.kmp.icon.basic.Check
@@ -402,7 +400,8 @@ private fun FilterChips(
     onSelect: (Int) -> Unit,
 ) {
     val p = DictTheme.palette
-    // 标签较多，用 miuix TabRow：它自带滑动指示器、自动滚到选中项与边缘渐隐。
+    // 与底栏一致：深色白色淡填充，浅色黑色淡填充。
+    val indicatorColor = if (p.isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f)
     GlassFloatingToolbar(
         modifier = Modifier.fillMaxWidth(),
         backdrop = null,
@@ -411,21 +410,76 @@ private fun FilterChips(
         outSidePadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
         shadow = GlassShadows.Float,
     ) {
-        TabRow(
-            tabs = labels,
-            selectedTabIndex = selected,
-            onTabSelected = onSelect,
-            modifier = Modifier.fillMaxWidth(),
-            height = 38.dp,
-            cornerRadius = 19.dp,
-            itemSpacing = 6.dp,
-            minWidth = 56.dp,
-            maxWidth = 132.dp,
-            colors = TabRowDefaults.tabRowColors(
-                backgroundColor = Color.Transparent,
-                contentColor = p.text,
-            ),
-        )
+        // 标签较多时横向滑动；指示器跟随选中项的实际位置。
+        val chipListState = rememberLazyListState()
+        val chipBounds = remember { mutableStateMapOf<Int, Rect>() }
+        LaunchedEffect(selected) {
+            if (selected in labels.indices) chipListState.animateScrollToItem(selected)
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                // 胶囊高度 38dp。
+                .height(38.dp)
+                .drawBehind {
+                    val bounds = chipBounds[selected] ?: return@drawBehind
+                    if (bounds.width <= 0f) return@drawBehind
+                    drawRoundRect(
+                        color = indicatorColor,
+                        topLeft = Offset(bounds.left, 0f),
+                        size = Size(bounds.width, size.height),
+                        cornerRadius = CornerRadius(size.height / 2f),
+                    )
+                },
+        ) {
+            LazyRow(
+                state = chipListState,
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                itemsIndexed(labels) { index, label ->
+                    val isSelected = index == selected
+                    val textColor by animateColorAsState(
+                        targetValue = p.text,
+                        animationSpec = tween(160),
+                        label = "filter-chip-text",
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            // offset 在本 Compose 版本可用，用它定位指示器。
+                            .onGloballyPositioned { coords ->
+                                val x = coords.offset().x
+                                val y = coords.offset().y
+                                chipBounds[index] = Rect(
+                                    left = x,
+                                    top = y,
+                                    right = x + coords.size.width,
+                                    bottom = y + coords.size.height,
+                                )
+                            }
+                            .clip(RoundedCornerShape(18.dp))
+                            // 关掉 clickable 自带的按压指示（ripple）：选中态只由指示器胶囊表达。
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { onSelect(index) }
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            label,
+                            fontSize = 11.5.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = textColor,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
