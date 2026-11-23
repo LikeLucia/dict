@@ -60,7 +60,7 @@ Gradle 通过 `RELEASE_KEYSTORE_PATH`、`RELEASE_STORE_PASSWORD`、`RELEASE_KEY_
 ## 版本说明
 
 - namespace 与 applicationId：`kirakira.dokidoki`
-- versionName 与 versionCode 记录在 `version.properties`；versionName 为三段式 `MAJOR.MINOR.PATCH`，Release 发布时递增末段（2.1.1 → 2.1.2，末段到 9 后进位为 2.4.0），versionCode 使用源码值；CI 构建只递增 versionCode
+- versionName 与 versionCode 记录在 `version.properties`；versionName 为三段式 `MAJOR.MINOR.PATCH`，Release 发布时递增末段（2.1.1 → 2.1.2，末段到 9 后进位为 2.4.0），versionCode 同时递增（否则同 code 的新包无法覆盖安装）；CI 构建只递增 versionCode
 - Release 签名由 GitHub Actions 使用仓库 Secrets 完成。
 - 从旧版 1.1.0（WebView 版本）升级时，因签名不同需先备份数据并卸载旧版。
 
