@@ -26,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +55,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kirakira.dokidoki.data.AmbiguousEntry
 import kirakira.dokidoki.data.AmbiguousFileGroup
@@ -337,22 +340,25 @@ fun AmbiguityDetailScreen(
                     notAtBottom = notAtBottom,
                     onJumpTop = {
                         scope.launch {
-                            // 滚动一开始就并行展开顶栏：程序化滚动不派发 nestedScroll，
-                            // 顶栏不会自己动，这里与滚动同时进行，标题随滚动一起回来。
-                            launch { syncTopBar(topBarScrollBehavior?.state, collapse = false) }
-                            listState.animateScrollToItem(0)
+                            // 滚动全程每帧把顶栏压到展开位：程序化滚动期间顶栏状态会被自身
+                            // 的测量与回弹改写，只在开始或结束时设一次都留不住。
+                            holdTopBar(topBarScrollBehavior?.state, collapse = false) {
+                                listState.animateScrollToItem(0)
+                            }
                         }
                     },
                     onJumpBottom = {
                         // 只滚到本页底部，不自动翻页：翻页交给底部「下一页」，避免滚动完立刻跳页。
                         scope.launch {
-                            // 一旦开始滚动就收起顶栏：与滚动并行，不等滚完再收。
+                            val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
                             val scrollable = listState.canScrollBackward || listState.canScrollForward
                             if (scrollable) {
-                                launch { syncTopBar(topBarScrollBehavior?.state, collapse = true) }
+                                holdTopBar(topBarScrollBehavior?.state, collapse = true) {
+                                    listState.animateScrollToItem(lastIndex)
+                                }
+                            } else {
+                                listState.animateScrollToItem(lastIndex)
                             }
-                            val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
-                            listState.animateScrollToItem(lastIndex)
                         }
                     },
                     modifier = Modifier
@@ -363,6 +369,37 @@ fun AmbiguityDetailScreen(
         }
     }
 }
+/**
+ * 在 [block]（通常是滚动动画）执行期间，每帧把顶栏压到目标折叠态。
+ *
+ * 程序化滚动不派发 nestedScroll，顶栏不会自己跟随；而只在开始或结束时设一次
+ * `heightOffset` 又会被顶栏自身的测量与回弹改写，所以这里逐帧重申目标值。
+ * [block] 结束后再落一次最终状态，避免最后一帧被覆盖。
+ */
+private suspend fun holdTopBar(state: TopAppBarState?, collapse: Boolean, block: suspend () -> Unit) {
+    if (state == null) {
+        block()
+        return
+    }
+    val target = { if (collapse) state.heightOffsetLimit else 0f }
+    coroutineScope {
+        val holder = launch {
+            while (isActive) {
+                state.heightOffset = target()
+                withFrameNanos { }
+            }
+        }
+        try {
+            block()
+        } finally {
+            holder.cancel()
+        }
+    }
+    // 落一次最终状态，避免最后一帧被顶栏自身改写。
+    state.heightOffset = target()
+    if (!collapse) state.contentOffset = 0f
+}
+
 /**
  * 程序化滚动后同步顶栏折叠状态。
  *
