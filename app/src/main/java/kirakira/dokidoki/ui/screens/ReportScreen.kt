@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kirakira.dokidoki.data.AmbiguousFileGroup
+import kirakira.dokidoki.data.DictFile
 import kirakira.dokidoki.data.ProcessResult
 import kirakira.dokidoki.data.ambiguityGroups
 import kirakira.dokidoki.ui.components.DictCard
@@ -54,6 +55,8 @@ import java.util.Locale
 @Composable
 fun ReportScreen(
     result: ProcessResult,
+    /** 当前词库列表：用于在会话记录缺少时间时回退到词库里的修改时间。 */
+    files: List<DictFile>,
     onOpenFile: (AmbiguousFileGroup) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -61,7 +64,7 @@ fun ReportScreen(
         SmallTitle("统计", modifier = Modifier.padding(start = 4.dp))
         StatsGrid(result)
         SmallTitle("报告详情", modifier = Modifier.padding(start = 4.dp))
-        PolyphonicCard(result, onOpenFile)
+        PolyphonicCard(result, files, onOpenFile)
     }
 }
 
@@ -114,6 +117,7 @@ private fun formatGroupModified(millis: Long): String? {
 @Composable
 private fun PolyphonicCard(
     result: ProcessResult,
+    files: List<DictFile>,
     onOpenFile: (AmbiguousFileGroup) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
@@ -121,6 +125,7 @@ private fun PolyphonicCard(
     var query by remember { mutableStateOf("") }
     val entryCount = result.ambiguousCount
     val groups = remember(result) { result.ambiguityGroups() }
+    val libraryTimes = remember(files) { files.mapNotNull { f -> f.id?.let { it to f.modifiedAt } }.toMap() }
     val q = query.trim()
     val shown = if (q.isEmpty()) groups else groups.filter { it.fileName.contains(q, ignoreCase = true) }
     val colors = MiuixTheme.colorScheme
@@ -201,7 +206,9 @@ private fun PolyphonicCard(
             BasicComponent(
                 title = group.fileName,
                 // 文件下方显示源文件的修改时间：yy-MM-d hh:mm:ss。
-                summary = formatGroupModified(group.modifiedAt),
+                summary = formatGroupModified(
+                    group.modifiedAt.takeIf { it > 0L } ?: libraryTimes[group.fileId] ?: 0L,
+                ),
                 onClick = { onOpenFile(group) },
                 onClickLabel = "查看多音字",
                 startAction = {

@@ -271,6 +271,7 @@ fun DictApp(viewModel: MainViewModel) {
 
                                                     2 -> ReportScreen(
                                                         result = state.result,
+                                                        files = state.files,
                                                         onOpenFile = { group -> detailFileId = group.fileId },
                                                     )
 

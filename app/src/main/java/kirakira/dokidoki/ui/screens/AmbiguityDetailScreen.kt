@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -292,20 +293,35 @@ fun AmbiguityDetailScreen(
                         }
                         if (pageIndex > 0 || nextOffset != null) {
                             item(key = "pagination:" + group.fileId + ":" + pageIndex, contentType = "pagination") {
+                                // 左右两侧各占一半剩余宽度，中间的页码才会真正居中。
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    if (pageIndex > 0) Text("上一页", modifier = Modifier.clickable { pageIndex-- }, color = MiuixTheme.colorScheme.primary)
-                                    else Spacer(Modifier.width(1.dp))
-                                    Text("第 " + (pageIndex + 1) + " 页", fontSize = 11.sp, color = MiuixTheme.colorScheme.onBackgroundVariant)
-                                    val next = nextOffset
-                                    if (next != null) Text("下一页", modifier = Modifier.clickable {
-                                        if (pageIndex + 1 == offsets.size) offsets.add(next)
-                                        pageIndex++
-                                    }, color = MiuixTheme.colorScheme.primary)
-                                    else Spacer(Modifier.width(1.dp))
+                                    Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                                        if (pageIndex > 0) {
+                                            Text(
+                                                "上一页",
+                                                modifier = Modifier.clickable { pageIndex-- },
+                                                color = MiuixTheme.colorScheme.primary,
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        "第 " + (pageIndex + 1) + " 页",
+                                        fontSize = 11.sp,
+                                        color = MiuixTheme.colorScheme.onBackgroundVariant,
+                                        textAlign = TextAlign.Center,
+                                    )
+                                    Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                                        val next = nextOffset
+                                        if (next != null) {
+                                            Text("下一页", modifier = Modifier.clickable {
+                                                if (pageIndex + 1 == offsets.size) offsets.add(next)
+                                                pageIndex++
+                                            }, color = MiuixTheme.colorScheme.primary)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -318,15 +334,10 @@ fun AmbiguityDetailScreen(
                         scope.launch { listState.animateScrollToItem(0) }
                     },
                     onJumpBottom = {
+                        // 只滚到本页底部，不自动翻页：翻页交给底部「下一页」，避免滚动完立刻跳页。
                         scope.launch {
                             val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
                             listState.animateScrollToItem(lastIndex)
-                            // 本页到底后还有下一页：接着翻页。
-                            val next = nextOffset
-                            if (next != null) {
-                                if (pageIndex + 1 == offsets.size) offsets.add(next)
-                                pageIndex++
-                            }
                         }
                     },
                     modifier = Modifier
