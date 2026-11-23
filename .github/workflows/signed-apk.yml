@@ -1,5 +1,6 @@
 # 手动构建已签名的 Release APK，并可发布到 GitHub Release。
-# Release 模式递增 versionName；CI 模式只递增 versionCode，versionName 保持原样。
+# versionName 为三段式 MAJOR.MINOR.PATCH。
+# Release 模式递增末段（到 9 进位中段，2.3.9 -> 2.4.0）；CI 模式只递增 versionCode，versionName 保持原样。
 #
 # 启用方式：将本文件放到 .github/workflows/signed-apk.yml。
 #
@@ -83,20 +84,29 @@ jobs:
           CURRENT_CODE="$(grep ^versionCode= version.properties | cut -d= -f2)"
           test -n "$CURRENT_NAME"
           test -n "$CURRENT_CODE"
-          LATEST_RELEASE_NAME="$(git ls-remote --tags origin | awk -F'refs/tags/' '{print $2}' | sed 's/\^{}//' | sed -n 's/^v//p' | grep -E '^[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -V | tail -n1 || true)"
-          VERSION_BASE="$CURRENT_NAME"
-          if [ -n "$LATEST_RELEASE_NAME" ]; then
-            VERSION_BASE="$(printf '%s\n%s\n' "$CURRENT_NAME" "$LATEST_RELEASE_NAME" | sort -V | tail -n1)"
+          # versionName 统一为三段式 MAJOR.MINOR.PATCH；两段式按 .0 补齐，如 2.1 -> 2.1.0。
+          if ! printf '%s' "$CURRENT_NAME" | grep -qE '^[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
+            echo "::error::versionName '$CURRENT_NAME' is not MAJOR.MINOR[.PATCH]"
+            exit 1
           fi
+          MAJOR="${CURRENT_NAME%%.*}"
+          REST="${CURRENT_NAME#*.}"
+          MINOR="${REST%%.*}"
+          if [ "$REST" = "$MINOR" ]; then PATCH=0; else PATCH="${REST#*.}"; fi
           if [ "$PUBLISH_RELEASE" = "true" ]; then
-            MAJOR="${VERSION_BASE%%.*}"
-            MINOR="${VERSION_BASE#*.}"
-            MINOR="${MINOR%%.*}"
-            RELEASE_NAME="${MAJOR}.$((MINOR + 1))"
+            # 只递增末段，到 9 后进位到中段：2.3.9 -> 2.4.0。
+            if [ "$PATCH" -ge 9 ]; then
+              MINOR=$((MINOR + 1))
+              PATCH=0
+            else
+              PATCH=$((PATCH + 1))
+            fi
+            RELEASE_NAME="${MAJOR}.${MINOR}.${PATCH}"
             RELEASE_CODE="$CURRENT_CODE"
             VERSION_MODE="release"
           else
-            RELEASE_NAME="$VERSION_BASE"
+            # CI 模式不动 versionName，只递增 versionCode。
+            RELEASE_NAME="${MAJOR}.${MINOR}.${PATCH}"
             RELEASE_CODE=$((CURRENT_CODE + 1))
             VERSION_MODE="ci"
           fi
