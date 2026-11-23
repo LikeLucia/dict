@@ -102,7 +102,8 @@ jobs:
               PATCH=$((PATCH + 1))
             fi
             RELEASE_NAME="${MAJOR}.${MINOR}.${PATCH}"
-            RELEASE_CODE="$CURRENT_CODE"
+            # 正式发布同样递增 versionCode，否则同 code 的新包无法覆盖安装。
+            RELEASE_CODE=$((CURRENT_CODE + 1))
             VERSION_MODE="release"
           else
             # CI 模式不动 versionName，只递增 versionCode。
