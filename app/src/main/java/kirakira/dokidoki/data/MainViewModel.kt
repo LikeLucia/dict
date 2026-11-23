@@ -102,6 +102,8 @@ class MainViewModel(
                         pinyinColumn = saved.pinyinColumn,
                         sortMode = saved.sortMode,
                         sortDescending = saved.sortDescending,
+                        reportSortMode = saved.reportSortMode,
+                        reportSortDescending = saved.reportSortDescending,
                         exportDirectoryUri = saved.exportDirectoryUri,
                         exportDirectoryName = saved.exportDirectoryName,
                         exportConflictMode = saved.exportConflictMode,
