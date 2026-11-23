@@ -585,8 +585,8 @@ private fun DetailEntryRow(
                         copyDetailText(context, entry.line.toString())
                     },
                 cornerRadius = 12.dp,
-                // 左右内边距 16dp。
-                insideMargin = PaddingValues(horizontal = 16.dp),
+                // 左右内边距 20dp。
+                insideMargin = PaddingValues(horizontal = 20.dp),
                 colors = CardDefaults.defaultColors(
                     color = colors.tertiaryContainer,
                     contentColor = colors.onTertiaryContainer,
