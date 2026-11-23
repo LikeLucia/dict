@@ -53,6 +53,9 @@ import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.icon.glass.Add
 import top.yukonga.miuix.kmp.icon.glass.StarOutline
 import top.yukonga.miuix.kmp.icon.glass.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -415,7 +418,8 @@ private fun RecentCard(files: List<DictFile>, onOpenFile: (String) -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp)
-            .height((maxOf(files.size, 1) * 54).dp)
+            // 每行多了一行时间，行高由 54dp 提到 66dp。
+            .height((maxOf(files.size, 1) * 66).dp)
                 ) {
         if (files.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -428,6 +432,7 @@ private fun RecentCard(files: List<DictFile>, onOpenFile: (String) -> Unit) {
                         RecentRow(
                             name = file.name,
                             meta = file.meta,
+                            modifiedAt = file.modifiedAt,
                             status = file.status,
                             last = index == files.lastIndex,
                             onClick = { file.id?.let(onOpenFile) },
@@ -448,14 +453,21 @@ private fun recentBadge(status: FileStatus): Pair<String, Boolean>? = when (stat
 }
 
 @Composable
-private fun RecentRow(name: String, meta: String, status: FileStatus, last: Boolean, onClick: () -> Unit) {
+private fun RecentRow(
+    name: String,
+    meta: String,
+    modifiedAt: Long,
+    status: FileStatus,
+    last: Boolean,
+    onClick: () -> Unit,
+) {
     val p = DictTheme.palette
     val indication = rememberMiuixIndication()
     val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(54.dp)
+            .height(66.dp)
             .clickable(
                 interactionSource = interaction,
                 indication = indication,
@@ -479,8 +491,13 @@ private fun RecentRow(name: String, meta: String, status: FileStatus, last: Bool
             Spacer(Modifier.width(12.dp))
             Column {
                 Text(name, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = p.text)
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(3.dp))
                 Text(meta, fontSize = 11.sp, color = p.text2)
+                // 与词库页一致：yy-MM-dd HH:mm:ss，时间未知时不占位。
+                formatModifiedTime(modifiedAt)?.let { time ->
+                    Spacer(Modifier.height(2.dp))
+                    Text(time, fontSize = 10.5.sp, color = p.text3)
+                }
             }
             Spacer(Modifier.weight(1f))
             recentBadge(status)?.let { (label, highlighted) ->
@@ -505,6 +522,12 @@ private fun RecentRow(name: String, meta: String, status: FileStatus, last: Bool
             )
         }
     }
+}
+
+/** 首页最近使用的时间：与词库页同一格式 yy-MM-dd HH:mm:ss；0 表示未知，返回 null 不显示。 */
+private fun formatModifiedTime(millis: Long): String? {
+    if (millis <= 0L) return null
+    return SimpleDateFormat("yy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(millis))
 }
 
 internal fun formatEstimatedDuration(seconds: Int): String = when {
