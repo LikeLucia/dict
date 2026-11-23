@@ -18,6 +18,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -26,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -34,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -55,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kirakira.dokidoki.data.DictFile
+import kirakira.dokidoki.data.FileStatus
 import kirakira.dokidoki.data.DictUiState
 import kirakira.dokidoki.data.FileSortMode
 import kirakira.dokidoki.ui.components.DictCard
@@ -102,6 +106,8 @@ fun LibScreen(
     val p = DictTheme.palette
     var query by rememberSaveable { mutableStateOf("") }
     var selectedFilter by rememberSaveable { mutableIntStateOf(0) }
+    // 标签 = 全部 + 文件格式 + 处理标记；统一在一行里横向滑动。
+    val filterLabels = remember { LIBRARY_FILTERS.map { it.label } }
     var highlightedId by remember { mutableStateOf<String?>(null) }
     var searchVisible by rememberSaveable { mutableStateOf(false) }
     var searchFocusRequest by remember { mutableIntStateOf(0) }
@@ -159,15 +165,9 @@ fun LibScreen(
     }
     val visibleFiles = remember(orderedFiles, query, selectedFilter, state.sortDescending) {
         val noQuery = query.isBlank()
-        val filtered = if (noQuery && selectedFilter == 0) orderedFiles else orderedFiles.filter { file ->
-            val name = file.name
-            (noQuery || name.contains(query, ignoreCase = true)) && when (selectedFilter) {
-                1 -> name.endsWith(".yaml", true) || name.endsWith(".yml", true)
-                2 -> name.endsWith(".txt", true)
-                3 -> name.endsWith(".tsv", true)
-                4 -> name.endsWith(".zip", true)
-                else -> true
-            }
+        val spec = LIBRARY_FILTERS.getOrNull(selectedFilter) ?: LIBRARY_FILTERS.first()
+        val filtered = if (noQuery && spec === LIBRARY_FILTERS.first()) orderedFiles else orderedFiles.filter { file ->
+            (noQuery || file.name.contains(query, ignoreCase = true)) && spec.matches(file)
         }
         if (state.sortDescending) filtered.asReversed() else filtered
     }
@@ -223,6 +223,7 @@ fun LibScreen(
                             }
                         }
                         FilterChips(
+                            labels = filterLabels,
                             selected = selectedFilter,
                             onSelect = { selectedFilter = it },
                         )
@@ -372,36 +373,32 @@ private fun SearchBar(
  * 移动时前缘领先、后缘跟随，胶囊在途中被拉长，到位后回弹收拢；
  * 文字配色也照底栏来——选中与否都读正文色，由指示器胶囊本身区分选中项。
  */
+/** 词库页的一个筛选标签：文案 + 命中条件。 */
+private class LibraryFilter(val label: String, val matches: (DictFile) -> Boolean)
+
+private val LIBRARY_FILTERS = listOf(
+    LibraryFilter("全部") { true },
+    LibraryFilter("YAML") { it.name.endsWith(".yaml", true) || it.name.endsWith(".yml", true) },
+    LibraryFilter("TXT") { it.name.endsWith(".txt", true) },
+    LibraryFilter("TSV") { it.name.endsWith(".tsv", true) },
+    LibraryFilter("ZIP") { it.name.endsWith(".zip", true) },
+    // 处理标记分类。
+    LibraryFilter("拼与辅") { it.status == FileStatus.PINYIN_AUX_DONE },
+    LibraryFilter("拼音") { it.status == FileStatus.PINYIN_DONE },
+    LibraryFilter("辅助码") { it.status == FileStatus.AUX_DONE },
+    LibraryFilter("删辅助码") { it.status == FileStatus.AUX_STRIPPED },
+    LibraryFilter("多音字") { it.polyphonicHandled },
+    LibraryFilter("待处理") { it.status == FileStatus.PENDING },
+    LibraryFilter("处理失败") { it.status == FileStatus.FAILED },
+)
+
 @Composable
 private fun FilterChips(
+    labels: List<String>,
     selected: Int,
     onSelect: (Int) -> Unit,
 ) {
     val p = DictTheme.palette
-    val labels = listOf("全部", "YAML", "TXT", "TSV", "ZIP")
-    val slots = labels.size
-    val indicatorLeft = remember { Animatable(0f) }
-    val indicatorRight = remember { Animatable(0f) }
-    var trackWidth by remember { mutableIntStateOf(0) }
-    val slotWidth = if (slots > 0 && trackWidth > 0) trackWidth.toFloat() / slots else 0f
-    LaunchedEffect(selected, slotWidth) {
-        if (slotWidth <= 0f) return@LaunchedEffect
-        val newLeft = selected * slotWidth
-        val newRight = newLeft + slotWidth
-        if (indicatorRight.value <= indicatorLeft.value) {
-            // 首次布局直接落位，不从 0 号槽滑入。
-            indicatorLeft.snapTo(newLeft)
-            indicatorRight.snapTo(newRight)
-        } else {
-            // 与 GlassNavigationBar 一致：向左移动时前缘用 navIndicator，向右时后缘用 navIndicatorTrail。
-            launch {
-                indicatorLeft.animateTo(newLeft, GlassMotion.edgeSpring(newLeft <= indicatorLeft.value))
-            }
-            launch {
-                indicatorRight.animateTo(newRight, GlassMotion.edgeSpring(newLeft > indicatorLeft.value))
-            }
-        }
-    }
     // 与底栏一致：深色白色淡填充，浅色黑色淡填充。
     val indicatorColor = if (p.isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f)
     GlassFloatingToolbar(
@@ -412,56 +409,63 @@ private fun FilterChips(
         outSidePadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
         shadow = GlassShadows.Float,
     ) {
-        Row(
+        // 标签较多时横向滑动；指示器跟随选中项的实际位置。
+        val chipListState = rememberLazyListState()
+        val chipBounds = remember { mutableStateMapOf<Int, Rect>() }
+        LaunchedEffect(selected) {
+            if (selected in labels.indices) chipListState.animateScrollToItem(selected)
+        }
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 // 胶囊高度 38dp。
                 .height(38.dp)
-                .onSizeChanged { trackWidth = it.width }
-                // 指示器画在等宽槽位坐标系里，位置完全由槽宽和左右两条边决定。
                 .drawBehind {
-                    val left = indicatorLeft.value
-                    val right = indicatorRight.value
-                    if (right <= left) return@drawBehind
-                    val height = size.height
+                    val bounds = chipBounds[selected] ?: return@drawBehind
+                    if (bounds.width <= 0f) return@drawBehind
                     drawRoundRect(
                         color = indicatorColor,
-                        topLeft = Offset(left, 0f),
-                        size = Size(right - left, height),
-                        cornerRadius = CornerRadius(height / 2f),
+                        topLeft = Offset(bounds.left, 0f),
+                        size = Size(bounds.width, size.height),
+                        cornerRadius = CornerRadius(size.height / 2f),
                     )
                 },
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            labels.forEachIndexed { index, label ->
-                val isSelected = index == selected
-                val textColor by animateColorAsState(
-                    targetValue = p.text,
-                    animationSpec = tween(160),
-                    label = "filter-chip-text",
-                )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(18.dp))
-                        // 关掉 clickable 自带的按压指示（ripple）：它是一层没有过渡的高亮，
-                        // 会和下面那条带弹簧动画的指示器胶囊叠成两层。选中态只由指示器胶囊表达。
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) { onSelect(index) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        label,
-                        fontSize = 11.5.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = textColor,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+            LazyRow(
+                state = chipListState,
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                itemsIndexed(labels) { index, label ->
+                    val isSelected = index == selected
+                    val textColor by animateColorAsState(
+                        targetValue = p.text,
+                        animationSpec = tween(160),
+                        label = "filter-chip-text",
                     )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .onGloballyPositioned { chipBounds[index] = it.boundsInParent() }
+                            .clip(RoundedCornerShape(18.dp))
+                            // 关掉 clickable 自带的按压指示（ripple）：选中态只由指示器胶囊表达。
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { onSelect(index) }
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            label,
+                            fontSize = 11.5.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = textColor,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
