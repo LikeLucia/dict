@@ -11,6 +11,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -341,7 +342,8 @@ fun DictTopBar(
                     Box(
                         modifier = Modifier
                             .heightIn(min = 48.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            // 灰遮罩为矩形：不加圆角，与圆形图标按钮明确区分。
+                            .clip(RectangleShape)
                             .background(selectAllMask)
                             .clickable(
                                 interactionSource = selectAllInteraction,
