@@ -82,7 +82,7 @@ internal class AmbiguousDetailWriter(private val directory: File) : AutoCloseabl
                 put("message", "多音字：$word（" + characters.joinToString("、") + "）")
                 put("pinyin", detail.optString("pinyin"))
                 put("readings", readings)
-            }, fileName, fileId)
+            }, fileName, fileId, modifiedAt)
         }
     }
 
