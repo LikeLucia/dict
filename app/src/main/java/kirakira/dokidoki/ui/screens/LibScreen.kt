@@ -15,6 +15,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -294,8 +295,24 @@ private fun SortHeader(
     ) {
         Text("全部词库", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = p.text2)
         Spacer(Modifier.weight(1f))
+        // 按下灰遮罩圆角 8dp。
+        val sortInteraction = remember { MutableInteractionSource() }
+        val sortPressed = sortInteraction.collectIsPressedAsState().value
+        val sortMask by animateColorAsState(
+            targetValue = if (sortPressed) p.text.copy(alpha = 0.10f) else Color.Transparent,
+            animationSpec = tween(durationMillis = 120),
+            label = "sort-mask",
+        )
         Row(
-            modifier = Modifier.captureDropdownAnchor(anchor).clickable { onOpen(anchor.bounds()) },
+            modifier = Modifier
+                .captureDropdownAnchor(anchor)
+                .clip(RoundedCornerShape(8.dp))
+                .background(sortMask)
+                .clickable(
+                    interactionSource = sortInteraction,
+                    indication = null,
+                ) { onOpen(anchor.bounds()) }
+                .padding(horizontal = 6.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("排序：$label", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = p.accent)
