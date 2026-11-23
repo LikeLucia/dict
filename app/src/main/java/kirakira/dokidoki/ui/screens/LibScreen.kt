@@ -447,15 +447,14 @@ private fun FilterChips(
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
-                            // offset 在本 Compose 版本可用，用它定位指示器。
+                            // 用 localToRoot 取得相对父容器的位置，供指示器绘制。
                             .onGloballyPositioned { coords ->
-                                val x = coords.offset().x
-                                val y = coords.offset().y
+                                val position = coords.localToRoot()
                                 chipBounds[index] = Rect(
-                                    left = x,
-                                    top = y,
-                                    right = x + coords.size.width,
-                                    bottom = y + coords.size.height,
+                                    left = position.x,
+                                    top = position.y,
+                                    right = position.x + coords.size.width,
+                                    bottom = position.y + coords.size.height,
                                 )
                             }
                             .clip(RoundedCornerShape(18.dp))
