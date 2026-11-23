@@ -449,7 +449,7 @@ private fun FilterChips(
                             .fillMaxHeight()
                             // 用 localToRoot 取得相对父容器的位置，供指示器绘制。
                             .onGloballyPositioned { coords ->
-                                val position = coords.localToRoot()
+                                val position = coords.localToRoot(Offset.Zero)
                                 chipBounds[index] = Rect(
                                     left = position.x,
                                     top = position.y,
