@@ -269,11 +269,12 @@ data class DictFile(
 )
 
 enum class FileStatus(val label: String, val highlighted: Boolean) {
-    PINYIN_AUX_DONE("已刷拼音和辅助码", true),
-    AUX_DONE("已刷辅助码", true),
-    AUX_STRIPPED("已删辅助码", true),
-    PINYIN_DONE("已刷拼音", true),
-    EXPORTED("已导出", true),
+    PINYIN_AUX_DONE("拼与辅", true),
+    AUX_DONE("辅助码", true),
+    AUX_STRIPPED("删辅助码", true),
+    PINYIN_DONE("拼音", true),
+    /** 已导出不再作为状态展示：导出后保留原处理状态，此值仅用于兼容旧记录。 */
+    EXPORTED("", true),
     CANCELLED("已取消", false),
     PENDING("待处理", false),
     FAILED("处理失败", false),

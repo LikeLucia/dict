@@ -567,7 +567,10 @@ private fun LibRow(
                     PolyphonicBadge()
                     Spacer(Modifier.width(6.dp))
                 }
-                StatusBadge(file.status.label, file.status.highlighted)
+                // 空文案的状态（如旧记录里的已导出）不渲染徽章。
+                if (file.status.label.isNotEmpty()) {
+                    StatusBadge(file.status.label, file.status.highlighted)
+                }
             }
         }
         if (!last && !selected) {

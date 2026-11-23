@@ -1165,11 +1165,9 @@ class MainViewModel(
 
     private fun markExported(payload: ExportPayload) {
         val id = payload.fileId ?: return
+        // 「已导出」不再作为状态展示：保留原处理状态，只更新 meta 文案。
         updateFile(id) { file ->
-            file.copy(
-                status = FileStatus.EXPORTED,
-                meta = formatSize(file.sizeBytes) + " · 已导出",
-            )
+            file.copy(meta = formatSize(file.sizeBytes) + " · 已导出")
         }
     }
 

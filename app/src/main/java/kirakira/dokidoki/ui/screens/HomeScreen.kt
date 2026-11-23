@@ -445,9 +445,8 @@ private fun RecentCard(files: List<DictFile>, onOpenFile: (String) -> Unit) {
 }
 
 private fun recentBadge(status: FileStatus): Pair<String, Boolean>? = when (status) {
-    FileStatus.EXPORTED -> "已导出" to true
     FileStatus.CANCELLED -> "已取消" to false
-    FileStatus.PINYIN_AUX_DONE, FileStatus.AUX_DONE, FileStatus.AUX_STRIPPED, FileStatus.PINYIN_DONE -> "处理完成" to true
+    FileStatus.EXPORTED, FileStatus.PINYIN_AUX_DONE, FileStatus.AUX_DONE, FileStatus.AUX_STRIPPED, FileStatus.PINYIN_DONE -> "处理完成" to true
     FileStatus.FAILED -> "处理失败" to false
     FileStatus.PENDING -> null
 }
