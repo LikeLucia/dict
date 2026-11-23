@@ -127,22 +127,6 @@ private fun HomeHeader() {
         titlePadding = 24.dp,
         actionIconPadding = 24.dp,
         scrollBehavior = LocalDictTopBarScrollBehavior.current,
-        actions = {
-            Box(
-                modifier = Modifier
-                    .height(20.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(p.tint)
-                    .padding(horizontal = 10.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    "本机完成 · 不上传",
-                    fontSize = 10.sp,
-                    color = p.onTint,
-                )
-            }
-        },
     )
 }
 
