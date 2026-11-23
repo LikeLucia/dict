@@ -20,7 +20,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kirakira.dokidoki.data.AmbiguousFileGroup
@@ -218,14 +217,14 @@ private fun PolyphonicCard(
             )
         } else {
             Row(
-                modifier = Modifier.fillMaxWidth().height(62.dp).padding(start = 18.dp, end = 16.dp),
+                modifier = Modifier.fillMaxWidth().height(74.dp).padding(start = 18.dp, end = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // 尺寸对齐多音字详情页的搜索框：52dp 高、26dp 圆角、14sp、Miuix 默认内边距。
                 TextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.weight(1f).height(40.dp),
-                    insideMargin = DpSize(16.dp, 10.dp),
+                    modifier = Modifier.weight(1f).height(52.dp),
                     colors = TextFieldDefaults.textFieldColors(
                         backgroundColor = colors.surfaceContainerHigh,
                         labelColor = colors.onBackgroundVariant,
@@ -234,8 +233,16 @@ private fun PolyphonicCard(
                     label = "搜文件名",
                     useLabelAsPlaceholder = true,
                     singleLine = true,
-                    cornerRadius = 12.dp,
-                    textStyle = MiuixTheme.textStyles.main.copy(fontSize = 13.5.sp),
+                    cornerRadius = 26.dp,
+                    textStyle = MiuixTheme.textStyles.main.copy(fontSize = 14.sp),
+                    leadingIcon = {
+                        Icon(
+                            MiuixIcons.Basic.Search,
+                            contentDescription = null,
+                            modifier = Modifier.padding(start = 16.dp, end = 10.dp).size(17.dp),
+                            tint = colors.onBackgroundVariant,
+                        )
+                    },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                 )

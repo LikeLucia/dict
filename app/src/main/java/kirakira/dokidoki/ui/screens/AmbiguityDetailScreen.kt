@@ -61,6 +61,7 @@ import kirakira.dokidoki.data.AmbiguousFileGroup
 import kirakira.dokidoki.data.AmbiguousDetailPage
 import kotlinx.coroutines.CancellationException
 import kirakira.dokidoki.ui.components.DictTopBar
+import kirakira.dokidoki.ui.components.LocalDictTopBarScrollBehavior
 import kirakira.dokidoki.ui.theme.DictTheme
 import kirakira.dokidoki.ui.components.FixedTopPage
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
@@ -163,6 +164,8 @@ fun AmbiguityDetailScreen(
         if (listState.layoutInfo.totalItemsCount > 0) listState.scrollToItem(0)
     }
     val scope = rememberCoroutineScope()
+    // 顶栏折叠状态由 nestedScroll 驱动；程序化滚动不会派发该事件，需要手动同步。
+    val topBarScrollBehavior = LocalDictTopBarScrollBehavior.current
     // 右下角翻页按钮的显示条件：不在顶部显示「回到顶部」，不在底部显示「翻到底部」。
     val notAtTop by remember {
         derivedStateOf {
@@ -331,13 +334,25 @@ fun AmbiguityDetailScreen(
                     notAtTop = notAtTop,
                     notAtBottom = notAtBottom,
                     onJumpTop = {
-                        scope.launch { listState.animateScrollToItem(0) }
+                        scope.launch {
+                            listState.animateScrollToItem(0)
+                            // animateScrollToItem 不产生 nestedScroll 事件，顶栏不会跟着展开，
+                            // 这里直接把折叠偏移归零，让大标题重新出现。
+                            topBarScrollBehavior?.state?.let { state ->
+                                state.heightOffset = 0f
+                                state.contentOffset = 0f
+                            }
+                        }
                     },
                     onJumpBottom = {
                         // 只滚到本页底部，不自动翻页：翻页交给底部「下一页」，避免滚动完立刻跳页。
                         scope.launch {
                             val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
                             listState.animateScrollToItem(lastIndex)
+                            // 滚到底后顶栏应收起，同样需要手动同步。
+                            topBarScrollBehavior?.state?.let { state ->
+                                state.heightOffset = state.heightOffsetLimit
+                            }
                         }
                     },
                     modifier = Modifier
