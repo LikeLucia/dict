@@ -65,6 +65,7 @@ fun SettingsScreen(
     onSelectAux: (AuxType) -> Unit,
     onReplaceAux: (Boolean) -> Unit,
     onReplacePinyin: (Boolean) -> Unit,
+    onDedupe: (Boolean) -> Unit,
     onSetColumns: (Int, Int) -> Unit,
     onSetWeight: (Int) -> Unit,
     onPickExportDirectory: () -> Unit,
@@ -186,11 +187,13 @@ fun SettingsScreen(
         }
 
         Spacer(Modifier.height(16.dp))
+        // 去重开关只在无声调时出现，卡片高度随之调整，避免多出一行被裁掉。
+        val toneCardRows = if (state.tone == ToneMode.TONELESS) 5 else 4
         DictCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .height(208.dp),
+                .height((toneCardRows * 52).dp),
         ) {
             Column(Modifier.fillMaxSize()) {
                 SettingsRow(
@@ -203,6 +206,15 @@ fun SettingsScreen(
                         onOpenMenu(SettingsMenu.TONE, toneAnchor.bounds())
                     },
                 )
+                // 去重只在无声调下有意义：有声调时同词多读音是正常候选，不能合并。
+                if (state.tone == ToneMode.TONELESS) {
+                    SettingsRow(
+                        title = "同词去重",
+                        value = "保留权重最高",
+                        switchOn = state.dedupe,
+                        onSwitch = onDedupe,
+                    )
+                }
                 SettingsRow(
                     title = "输出分隔符",
                     value = state.outputDelimiter.label,

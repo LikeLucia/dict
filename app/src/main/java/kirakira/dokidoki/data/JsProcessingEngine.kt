@@ -56,6 +56,12 @@ private class MutableJsStringProvider(var text: String) : JsStringProvider {
     override fun value(): String = text
 }
 
+/** 第一遍扫描只需要读取输入，输出直接丢弃，避免占用额外空间。 */
+private object NullOutputStream : OutputStream() {
+    override fun write(b: Int) = Unit
+    override fun write(b: ByteArray, off: Int, len: Int) = Unit
+}
+
 private class CountingInputStream(input: InputStream) : FilterInputStream(input) {
     var count: Long = 0L
         private set
@@ -342,11 +348,12 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
             source = activeSource
             val lineInput = activeSource
             var lastProgressAt = 0L
-            fun reportProgress(force: Boolean = false) {
+            fun reportProgress(force: Boolean = false, fraction: Float? = null) {
                 val now = System.nanoTime()
                 if (!force && now - lastProgressAt < PROGRESS_INTERVAL_NS) return
                 lastProgressAt = now
-                onProgress((activeSource.count.toFloat() / totalBytes).coerceIn(0f, 0.99f))
+                val value = fraction ?: (activeSource.count.toFloat() / totalBytes)
+                onProgress(value.coerceIn(0f, 0.99f))
             }
             onProgress(0f)
             val out = BufferedOutputStream(
@@ -354,10 +361,11 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
                 READ_BUFFER_CHARS,
             )
             try {
-                val report = processLines(
+                val report = processLinesWithDedupe(
                     js, lineInput, options, out, checkActive, closeInput = true,
                     fileName = file.name, fileId = file.id, detailWriter = writer,
-                ) { reportProgress() }
+                    totalBytes = totalBytes,
+                ) { fraction -> reportProgress(fraction = fraction) }
                 out.flush()
                 writer.close()
                 reportProgress(force = true)
@@ -406,11 +414,12 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
             var entries = 0
             val zipBudget = ZipDecompressionBudget()
             var lastProgressAt = 0L
-            fun reportProgress(force: Boolean = false) {
+            fun reportProgress(force: Boolean = false, fraction: Float? = null) {
                 val now = System.nanoTime()
                 if (!force && now - lastProgressAt < PROGRESS_INTERVAL_NS) return
                 lastProgressAt = now
-                onProgress((activeSource.count.toFloat() / totalBytes).coerceIn(0f, 0.99f))
+                val value = fraction ?: (activeSource.count.toFloat() / totalBytes)
+                onProgress(value.coerceIn(0f, 0.99f))
             }
             onProgress(0f)
             var totalLines = 0
@@ -454,11 +463,12 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
                         continue
                     }
                     activeZipOut.putNextEntry(ZipEntry(name))
-                    val report = processLines(
+                    val report = processLinesWithDedupe(
                         js, boundedEntry, options, activeZipOut, checkActive, closeInput = false,
                         fileName = file.name + " / " + name, fileId = file.id + "/" + entries,
                         detailWriter = writer,
-                    ) { reportProgress() }
+                        totalBytes = entry.size.coerceAtLeast(1L),
+                    ) { fraction -> reportProgress(fraction = fraction) }
                     activeZipIn.closeEntry()
                     activeZipOut.closeEntry()
                     totalLines += report.optInt("no", 0)
@@ -508,6 +518,68 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
         }
     }
 
+    /**
+     * 去重需要先知道全局每个词的最高权重，因此分两遍处理：
+     * 第一遍只收集权重并把原始输入落盘，第二遍按原顺序只输出保留行。
+     * 未启用去重时仍走原来的单遍流程，行为不变。
+     */
+    private fun processLinesWithDedupe(
+        js: QuickJs,
+        input: InputStream,
+        options: ProcessOptions,
+        output: OutputStream,
+        checkActive: () -> Unit,
+        closeInput: Boolean,
+        fileName: String,
+        fileId: String,
+        detailWriter: AmbiguousDetailWriter,
+        totalBytes: Long,
+        onProgress: (Float) -> Unit,
+    ): JSONObject {
+        if (!dedupeActive(options)) {
+            // 保持原有单遍流程与进度：按已读字节比例回报。
+            val total = totalBytes.coerceAtLeast(1L)
+            val source = if (input is CountingInputStream) input else CountingInputStream(input)
+            return processLines(
+                js, source, options, output, checkActive, closeInput, fileName, fileId,
+                detailWriter,
+                { onProgress((source.count.toFloat() / total).coerceIn(0f, 1f)) },
+                phase = 0,
+            )
+        }
+        val spool = File.createTempFile("dict-spool-", ".txt", appContext.cacheDir)
+        try {
+            // 第一遍：收集权重，同时把原始输入写入临时文件供第二遍重读。
+            val firstTotal = totalBytes.coerceAtLeast(1L)
+            val firstSource = CountingInputStream(input)
+            BufferedOutputStream(FileOutputStream(spool), READ_BUFFER_CHARS).use { sink ->
+                processLines(
+                    js, firstSource, options, NullOutputStream, checkActive, closeInput, fileName, fileId,
+                    detailWriter,
+                    { onProgress(0.5f * (firstSource.count.toFloat() / firstTotal).coerceIn(0f, 1f)) },
+                    phase = 1, spool = sink,
+                )
+            }
+            checkActive()
+            onProgress(0.5f)
+            // 第二遍：从临时文件重读，输出保留行。
+            val replayTotal = spool.length().coerceAtLeast(1L)
+            val replaySource = CountingInputStream(spool.inputStream().buffered(READ_BUFFER_CHARS))
+            val report = replaySource.use { replay ->
+                processLines(
+                    js, replay, options, output, checkActive, closeInput = false, fileName, fileId,
+                    detailWriter,
+                    { onProgress(0.5f + 0.5f * (replaySource.count.toFloat() / replayTotal).coerceIn(0f, 1f)) },
+                    phase = 2,
+                )
+            }
+            onProgress(1f)
+            return report
+        } finally {
+            runCatching { spool.delete() }
+        }
+    }
+
     private fun processLines(
         js: QuickJs,
         input: InputStream,
@@ -519,11 +591,13 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
         fileId: String,
         detailWriter: AmbiguousDetailWriter,
         onProgress: () -> Unit,
+        phase: Int = 0,
+        spool: OutputStream? = null,
     ): JSONObject {
         var provider: MutableJsStringProvider? = null
         var reader: BufferedLineReader? = null
         try {
-            startState(js, options)
+            startState(js, options, phase)
             val activeProvider = lineProvider ?: throw ProcessingException("行数据通道未初始化")
             provider = activeProvider
             val chunkLines = ArrayList<JSONObject>(LINE_CHUNK)
@@ -549,12 +623,14 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
                 chunkLines.clear()
                 chunkDelimiters.clear()
                 chunkBytes = 0
+                // 第一遍只为收集权重，详情必须丢弃（不能写入，否则报告重复计数；
+                // 也不能留着，否则第二遍会重复取出）。
                 do {
                     checkActive()
                     val detailJson = js.evaluate("__takePolyphonicDetails($POLYPHONIC_BATCH)") as? String
                         ?: throw ProcessingException("多音字详情返回为空")
                     val details = JSONArray(detailJson)
-                    detailWriter.append(details, fileName, fileId)
+                    if (phase != 1) detailWriter.append(details, fileName, fileId)
                 } while (details.length() == POLYPHONIC_BATCH)
                 activeProvider.text = "[]"
                 onProgress()
@@ -566,6 +642,10 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
                     .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 if (lineBytes > MAX_BATCH_BYTES) {
                     throw ProcessingException("单行 JSON 批次估算超过 " + MAX_BATCH_BYTES + " 字节预算，未截断输入")
+                }
+                if (spool != null) {
+                    spool.write(text.toByteArray(Charsets.UTF_8))
+                    spool.write(delimiter.toByteArray(Charsets.UTF_8))
                 }
                 if (chunkLines.isNotEmpty() && (chunkLines.size >= LINE_CHUNK || chunkBytes + lineBytes > MAX_BATCH_BYTES)) flushChunk()
                 chunkLines.add(JSONObject().put("text", text).put("delimiter", delimiter))
@@ -607,10 +687,14 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
         }
     }
 
+    /** 去重仅在“无声调”下生效，有音调时同词多读音是正常的，不能合并。 */
+    private fun dedupeActive(options: ProcessOptions): Boolean =
+        options.dedupe && options.tone == ToneMode.TONELESS
+
     private fun newOutputFile(extension: String): File =
         File.createTempFile("dict-out-", extension, appContext.cacheDir)
 
-    private fun startState(js: QuickJs, options: ProcessOptions) {
+    private fun startState(js: QuickJs, options: ProcessOptions, phase: Int = 0) {
         val args = listOf(
             JSONObject.quote(options.auxType.key),
             JSONObject.quote(options.mode.engineValue),
@@ -623,6 +707,8 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
             (options.pinyinColumn - 1).toString(),
             JSONObject.quote(options.weight.toString()),
             options.replacePinyin.toString(),
+            dedupeActive(options).toString(),
+            phase.toString(),
         ).joinToString(",")
         js.evaluate("__start($args)")
     }
@@ -635,6 +721,11 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
     ): ProcessResult {
         val counts = linkedMapOf<String, Int>()
         mergeCounts(report, counts)
+        val dedupeRemoved = report.optInt("dedupeRemoved", 0)
+        if (dedupeRemoved > 0) counts["去重删除"] = dedupeRemoved
+        if (report.optBoolean("dedupeAborted", false)) {
+            counts["去重已放弃（词条过多）"] = 1
+        }
         val rawSamples = report.optJSONArray("samples")
         val missing = report.optJSONArray("missing")?.let { arr ->
             buildString { for (i in 0 until arr.length()) append(arr.optString(i)) }
