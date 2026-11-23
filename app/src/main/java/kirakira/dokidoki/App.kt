@@ -654,8 +654,8 @@ private fun CompactActionButton(
     val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
-            .height(54.dp)
-            .clip(RoundedCornerShape(27.dp))
+            .height(45.dp)
+            .clip(RoundedCornerShape(22.5.dp))
             .background(backgroundColor ?: if (enabled) p.accent else p.card2)
             .clickable(
                 interactionSource = interaction,

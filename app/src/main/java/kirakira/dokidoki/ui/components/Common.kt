@@ -70,6 +70,7 @@ import top.yukonga.miuix.kmp.icon.glass.HomeOutline
 import top.yukonga.miuix.kmp.icon.glass.Report
 import top.yukonga.miuix.kmp.icon.glass.SettingsOutline
 import top.yukonga.miuix.kmp.utils.MiuixIndication
+import top.yukonga.miuix.kmp.basic.Scaffold
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -161,6 +162,36 @@ fun SectionHeader(
                     },
                 ),
             )
+        }
+    }
+}
+
+/**
+ * 与设置页一致的 Miuix Scaffold 骨架：顶栏固定在 Scaffold.topBar，正文在 content 内滚动。
+ * 供需要自定义滚动容器（如 LazyColumn）的页面使用。
+ */
+@Composable
+fun DictScaffoldPage(
+    modifier: Modifier = Modifier,
+    topBar: @Composable () -> Unit,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    val scrollBehavior = MiuixScrollBehavior()
+    CompositionLocalProvider(LocalDictTopBarScrollBehavior provides scrollBehavior) {
+        Scaffold(
+            modifier = modifier.fillMaxSize(),
+            topBar = topBar,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            containerColor = DictTheme.palette.bg,
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+            ) {
+                content(padding)
+            }
         }
     }
 }
@@ -302,7 +333,8 @@ fun DictTopBar(
                     ) {
                         Text(
                             "全选",
-                            fontSize = 13.sp,
+                            // 与顶栏标题（Miuix Title3 = 20sp）保持一致。
+                            fontSize = 20.sp,
                             color = p.accent,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

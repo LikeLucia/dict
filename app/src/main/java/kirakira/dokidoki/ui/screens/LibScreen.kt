@@ -50,7 +50,7 @@ import kirakira.dokidoki.ui.components.DictCard
 import kirakira.dokidoki.ui.components.DictTopBar
 import kirakira.dokidoki.ui.components.DropdownAnchor
 import kirakira.dokidoki.ui.components.captureDropdownAnchor
-import kirakira.dokidoki.ui.components.FixedTopPage
+import kirakira.dokidoki.ui.components.DictScaffoldPage
 import kirakira.dokidoki.ui.components.StatusBadge
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.theme.DictTheme
@@ -179,7 +179,7 @@ fun LibScreen(
         delay(1600)
         if (highlightedId == focusId) highlightedId = null
     }
-    FixedTopPage(
+    DictScaffoldPage(
         modifier = modifier,
         topBar = {
             DictTopBar(
@@ -207,7 +207,7 @@ fun LibScreen(
                 }
             }
         },
-    ) {
+    ) { _ ->
         LazyColumn(
             state = listState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
