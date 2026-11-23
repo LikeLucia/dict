@@ -394,7 +394,7 @@ function autoConvert(raw,st,delimiter=''){
  if(!Array.from(word).every(c=>isHan(c)))return note(st,'混合非汉字',raw);
  const target=l||{w,p:st.opt.w+1,has:false};
  const replacedBefore=st.pyReplaced||0;
-  const weighted=(text,added=false)=>{const out=fillRowWeight(text,st,{...target,rimeDefault:!!l?.standard},added);const gate=__dedupeGate(st,word,out,l);if(gate===null)return null;if(gate===false){st.dedupeRemoved=(st.dedupeRemoved||0)+1;return null}notePolyphonic(st,word,out,target,added||(st.pyReplaced||0)>replacedBefore);return out};
+  const weighted=(text,added=false)=>{const out=fillRowWeight(text,st,{...target,rimeDefault:!!l?.standard},added);notePolyphonic(st,word,out,target,added||(st.pyReplaced||0)>replacedBefore);return out};
  if(l?.has&&!l.insertAt&&(fields[l.p]||'').trim()){
    if(st.opt.mode==='autoOnly'){
     if(st.opt.replacePinyin)return weighted(replacePinyinInRow(raw,st,row,l.w,l.p,false,false));
@@ -454,37 +454,10 @@ async function run(files){if(busy)return;busy=true;files=Array.from(files);let r
 function isHan(c){var cp=c.codePointAt(0);return cp===0x3007||(cp>=0x3400&&cp<=0x4DBF)||(cp>=0x4E00&&cp<=0x9FFF)||(cp>=0x20000&&cp<=0x2EBEF)||(cp>=0x30000&&cp<=0x3134F);}
 var __st=null;var __tables={};
 function __setTable(id,json){var o=JSON.parse(json);var m=new Map();for(var k in o)m.set(k,o[k]);__tables[id]=m;}
-// 去重：两遍扫描。第一遍只收集每个词的最大权重，第二遍按原顺序只输出保留行。
-// __ddMap 挂在模块级，不随 state() 重建而丢失。
-var __ddMap=null,__ddPhase=0,__ddAborted=false;
-function __ddWeightCol(st,l){if(!l)return Math.max(st.opt.w,st.opt.p)+1;if(l.standard)return 2;if(l.output){const i=l.output.indexOf('weight');return i<0?-1:i}return Math.max(l.w,l.p)+1}
-function __ddWeight(st,l,out){const col=__ddWeightCol(st,l);if(col<0)return null;const f=out.split('\t');const v=(f[col]||'').trim();return /^\d+(?:\.\d+)?$/.test(v)?Number(v):null}
-// 去重索引上限：超过后放弃去重并记录原因，避免大词库耗尽内存。
-var __DD_LIMIT=2000000;
-function __dedupeGate(st,word,out,l){
- if(!__ddMap)return true;
- if(__ddAborted)return true;
- const w=__ddWeight(st,l,out);
- // 无权重列的行按 -1 参与比较，保证同一词只保留一条。
- const v=(w===null?-1:w);
- if(__ddPhase===1){
-  const cur=__ddMap.get(word);
-  if(cur===undefined){
-   if(__ddMap.size>=__DD_LIMIT){__ddAborted=true;return null}
-   __ddMap.set(word,v)
-  }else if(v>cur)__ddMap.set(word,v);
-  return null
- }
- const cur=__ddMap.get(word);
- // 命中最高权重且该词尚未输出过，则保留并标记已用。
- if(cur!==undefined&&cur===v&&cur!==-2){__ddMap.set(word,-2);return true}
- return false;
-}
-function __start(auxType,mode,toneType,sep,encoding,replace,aux,w,p,weight,replacePinyin,dedupe,phase){if(!Number.isInteger(w)||!Number.isInteger(p)||w<0||p<0||w>=128||p>=128||w===p)throw Error('列号必须是不同的 1–128 正整数');var opt={mode:mode,toneType:toneType,sep:sep,encoding:encoding,replace:replace,replacePinyin:replacePinyin===true||replacePinyin==='true',aux:aux,auxType:auxType,w:w,p:p,weight:String(weight||'120'),table:__tables[auxType]||new Map()};// 去重只在无声调时生效：有声调时同词多读音是正常候选，不能合并。
-if((dedupe===true||dedupe==='true')&&toneType==='none'){if(phase===2||phase==='2'){__ddPhase=2}else{__ddMap=new Map();__ddPhase=1;__ddAborted=false}}else{__ddMap=null;__ddPhase=0}__st=state(opt);}
+function __start(auxType,mode,toneType,sep,encoding,replace,aux,w,p,weight,replacePinyin){if(!Number.isInteger(w)||!Number.isInteger(p)||w<0||p<0||w>=128||p>=128||w===p)throw Error('列号必须是不同的 1–128 正整数');var opt={mode:mode,toneType:toneType,sep:sep,encoding:encoding,replace:replace,replacePinyin:replacePinyin===true||replacePinyin==='true',aux:aux,auxType:auxType,w:w,p:p,weight:String(weight||'120'),table:__tables[auxType]||new Map()};__st=state(opt);}
 function __line(line){return convertLine(line,__st);}
 function __lines(lines){var out=[];for(var i=0;i<lines.length;i++)out.push(convertLine(lines[i].text,__st,lines[i].delimiter));return JSON.stringify(out);}
 // The Android bridge drains details in bounded batches without limiting the file total.
 function __takePolyphonicDetails(limit){var details=__st.polyphonicDetails.splice(0,limit);__st.polyphonicSamples.splice(0,details.length);return JSON.stringify(details);}
 function __clear(){__st=null}
-function __report(){var r={no:__st.no,coded:__st.coded,counts:__st.counts,samples:__st.samples,missing:Array.from(__st.missing),pyAdded:__st.pyAdded||0,auxAdded:__st.auxAdded||0,auxStripped:__st.auxStripped||0,polyphonic:__st.polyphonic||0,polyphonicSamples:__st.polyphonicSamples||[],polyphonicDetails:__st.polyphonicDetails||[],phase:__st.phase,autoPhase:__st.autoPhase,dedupeRemoved:__st.dedupeRemoved||0,dedupeAborted:!!__ddAborted};if(__st.pyReplaced)r.pyReplaced=__st.pyReplaced;if(r.phase==='header'||r.autoPhase==='header')throw Error('Rime 头部缺少结束标记 ...');return JSON.stringify(r);}
+function __report(){var r={no:__st.no,coded:__st.coded,counts:__st.counts,samples:__st.samples,missing:Array.from(__st.missing),pyAdded:__st.pyAdded||0,auxAdded:__st.auxAdded||0,auxStripped:__st.auxStripped||0,polyphonic:__st.polyphonic||0,polyphonicSamples:__st.polyphonicSamples||[],polyphonicDetails:__st.polyphonicDetails||[],phase:__st.phase,autoPhase:__st.autoPhase};if(__st.pyReplaced)r.pyReplaced=__st.pyReplaced;if(r.phase==='header'||r.autoPhase==='header')throw Error('Rime 头部缺少结束标记 ...');return JSON.stringify(r);}

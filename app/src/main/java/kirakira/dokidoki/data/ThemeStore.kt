@@ -24,7 +24,6 @@ data class SavedSettings(
     val replacePinyin: Boolean = false,
     val wordColumn: Int = 1,
     val pinyinColumn: Int = 2,
-    val dedupe: Boolean = false,
     val sortMode: FileSortMode = FileSortMode.MODIFIED,
     val sortDescending: Boolean = true,
     val exportDirectoryUri: String? = null,
@@ -49,7 +48,6 @@ class ThemeStore(private val context: Context) {
     private val replacePinyinKey = booleanPreferencesKey("replace_pinyin")
     private val wordColumnKey = intPreferencesKey("word_column")
     private val pinyinColumnKey = intPreferencesKey("pinyin_column")
-    private val dedupeKey = booleanPreferencesKey("dedupe")
     private val sortModeKey = stringPreferencesKey("sort_mode")
     private val sortDescendingKey = booleanPreferencesKey("sort_descending")
     private val exportDirectoryUriKey = stringPreferencesKey("export_directory_uri")
@@ -83,7 +81,6 @@ class ThemeStore(private val context: Context) {
         replacePinyin = this[replacePinyinKey] ?: false,
         wordColumn = this[wordColumnKey]?.takeIf { it > 0 } ?: 1,
         pinyinColumn = this[pinyinColumnKey]?.takeIf { it > 0 } ?: 2,
-        dedupe = this[dedupeKey] ?: false,
         sortMode = FileSortMode.entries.firstOrNull { it.name == this[sortModeKey] }
             ?: FileSortMode.MODIFIED,
         sortDescending = this[sortDescendingKey] ?: true,
@@ -119,10 +116,6 @@ class ThemeStore(private val context: Context) {
 
     suspend fun setWeight(weight: Int) {
         context.settingsDataStore.edit { it[weightKey] = weight.toString() }
-    }
-
-    suspend fun setDedupe(value: Boolean) {
-        context.settingsDataStore.edit { it[dedupeKey] = value }
     }
 
     suspend fun setReplaceAux(value: Boolean) {

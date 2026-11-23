@@ -288,7 +288,6 @@ fun DictApp(viewModel: MainViewModel) {
                                                         onSelectAux = viewModel::setAuxType,
                                                         onReplaceAux = viewModel::setReplaceAux,
                                                         onReplacePinyin = viewModel::setReplacePinyin,
-                                                        onDedupe = viewModel::setDedupe,
                                                         onSetColumns = viewModel::setColumns,
                                                         onSetWeight = viewModel::setWeight,
                                                         onPickExportDirectory = {

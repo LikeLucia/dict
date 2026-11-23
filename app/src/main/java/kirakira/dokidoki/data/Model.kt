@@ -67,8 +67,6 @@ data class ProcessOptions(
     val wordColumn: Int = 1,
     val pinyinColumn: Int = 2,
     val weight: Int = 120,
-    /** 仅无声调时生效：同词只保留权重最高的一行。 */
-    val dedupe: Boolean = false,
 )
 
 data class ExportEntry(
@@ -220,7 +218,6 @@ data class DictUiState(
     val wordColumn: Int = 1,
     val pinyinColumn: Int = 2,
     val weight: Int = 120,
-    val dedupe: Boolean = false,
     val processedLines: Int = 0,
     val processedPinyin: Int = 0,
     val sortMode: FileSortMode = FileSortMode.MODIFIED,

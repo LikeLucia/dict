@@ -100,7 +100,6 @@ class MainViewModel(
                         replacePinyin = saved.replacePinyin,
                         wordColumn = saved.wordColumn,
                         pinyinColumn = saved.pinyinColumn,
-                        dedupe = saved.dedupe,
                         sortMode = saved.sortMode,
                         sortDescending = saved.sortDescending,
                         exportDirectoryUri = saved.exportDirectoryUri,
@@ -411,11 +410,6 @@ class MainViewModel(
     fun setAuxType(type: AuxType) {
         _state.update { it.copy(auxType = type) }
         viewModelScope.launch { themeStore.setAuxType(type) }
-    }
-
-    fun setDedupe(value: Boolean) {
-        _state.update { it.copy(dedupe = value) }
-        viewModelScope.launch { themeStore.setDedupe(value) }
     }
 
     fun setReplaceAux(value: Boolean) {
@@ -968,7 +962,6 @@ class MainViewModel(
         wordColumn = state.wordColumn,
         pinyinColumn = state.pinyinColumn,
         weight = state.weight,
-        dedupe = state.dedupe,
     )
 
     fun enterSelection(id: String) {
