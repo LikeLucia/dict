@@ -1,5 +1,13 @@
 package kirakira.dokidoki.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -170,96 +178,113 @@ private fun PolyphonicCard(
     }
 
     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-        if (!searchVisible || groups.isEmpty()) {
-            BasicComponent(
-                modifier = Modifier.height(62.dp),
-                insideMargin = PaddingValues(horizontal = 16.dp, vertical = 15.dp),
-                title = if (groups.isEmpty()) "多音字详情" else "多音字详情 · ${entryCount} 行",
-                onClick = null,
-                endActions = {
-                    if (groups.isNotEmpty()) {
-                        // 放大镜在左，排序按钮在右。
-                        Icon(
-                            MiuixIcons.Basic.Search,
-                            contentDescription = "搜索文件",
-                            tint = colors.onBackgroundVariant,
-                            modifier = Modifier.clip(CircleShape)
-                                .clickable(interactionSource = null, indication = indication) { searchVisible = true }
-                                .size(32.dp).padding(8.dp),
-                        )
-                        Spacer(Modifier.width(2.dp))
-                        Row(
-                            modifier = Modifier
-                                .captureDropdownAnchor(sortAnchor)
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable(interactionSource = null, indication = indication) {
-                                    onOpenSortMenu(sortAnchor.bounds())
-                                }
-                                .padding(horizontal = 6.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                sortMode.label + if (sortDescending) " ↓" else " ↑",
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = colors.primary,
-                            )
-                            Spacer(Modifier.width(3.dp))
+        // 标题行与搜索行用 miuix 的过渡规范切换：淡入 + 纵向展开，高度随内容平滑变化。
+        AnimatedContent(
+            targetState = searchVisible && groups.isNotEmpty(),
+            transitionSpec = {
+                val entering = fadeIn(tween(200)) + expandVertically(
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 362.5f),
+                    expandFrom = Alignment.Top,
+                )
+                val leaving = fadeOut(tween(150)) + shrinkVertically(
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 362.5f),
+                    shrinkTowards = Alignment.Top,
+                )
+                entering togetherWith leaving
+            },
+            label = "report-search-toggle",
+        ) { searching ->
+            if (!searching) {
+                BasicComponent(
+                    modifier = Modifier.height(62.dp),
+                    insideMargin = PaddingValues(horizontal = 16.dp, vertical = 15.dp),
+                    title = if (groups.isEmpty()) "多音字详情" else "多音字详情 · ${entryCount} 行",
+                    onClick = null,
+                    endActions = {
+                        if (groups.isNotEmpty()) {
+                            // 放大镜在左，排序按钮在右。
                             Icon(
-                                MiuixIcons.Basic.ArrowUpDown,
-                                contentDescription = "排序",
-                                modifier = Modifier.size(12.dp),
-                                tint = colors.primary,
+                                MiuixIcons.Basic.Search,
+                                contentDescription = "搜索文件",
+                                tint = colors.onBackgroundVariant,
+                                modifier = Modifier.clip(CircleShape)
+                                    .clickable(interactionSource = null, indication = indication) { searchVisible = true }
+                                    .size(32.dp).padding(8.dp),
                             )
+                            Spacer(Modifier.width(2.dp))
+                            Row(
+                                modifier = Modifier
+                                    .captureDropdownAnchor(sortAnchor)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable(interactionSource = null, indication = indication) {
+                                        onOpenSortMenu(sortAnchor.bounds())
+                                    }
+                                    .padding(horizontal = 6.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    sortMode.label + if (sortDescending) " ↓" else " ↑",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colors.primary,
+                                )
+                                Spacer(Modifier.width(3.dp))
+                                Icon(
+                                    MiuixIcons.Basic.ArrowUpDown,
+                                    contentDescription = "排序",
+                                    modifier = Modifier.size(12.dp),
+                                    tint = colors.primary,
+                                )
+                            }
                         }
-                    }
-                },
-            )
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth().height(74.dp).padding(start = 18.dp, end = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // 尺寸对齐多音字详情页的搜索框：52dp 高、26dp 圆角、14sp、Miuix 默认内边距。
-                TextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    colors = TextFieldDefaults.textFieldColors(
-                        backgroundColor = colors.surfaceContainerHigh,
-                        labelColor = colors.onBackgroundVariant,
-                        borderColor = colors.primary,
-                    ),
-                    label = "搜文件名",
-                    useLabelAsPlaceholder = true,
-                    singleLine = true,
-                    cornerRadius = 26.dp,
-                    textStyle = MiuixTheme.textStyles.main.copy(fontSize = 14.sp),
-                    leadingIcon = {
-                        Icon(
-                            MiuixIcons.Basic.Search,
-                            contentDescription = null,
-                            modifier = Modifier.padding(start = 16.dp, end = 10.dp).size(17.dp),
-                            tint = colors.onBackgroundVariant,
-                        )
                     },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                 )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "取消",
-                    fontSize = 13.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.primary,
-                    modifier = Modifier.clip(RoundedCornerShape(10.dp))
-                        .clickable(interactionSource = null, indication = indication) {
-                            searchVisible = false
-                            query = ""
-                            focusManager.clearFocus()
-                        }
-                        .padding(horizontal = 4.dp, vertical = 6.dp),
-                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(74.dp).padding(start = 18.dp, end = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // 尺寸对齐多音字详情页的搜索框：52dp 高、26dp 圆角、14sp、Miuix 默认内边距。
+                    TextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        colors = TextFieldDefaults.textFieldColors(
+                            backgroundColor = colors.surfaceContainerHigh,
+                            labelColor = colors.onBackgroundVariant,
+                            borderColor = colors.primary,
+                        ),
+                        label = "搜文件名",
+                        useLabelAsPlaceholder = true,
+                        singleLine = true,
+                        cornerRadius = 26.dp,
+                        textStyle = MiuixTheme.textStyles.main.copy(fontSize = 14.sp),
+                        leadingIcon = {
+                            Icon(
+                                MiuixIcons.Basic.Search,
+                                contentDescription = null,
+                                modifier = Modifier.padding(start = 16.dp, end = 10.dp).size(17.dp),
+                                tint = colors.onBackgroundVariant,
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "取消",
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.primary,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp))
+                            .clickable(interactionSource = null, indication = indication) {
+                                searchVisible = false
+                                query = ""
+                                focusManager.clearFocus()
+                            }
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                    )
+                }
             }
         }
         HorizontalDivider(Modifier.padding(horizontal = 2.dp))
