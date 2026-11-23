@@ -67,6 +67,9 @@ import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.glass.File
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 // One lazy item contains the filter chips and sort row, before the first file.
 private const val LIBRARY_ITEMS_START = 1
@@ -247,7 +250,7 @@ fun LibScreen(
                 Text(
                     if (state.selectionMode) "再次长按任意词库可全选 · 点按切换选择"
                     else "共 ${visibleFiles.size} 个词库 · 总计 $totalSize",
-                    fontSize = 10.5.sp,
+                    fontSize = if (state.selectionMode) 20.sp else 10.5.sp,
                     color = p.text3,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
@@ -484,7 +487,13 @@ private fun LibRow(
             Column(Modifier.weight(1f)) {
                 Text(file.name, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = p.text, maxLines = 1)
                 Spacer(Modifier.height(4.dp))
-                Text(file.meta, fontSize = 11.sp, color = p.text2, maxLines = 1)
+                val modified = remember(file.modifiedAt) { formatModified(file.modifiedAt) }
+                Text(
+                    if (modified != null) file.meta + " · " + modified else file.meta,
+                    fontSize = 11.sp,
+                    color = p.text2,
+                    maxLines = 1,
+                )
             }
             if (!selectionMode) {
                 Spacer(Modifier.width(8.dp))
@@ -503,6 +512,12 @@ private fun LibRow(
         }
     }
 }
+/** 词库修改时间：yy-MM-dd HH:mm:ss（modifiedAt 为毫秒时间戳，0 表示未知）。 */
+private fun formatModified(millis: Long): String? {
+    if (millis <= 0L) return null
+    return SimpleDateFormat("yy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(millis))
+}
+
 private fun formatTotalSize(files: List<DictFile>): String {
     val total = files.sumOf { it.sizeBytes }
     return if (total < 1024 * 1024) String.format("%.1f KB", total / 1024.0) else String.format("%.1f MB", total / (1024.0 * 1024.0))

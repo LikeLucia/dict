@@ -67,7 +67,6 @@ import kirakira.dokidoki.ui.components.DictBottomBar
 import kirakira.dokidoki.ui.components.DialogAction
 import kirakira.dokidoki.ui.components.DropdownOverlay
 import kirakira.dokidoki.ui.components.DropdownSpec
-import kirakira.dokidoki.ui.components.PrimaryButton
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.screens.AboutScreen
 import kirakira.dokidoki.ui.screens.AmbiguityDetailScreen
@@ -590,17 +589,18 @@ private fun BottomArea(
         verticalArrangement = Arrangement.Bottom,
     ) {
         if (state.selectedTab == 0) {
-            val currentName = state.files.firstOrNull { it.id == state.currentFileId }?.name ?: "未选择词库"
-            PrimaryButton(
-                if (state.processing) "取消处理" else "开始处理",
-                if (state.processing) {
-                    "正在处理：${state.processingFile ?: currentName} · ${(state.progress * 100).toInt()}%"
-                } else {
-                    "当前：$currentName · ${state.processMode.title}"
-                },
-                onClick = if (state.processing) onCancel else onStart,
-            )
-            Spacer(Modifier.height(16.dp))
+            // 仅排队处理时显示取消按钮，高度与悬浮底栏一致（54dp）。
+            if (state.processing) {
+                CompactActionButton(
+                    label = "取消处理",
+                    enabled = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    onClick = onCancel,
+                )
+                Spacer(Modifier.height(16.dp))
+            }
         } else if (state.selectedTab == 1) {
             if (state.selectionMode) {
                 Row(
