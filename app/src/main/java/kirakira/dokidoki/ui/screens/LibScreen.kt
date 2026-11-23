@@ -266,16 +266,18 @@ fun LibScreen(
                     )
                 }
             }
-            item(key = "summary") {
-                val totalSize = remember(visibleFiles) { formatTotalSize(visibleFiles) }
-                Text(
-                    if (state.selectionMode) "再次长按任意词库可全选 · 点按切换选择"
-                    else "共 ${visibleFiles.size} 个词库 · 总计 $totalSize",
-                    fontSize = if (state.selectionMode) 20.sp else 10.5.sp,
-                    color = p.text3,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-                )
+            // 选择模式不显示底部提示：整条摘要只在浏览时出现。
+            if (!state.selectionMode) {
+                item(key = "summary") {
+                    val totalSize = remember(visibleFiles) { formatTotalSize(visibleFiles) }
+                    Text(
+                        "共 ${visibleFiles.size} 个词库 · 总计 $totalSize",
+                        fontSize = 10.5.sp,
+                        color = p.text3,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                    )
+                }
             }
         }
     }
