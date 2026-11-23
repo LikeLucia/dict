@@ -433,12 +433,12 @@ private fun FilterChips(
         }
         animatingSelection = false
     }
-    // 滑动过程中把指示器钉在选中项当前位置上，不做过渡。
+    // 滑动期间指示器保持不动，不跟随手指；滚动停止后才重新对齐到选中项。
     LaunchedEffect(chipListState) {
-        snapshotFlow { chipListState.isScrollInProgress to target.value }
-            .collect { (scrolling, position) ->
-                if (!scrolling || animatingSelection) return@collect
-                val (left, right) = position ?: return@collect
+        snapshotFlow { chipListState.isScrollInProgress }
+            .collect { scrolling ->
+                if (scrolling || animatingSelection) return@collect
+                val (left, right) = target.value ?: return@collect
                 indicatorLeft.snapTo(left)
                 indicatorRight.snapTo(right)
             }
