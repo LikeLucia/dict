@@ -400,6 +400,29 @@ private fun FilterChips(
     onSelect: (Int) -> Unit,
 ) {
     val p = DictTheme.palette
+    val indicatorLeft = remember { Animatable(0f) }
+    val indicatorRight = remember { Animatable(0f) }
+    var trackWidth by remember { mutableIntStateOf(0) }
+    val slots = labels.size
+    val slotWidth = if (slots > 0 && trackWidth > 0) trackWidth.toFloat() / slots else 0f
+    LaunchedEffect(selected, slotWidth) {
+        if (slotWidth <= 0f) return@LaunchedEffect
+        val newLeft = selected * slotWidth
+        val newRight = newLeft + slotWidth
+        if (indicatorRight.value <= indicatorLeft.value) {
+            // 首次布局直接落位，不从 0 号槽滑入。
+            indicatorLeft.snapTo(newLeft)
+            indicatorRight.snapTo(newRight)
+        } else {
+            // 与 GlassNavigationBar 一致：向左移动时前缘用 navIndicator，向右时后缘用 navIndicatorTrail。
+            launch {
+                indicatorLeft.animateTo(newLeft, GlassMotion.edgeSpring(newLeft <= indicatorLeft.value))
+            }
+            launch {
+                indicatorRight.animateTo(newRight, GlassMotion.edgeSpring(newLeft > indicatorLeft.value))
+            }
+        }
+    }
     // 与底栏一致：深色白色淡填充，浅色黑色淡填充。
     val indicatorColor = if (p.isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f)
     GlassFloatingToolbar(
@@ -410,75 +433,56 @@ private fun FilterChips(
         outSidePadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
         shadow = GlassShadows.Float,
     ) {
-        // 标签较多时横向滑动；指示器跟随选中项的实际位置。
-        val chipListState = rememberLazyListState()
-        val chipBounds = remember { mutableStateMapOf<Int, Rect>() }
-        // 标签坐标是根坐标，绘制坐标系是本 Box，需要减掉 Box 自身原点。
-        var trackOrigin by remember { mutableStateOf(Offset.Zero) }
-        LaunchedEffect(selected) {
-            if (selected in labels.indices) chipListState.animateScrollToItem(selected)
-        }
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 // 胶囊高度 38dp。
                 .height(38.dp)
-                .onGloballyPositioned { trackOrigin = it.localToRoot(Offset.Zero) }
+                .onSizeChanged { trackWidth = it.width }
+                // 指示器画在等宽槽位坐标系里，位置完全由槽宽和左右两条边决定。
                 .drawBehind {
-                    val bounds = chipBounds[selected] ?: return@drawBehind
-                    if (bounds.width <= 0f) return@drawBehind
-                    val left = bounds.left - trackOrigin.x
+                    val left = indicatorLeft.value
+                    val right = indicatorRight.value
+                    if (right <= left) return@drawBehind
+                    val height = size.height
                     drawRoundRect(
                         color = indicatorColor,
                         topLeft = Offset(left, 0f),
-                        size = Size(bounds.width, size.height),
-                        cornerRadius = CornerRadius(size.height / 2f),
+                        size = Size(right - left, height),
+                        cornerRadius = CornerRadius(height / 2f),
                     )
                 },
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            LazyRow(
-                state = chipListState,
-                modifier = Modifier.fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                itemsIndexed(labels) { index, label ->
-                    val isSelected = index == selected
-                    val textColor by animateColorAsState(
-                        targetValue = p.text,
-                        animationSpec = tween(160),
-                        label = "filter-chip-text",
+            labels.forEachIndexed { index, label ->
+                val isSelected = index == selected
+                val textColor by animateColorAsState(
+                    targetValue = p.text,
+                    animationSpec = tween(160),
+                    label = "filter-chip-text",
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(18.dp))
+                        // 关掉 clickable 自带的按压指示（ripple）：它是一层没有过渡的高亮，
+                        // 会和下面那条带弹簧动画的指示器胶囊叠成两层。选中态只由指示器胶囊表达。
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { onSelect(index) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        label,
+                        fontSize = 11.5.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = textColor,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .onGloballyPositioned { coords ->
-                                val position = coords.localToRoot(Offset.Zero)
-                                chipBounds[index] = Rect(
-                                    left = position.x,
-                                    top = position.y,
-                                    right = position.x + coords.size.width,
-                                    bottom = position.y + coords.size.height,
-                                )
-                            }
-                            .clip(RoundedCornerShape(18.dp))
-                            // 关掉 clickable 自带的按压指示（ripple）：选中态只由指示器胶囊表达。
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) { onSelect(index) }
-                            .padding(horizontal = 16.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            label,
-                            fontSize = 11.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = textColor,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
                 }
             }
         }
