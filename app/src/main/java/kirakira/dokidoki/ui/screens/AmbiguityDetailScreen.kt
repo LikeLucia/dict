@@ -337,20 +337,19 @@ fun AmbiguityDetailScreen(
                     notAtBottom = notAtBottom,
                     onJumpTop = {
                         scope.launch {
+                            // 滚动一开始就并行展开顶栏：程序化滚动不派发 nestedScroll，
+                            // 顶栏不会自己动，这里与滚动同时进行，标题随滚动一起回来。
+                            launch { syncTopBar(topBarScrollBehavior?.state, collapse = false) }
                             listState.animateScrollToItem(0)
-                            // animateScrollToItem 不派发 nestedScroll，顶栏不会跟着展开；
-                            // 手动把折叠偏移动画回 0，大标题随之回来。
-                            syncTopBar(topBarScrollBehavior?.state, collapse = false)
                         }
                     },
                     onJumpBottom = {
                         // 只滚到本页底部，不自动翻页：翻页交给底部「下一页」，避免滚动完立刻跳页。
                         scope.launch {
-                            // 先收起顶栏再开始滚动：程序化滚动不派发 nestedScroll，
-                            // 若等滚完再收，整个滑动过程里标题都会停在展开态。
+                            // 一旦开始滚动就收起顶栏：与滚动并行，不等滚完再收。
                             val scrollable = listState.canScrollBackward || listState.canScrollForward
                             if (scrollable) {
-                                syncTopBar(topBarScrollBehavior?.state, collapse = true, animate = false)
+                                launch { syncTopBar(topBarScrollBehavior?.state, collapse = true) }
                             }
                             val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
                             listState.animateScrollToItem(lastIndex)
