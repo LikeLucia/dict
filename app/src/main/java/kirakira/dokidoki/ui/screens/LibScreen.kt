@@ -204,29 +204,32 @@ fun LibScreen(
                 onSelectAll = if (state.selectionMode) onSelectAll else null,
                 actionSize = 40.dp,
                 actionIconSize = 22.dp,
-                // 分类标签放进顶栏的 bottomContent 槽位：与标题同属顶栏、随顶栏固定，
-                // 列表滚到底部也不消失；不再依赖 offset 做视觉偏移。
+                // 搜索框与分类标签同处顶栏的 bottomContent 槽位：
+                // 展开搜索时搜索框紧贴标题下方，分类标签顺延到它下面，两者位置互换。
                 bottomContent = {
-                    FilterChips(
-                        selected = selectedFilter,
-                        onSelect = { selectedFilter = it },
-                    )
+                    Column {
+                        AnimatedVisibility(
+                            visible = searchVisible,
+                            enter = fadeIn(tween(120)) + expandVertically(tween(170)),
+                            exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
+                        ) {
+                            Column {
+                                Spacer(Modifier.height(12.dp))
+                                SearchBar(
+                                    query = query,
+                                    onQueryChange = { query = it },
+                                    focusRequester = focusRequester,
+                                )
+                                Spacer(Modifier.height(10.dp))
+                            }
+                        }
+                        FilterChips(
+                            selected = selectedFilter,
+                            onSelect = { selectedFilter = it },
+                        )
+                    }
                 },
             )
-            AnimatedVisibility(
-                visible = searchVisible,
-                enter = fadeIn(tween(120)) + expandVertically(tween(170)),
-                exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
-            ) {
-                Column {
-                    Spacer(Modifier.height(16.dp))
-                    SearchBar(
-                        query = query,
-                        onQueryChange = { query = it },
-                        focusRequester = focusRequester,
-                    )
-                }
-            }
         },
     ) { _ ->
         LazyColumn(
