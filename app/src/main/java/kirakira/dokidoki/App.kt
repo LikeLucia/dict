@@ -93,6 +93,9 @@ private val SORT_MENU_ITEMS = listOf("正序", "倒序") + FileSortMode.entries.
 /** 排序依据在弹窗里的起始下标。 */
 private const val SORT_MENU_FIRST_MODE = 2
 
+/** 报告页多音字卡片的排序弹窗项：方向 + 三个排序依据。 */
+private val REPORT_SORT_ITEMS = listOf("正序", "倒序") + FileSortMode.entries.map { it.label }
+
 /** Miuix nav 默认程序化过渡曲线（response 0.8 / damping 0.95），固定系数预计算。 */
 private class MiuixPageEasing(
     response: Double = 0.8,
@@ -272,7 +275,22 @@ fun DictApp(viewModel: MainViewModel) {
                                                     2 -> ReportScreen(
                                                         result = state.result,
                                                         files = state.files,
+                                                        sortMode = state.reportSortMode,
+                                                        sortDescending = state.reportSortDescending,
                                                         onOpenFile = { group -> detailFileId = group.fileId },
+                                                        onOpenSortMenu = { anchor ->
+                                                            dropdown = DropdownSpec(
+                                                                anchor = anchor,
+                                                                items = REPORT_SORT_ITEMS,
+                                                                selectedIndex = 0,
+                                                                selectedIndexes = buildSet {
+                                                                    add(if (state.reportSortDescending) 1 else 0)
+                                                                    add(SORT_MENU_FIRST_MODE + state.reportSortMode.ordinal)
+                                                                },
+                                                                dividerBefore = setOf(2),
+                                                                key = "REPORT_SORT",
+                                                            )
+                                                        },
                                                     )
 
                                                     else -> SettingsScreen(
@@ -363,6 +381,12 @@ fun DictApp(viewModel: MainViewModel) {
                                     when (spec.key) {
                                         "THEME" -> viewModel.setThemeMode(ThemeMode.entries[index])
                                         "AUX_TYPE" -> viewModel.setAuxType(AuxType.entries[index])
+                                        "REPORT_SORT" -> when {
+                                            index == 0 -> viewModel.setReportSortDescending(false)
+                                            index == 1 -> viewModel.setReportSortDescending(true)
+                                            else -> FileSortMode.entries.getOrNull(index - SORT_MENU_FIRST_MODE)
+                                                ?.let(viewModel::setReportSortMode)
+                                        }
                                         "SORT" -> when {
                                             index == 0 -> viewModel.setSortDescending(false)
                                             index == 1 -> viewModel.setSortDescending(true)

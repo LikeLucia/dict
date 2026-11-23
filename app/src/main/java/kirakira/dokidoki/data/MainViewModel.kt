@@ -454,6 +454,14 @@ class MainViewModel(
         viewModelScope.launch { themeStore.setSortDescending(descending) }
     }
 
+    fun setReportSortMode(mode: FileSortMode) {
+        _state.update { it.copy(reportSortMode = mode) }
+    }
+
+    fun setReportSortDescending(descending: Boolean) {
+        _state.update { it.copy(reportSortDescending = descending) }
+    }
+
     fun setExportConflictMode(mode: ExportConflictMode) {
         _state.update { it.copy(exportConflictMode = mode) }
         viewModelScope.launch { themeStore.setExportConflictMode(mode) }

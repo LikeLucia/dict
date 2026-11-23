@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -24,10 +25,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kirakira.dokidoki.data.AmbiguousFileGroup
 import kirakira.dokidoki.data.DictFile
+import kirakira.dokidoki.data.FileSortMode
 import kirakira.dokidoki.data.ProcessResult
 import kirakira.dokidoki.data.ambiguityGroups
 import kirakira.dokidoki.ui.components.DictCard
 import kirakira.dokidoki.ui.components.DictTopBar
+import kirakira.dokidoki.ui.components.DropdownAnchor
+import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.FixedTopScrollPage
 import kirakira.dokidoki.ui.components.IconBubble
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
@@ -42,6 +46,7 @@ import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
+import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.glass.ConvertFile
 import top.yukonga.miuix.kmp.icon.glass.DigitalStatistics
@@ -57,14 +62,25 @@ fun ReportScreen(
     result: ProcessResult,
     /** 当前词库列表：用于在会话记录缺少时间时回退到词库里的修改时间。 */
     files: List<DictFile>,
+    /** 多音字卡片的排序方式，与词库页互不影响。 */
+    sortMode: FileSortMode,
+    sortDescending: Boolean,
     onOpenFile: (AmbiguousFileGroup) -> Unit,
+    onOpenSortMenu: (Rect) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     FixedTopScrollPage(modifier = modifier, topBar = { DictTopBar("处理报告") }) {
         SmallTitle("统计", modifier = Modifier.padding(start = 4.dp))
         StatsGrid(result)
         SmallTitle("报告详情", modifier = Modifier.padding(start = 4.dp))
-        PolyphonicCard(result, files, onOpenFile)
+        PolyphonicCard(
+            result = result,
+            files = files,
+            sortMode = sortMode,
+            sortDescending = sortDescending,
+            onOpenFile = onOpenFile,
+            onOpenSortMenu = onOpenSortMenu,
+        )
     }
 }
 
@@ -118,16 +134,32 @@ private fun formatGroupModified(millis: Long): String? {
 private fun PolyphonicCard(
     result: ProcessResult,
     files: List<DictFile>,
+    sortMode: FileSortMode,
+    sortDescending: Boolean,
     onOpenFile: (AmbiguousFileGroup) -> Unit,
+    onOpenSortMenu: (Rect) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
     var searchVisible by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    val sortAnchor = remember { DropdownAnchor() }
     val entryCount = result.ambiguousCount
     val groups = remember(result) { result.ambiguityGroups() }
     val libraryTimes = remember(files) { files.mapNotNull { f -> f.id?.let { it to f.modifiedAt } }.toMap() }
+    // 修改时间优先取会话记录，缺失时回退到词库列表。
+    fun modifiedOf(group: AmbiguousFileGroup): Long =
+        group.modifiedAt.takeIf { it > 0L } ?: libraryTimes[group.fileId] ?: 0L
     val q = query.trim()
-    val shown = if (q.isEmpty()) groups else groups.filter { it.fileName.contains(q, ignoreCase = true) }
+    // 先按搜索词过滤，再按排序方式与方向排列。
+    val filtered = if (q.isEmpty()) groups else groups.filter { it.fileName.contains(q, ignoreCase = true) }
+    val shown = remember(filtered, sortMode, sortDescending, libraryTimes) {
+        val sorted = when (sortMode) {
+            FileSortMode.NAME -> filtered.sortedBy { it.fileName.lowercase() }
+            FileSortMode.SIZE -> filtered.sortedBy { it.entryCount }
+            FileSortMode.MODIFIED -> filtered.sortedBy { modifiedOf(it) }
+        }
+        if (sortDescending) sorted.asReversed() else sorted
+    }
     val colors = MiuixTheme.colorScheme
     val indication = rememberMiuixIndication()
     LaunchedEffect(groups.isEmpty()) {
@@ -147,6 +179,7 @@ private fun PolyphonicCard(
                 onClick = null,
                 endActions = {
                     if (groups.isNotEmpty()) {
+                        // 放大镜在左，排序按钮在右。
                         Icon(
                             MiuixIcons.Basic.Search,
                             contentDescription = "搜索文件",
@@ -155,6 +188,31 @@ private fun PolyphonicCard(
                                 .clickable(interactionSource = null, indication = indication) { searchVisible = true }
                                 .size(32.dp).padding(8.dp),
                         )
+                        Spacer(Modifier.width(2.dp))
+                        Row(
+                            modifier = Modifier
+                                .captureDropdownAnchor(sortAnchor)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable(interactionSource = null, indication = indication) {
+                                    onOpenSortMenu(sortAnchor.bounds())
+                                }
+                                .padding(horizontal = 6.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                sortMode.label + if (sortDescending) " ↓" else " ↑",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = colors.primary,
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Icon(
+                                MiuixIcons.Basic.ArrowUpDown,
+                                contentDescription = "排序",
+                                modifier = Modifier.size(12.dp),
+                                tint = colors.primary,
+                            )
+                        }
                     }
                 },
             )
@@ -206,9 +264,7 @@ private fun PolyphonicCard(
             BasicComponent(
                 title = group.fileName,
                 // 文件下方显示源文件的修改时间：yy-MM-d hh:mm:ss。
-                summary = formatGroupModified(
-                    group.modifiedAt.takeIf { it > 0L } ?: libraryTimes[group.fileId] ?: 0L,
-                ),
+                summary = formatGroupModified(modifiedOf(group)),
                 onClick = { onOpenFile(group) },
                 onClickLabel = "查看多音字",
                 startAction = {
