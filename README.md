@@ -55,7 +55,7 @@ app/src/main/java/kirakira/dokidoki/
 
 ## 签名与发布
 
-Release 构建使用仓库中已保存的 Secrets（`KEYSTORE_BASE64`、`DICT_STORE_PASS`，`DICT_KEY_PASS` 可选）。工作流模板见 `ci/signed-apk.yml`：把它放到 `.github/workflows/signed-apk.yml` 后，可在 Actions 页面运行 `Release signed APK`。Release 模式使用源码中的 versionCode 发布，versionName 自动递增（如 2.0 → 2.1）；CI 模式关闭 `publish_release`，versionName 以最新 Release 版本为准、只递增 versionCode。构建完成后写回 `version.properties`，并创建 GitHub Release（默认直接发布），上传 `kirakira-<versionName>.apk` 与 `SHA256SUMS.txt`。
+Release 构建使用仓库中已保存的 Secrets（`KEYSTORE_BASE64`、`DICT_STORE_PASS`，`DICT_KEY_PASS` 可选）。工作流模板见 `ci/signed-apk.yml`：把它放到 `.github/workflows/signed-apk.yml` 后，可在 Actions 页面运行 `Release signed APK`。Release 模式使用源码中的 versionCode 发布，versionName 为三段式并自动递增末段（如 2.1.1 → 2.1.2，末段到 9 后进位为 2.4.0）；CI 模式关闭 `publish_release`，versionName 保持不变、只递增 versionCode。构建完成后写回 `version.properties`，并创建 GitHub Release（默认直接发布），上传 `kirakira-<versionName>.apk` 与 `SHA256SUMS.txt`。
 
 - `KEYSTORE_BASE64`：签名密钥库的 base64 内容
 - `DICT_STORE_PASS`：密钥库密码
@@ -69,7 +69,7 @@ Gradle 通过 `RELEASE_KEYSTORE_PATH`、`RELEASE_STORE_PASSWORD`、`RELEASE_KEY_
 ## 版本说明
 
 - namespace 与 applicationId：`kirakira.dokidoki`
-- versionName 与 versionCode 记录在 `version.properties`；Release 发布时 versionName 递增（2.0 → 2.1），versionCode 使用源码值；CI 构建以最新 Release 的 versionName 为准，只递增 versionCode
+- versionName 与 versionCode 记录在 `version.properties`；versionName 为三段式 `MAJOR.MINOR.PATCH`，Release 发布时递增末段（2.1.1 → 2.1.2，末段到 9 后进位为 2.4.0），versionCode 使用源码值；CI 构建只递增 versionCode
 - Release 签名由 GitHub Actions 使用仓库 Secrets 完成。
 - 从旧版 1.1.0（WebView 版本）升级时，因签名不同需先备份数据并卸载旧版。
 
