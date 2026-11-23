@@ -74,6 +74,7 @@ import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.theme.DictTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.firstOrNull
 import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
 import top.yukonga.miuix.kmp.glass.GlassMotion
 import top.yukonga.miuix.kmp.basic.Icon
@@ -407,20 +408,18 @@ private fun FilterChips(
     val indicatorLeft = remember { Animatable(0f) }
     val indicatorRight = remember { Animatable(0f) }
     var initialized by remember { mutableStateOf(false) }
-    // 选中项在滚动视口里的实际位置（layoutInfo 的坐标系与 drawBehind 一致）。
-    val target = remember(chipListState, selected, labels.size) {
+    // 胶囊位置只在点击切换时定位一次，之后不随滚动改变。
+    // 选中项的屏幕位置由 layoutInfo 提供（与 drawBehind 同一坐标系）。
+    val selectedBounds = remember(chipListState, selected, labels.size) {
         derivedStateOf {
             val info = chipListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == selected }
             if (info == null) null else info.offset.toFloat() to (info.offset + info.size).toFloat()
         }
     }
-    // 只有「点击切换」才走弹簧过渡；滑动时直接吸附，指示器不跟随手指移动。
-    var animatingSelection by remember { mutableStateOf(false) }
     LaunchedEffect(selected) {
-        animatingSelection = true
-        val (left, right) = target.value ?: run {
-            animatingSelection = false
-            return@LaunchedEffect
+        val (left, right) = selectedBounds.value ?: run {
+            // 选中项还不在可视区：等它出现再定位。
+            snapshotFlow { selectedBounds.value }.firstOrNull() ?: return@LaunchedEffect
         }
         if (!initialized) {
             // 首帧直接落位，不从 0 号槽滑入。
@@ -428,20 +427,10 @@ private fun FilterChips(
             indicatorRight.snapTo(right)
             initialized = true
         } else {
+            // 点击切换：左右两条边各走一条弹簧。
             launch { indicatorLeft.animateTo(left, GlassMotion.edgeSpring(left <= indicatorLeft.value)) }
             launch { indicatorRight.animateTo(right, GlassMotion.edgeSpring(left > indicatorLeft.value)) }
         }
-        animatingSelection = false
-    }
-    // 滑动期间指示器保持不动，不跟随手指；滚动停止后才重新对齐到选中项。
-    LaunchedEffect(chipListState) {
-        snapshotFlow { chipListState.isScrollInProgress }
-            .collect { scrolling ->
-                if (scrolling || animatingSelection) return@collect
-                val (left, right) = target.value ?: return@collect
-                indicatorLeft.snapTo(left)
-                indicatorRight.snapTo(right)
-            }
     }
     // 与底栏一致：深色白色淡填充，浅色黑色淡填充。
     val indicatorColor = if (p.isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f)
