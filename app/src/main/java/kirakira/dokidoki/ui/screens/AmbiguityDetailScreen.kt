@@ -10,6 +10,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.clickable
@@ -72,6 +73,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
+import top.yukonga.miuix.kmp.basic.TopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.basic.Search
@@ -164,8 +166,6 @@ fun AmbiguityDetailScreen(
         if (listState.layoutInfo.totalItemsCount > 0) listState.scrollToItem(0)
     }
     val scope = rememberCoroutineScope()
-    // 顶栏折叠状态由 nestedScroll 驱动；程序化滚动不会派发该事件，需要手动同步。
-    val topBarScrollBehavior = LocalDictTopBarScrollBehavior.current
     // 右下角翻页按钮的显示条件：不在顶部显示「回到顶部」，不在底部显示「翻到底部」。
     val notAtTop by remember {
         derivedStateOf {
@@ -208,6 +208,9 @@ fun AmbiguityDetailScreen(
             }
         },
     ) {
+        // 必须在 FixedTopPage 的 content 内读取：ScrollBehavior 由 FixedTopPage 内部的
+        // CompositionLocalProvider 提供，在函数开头读只会拿到默认值 null。
+        val topBarScrollBehavior = LocalDictTopBarScrollBehavior.current
         Column(Modifier.weight(1f).fillMaxWidth()) {
             Box(
                 Modifier.weight(1f).fillMaxWidth()
@@ -336,12 +339,9 @@ fun AmbiguityDetailScreen(
                     onJumpTop = {
                         scope.launch {
                             listState.animateScrollToItem(0)
-                            // animateScrollToItem 不产生 nestedScroll 事件，顶栏不会跟着展开，
-                            // 这里直接把折叠偏移归零，让大标题重新出现。
-                            topBarScrollBehavior?.state?.let { state ->
-                                state.heightOffset = 0f
-                                state.contentOffset = 0f
-                            }
+                            // animateScrollToItem 不派发 nestedScroll，顶栏不会跟着展开；
+                            // 手动把折叠偏移动画回 0，大标题随之回来。
+                            syncTopBar(topBarScrollBehavior?.state, collapse = false)
                         }
                     },
                     onJumpBottom = {
@@ -349,10 +349,9 @@ fun AmbiguityDetailScreen(
                         scope.launch {
                             val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
                             listState.animateScrollToItem(lastIndex)
-                            // 滚到底后顶栏应收起，同样需要手动同步。
-                            topBarScrollBehavior?.state?.let { state ->
-                                state.heightOffset = state.heightOffsetLimit
-                            }
+                            // 内容确实超过一屏时才收起顶栏，否则短列表不该出现折叠态。
+                            val scrollable = listState.canScrollBackward || listState.canScrollForward
+                            syncTopBar(topBarScrollBehavior?.state, collapse = scrollable)
                         }
                     },
                     modifier = Modifier
@@ -363,6 +362,30 @@ fun AmbiguityDetailScreen(
         }
     }
 }
+/**
+ * 程序化滚动后同步顶栏折叠状态。
+ *
+ * Miuix 顶栏的折叠量只由 ScrollBehavior 的 nestedScrollConnection 累加，
+ * 而 animateScrollToItem 不会派发 nested scroll 事件，所以必须手动补齐，
+ * 否则列表动了、顶栏高度不变，大标题会卡在原地。
+ */
+private suspend fun syncTopBar(state: TopAppBarState?, collapse: Boolean) {
+    if (state == null) return
+    val target = if (collapse) state.heightOffsetLimit else 0f
+    if (state.heightOffset == target) {
+        if (!collapse) state.contentOffset = 0f
+        return
+    }
+    animate(
+        initialValue = state.heightOffset,
+        targetValue = target,
+        animationSpec = tween(240),
+    ) { value, _ ->
+        state.heightOffset = value
+    }
+    if (!collapse) state.contentOffset = 0f
+}
+
 @Composable
 private fun FileCardsBackdrop(
     listState: LazyListState,
