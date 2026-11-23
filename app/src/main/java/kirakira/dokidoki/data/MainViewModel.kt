@@ -341,6 +341,7 @@ class MainViewModel(
                     put("dataFile", File(summary.dataPath).name)
                     put("indexFile", File(summary.indexPath).name)
                     put("startIndex", summary.startIndex)
+                    put("modifiedAt", summary.modifiedAt)
                 })
             }
         })
@@ -364,6 +365,7 @@ class MainViewModel(
                     dataPath = File(sessionDetailDirectory, dataName).absolutePath,
                     indexPath = File(sessionDetailDirectory, indexName).absolutePath,
                     startIndex = item.optInt("startIndex"),
+                    modifiedAt = item.optLong("modifiedAt"),
                 )
             }
         } else {

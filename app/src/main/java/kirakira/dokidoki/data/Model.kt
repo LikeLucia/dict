@@ -34,9 +34,10 @@ enum class OutputDelimiter(val label: String, val engineValue: String) {
 }
 
 enum class FileSortMode(val label: String) {
+    // 弹窗展示顺序：文件名、修改时间、文件大小。
+    NAME("文件名"),
     MODIFIED("修改时间"),
     SIZE("文件大小"),
-    NAME("文件名"),
 }
 
 enum class InputEncoding(val label: String, val engineValue: String) {
@@ -103,6 +104,8 @@ data class AmbiguousFileSummary(
     val dataPath: String,
     val indexPath: String,
     val startIndex: Int,
+    /** 源词库文件的修改时间（毫秒时间戳，0 表示未知）。 */
+    val modifiedAt: Long = 0L,
 )
 
 data class AmbiguousFileGroup(
@@ -110,12 +113,14 @@ data class AmbiguousFileGroup(
     val fileName: String,
     val entries: List<AmbiguousEntry> = emptyList(),
     val summary: AmbiguousFileSummary? = null,
+    /** 源词库文件的修改时间（毫秒时间戳，0 表示未知）。 */
+    val modifiedAt: Long = 0L,
 ) {
     val entryCount: Int get() = summary?.count ?: entries.size
 }
 
 fun ProcessResult.ambiguityGroups(): List<AmbiguousFileGroup> = if (ambiguousFiles.isNotEmpty()) {
-    ambiguousFiles.map { AmbiguousFileGroup(it.fileId, it.fileName, summary = it) }
+    ambiguousFiles.map { AmbiguousFileGroup(it.fileId, it.fileName, summary = it, modifiedAt = it.modifiedAt) }
 } else {
     // Preview/sample results have a small in-memory list; production results use the sidecars.
     ambiguousLines.groupBy { it.fileId }.map { (id, rows) -> AmbiguousFileGroup(id, rows.first().fileName, rows) }
@@ -220,7 +225,7 @@ data class DictUiState(
     val weight: Int = 120,
     val processedLines: Int = 0,
     val processedPinyin: Int = 0,
-    val sortMode: FileSortMode = FileSortMode.MODIFIED,
+    val sortMode: FileSortMode = FileSortMode.NAME,
     val sortDescending: Boolean = true,
     val exportDirectoryUri: String? = null,
     val exportDirectoryName: String = "Download",

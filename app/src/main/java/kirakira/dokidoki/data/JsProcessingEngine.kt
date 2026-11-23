@@ -356,7 +356,8 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
             try {
                 val report = processLines(
                     js, lineInput, options, out, checkActive, closeInput = true,
-                    fileName = file.name, fileId = file.id, detailWriter = writer,
+                    fileName = file.name, fileId = file.id,
+                    fileModifiedAt = file.file.lastModified(), detailWriter = writer,
                 ) { reportProgress() }
                 out.flush()
                 writer.close()
@@ -457,7 +458,7 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
                     val report = processLines(
                         js, boundedEntry, options, activeZipOut, checkActive, closeInput = false,
                         fileName = file.name + " / " + name, fileId = file.id + "/" + entries,
-                        detailWriter = writer,
+                        fileModifiedAt = file.file.lastModified(), detailWriter = writer,
                     ) { reportProgress() }
                     activeZipIn.closeEntry()
                     activeZipOut.closeEntry()
@@ -517,6 +518,7 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
         closeInput: Boolean,
         fileName: String,
         fileId: String,
+        fileModifiedAt: Long,
         detailWriter: AmbiguousDetailWriter,
         onProgress: () -> Unit,
     ): JSONObject {
@@ -554,7 +556,7 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
                     val detailJson = js.evaluate("__takePolyphonicDetails($POLYPHONIC_BATCH)") as? String
                         ?: throw ProcessingException("多音字详情返回为空")
                     val details = JSONArray(detailJson)
-                    detailWriter.append(details, fileName, fileId)
+                    detailWriter.append(details, fileName, fileId, fileModifiedAt)
                 } while (details.length() == POLYPHONIC_BATCH)
                 activeProvider.text = "[]"
                 onProgress()

@@ -64,6 +64,7 @@ internal fun readSessionMetadata(source: Reader, detailDirectory: File): JSONObj
                                         put("dataFile", File(summary.dataPath).name)
                                         put("indexFile", File(summary.indexPath).name)
                                         put("startIndex", summary.startIndex)
+                                        put("modifiedAt", summary.modifiedAt)
                                     })
                                 }
                             })

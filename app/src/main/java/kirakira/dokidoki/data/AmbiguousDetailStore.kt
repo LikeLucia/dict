@@ -48,7 +48,13 @@ internal class SpaceCheckingOutputStream(
 
 /** Writes full-detail records incrementally; memory retains only one detail batch and group offsets. */
 internal class AmbiguousDetailWriter(private val directory: File) : AutoCloseable {
-    private data class MutableGroup(val fileId: String, val fileName: String, val startIndex: Int, var count: Int)
+    private data class MutableGroup(
+        val fileId: String,
+        val fileName: String,
+        val startIndex: Int,
+        var count: Int,
+        var modifiedAt: Long,
+    )
 
     private var dataFile: File? = null
     private var indexFile: File? = null
@@ -59,7 +65,7 @@ internal class AmbiguousDetailWriter(private val directory: File) : AutoCloseabl
     private var recordCount = 0
     private var closed = false
 
-    fun append(details: JSONArray, fileName: String, fileId: String) {
+    fun append(details: JSONArray, fileName: String, fileId: String, modifiedAt: Long) {
         if (details.length() == 0) return
         repeat(details.length()) { row ->
             val detail = details.optJSONObject(row) ?: return@repeat
@@ -84,15 +90,15 @@ internal class AmbiguousDetailWriter(private val directory: File) : AutoCloseabl
         val fileName = item.optString("fileName")
         val fileId = item.optString("fileId", fileName)
         if (!item.has("fileId")) item.put("fileId", fileId)
-        writeRecord(item, fileName, fileId)
+        writeRecord(item, fileName, fileId, 0L)
     }
 
-    private fun writeRecord(item: JSONObject, fileName: String, fileId: String) {
+    private fun writeRecord(item: JSONObject, fileName: String, fileId: String, modifiedAt: Long) {
         check(!closed) { "多音字明细写入器已关闭" }
         ensureOpen()
         val out = requireNotNull(dataOutput)
         val idx = requireNotNull(indexOutput)
-        val group = groups.getOrPut(fileId) { MutableGroup(fileId, fileName, recordCount, 0) }
+        val group = groups.getOrPut(fileId) { MutableGroup(fileId, fileName, recordCount, 0, modifiedAt) }
         val bytes = item.toString().toByteArray(StandardCharsets.UTF_8)
         if (bytes.size > MAX_DETAIL_RECORD_BYTES) throw ProcessingException("多音字明细记录超过 16 MiB，已停止并清除临时文件")
         val offset = dataLength
@@ -112,6 +118,7 @@ internal class AmbiguousDetailWriter(private val directory: File) : AutoCloseabl
             dataPath = requireNotNull(dataFile).absolutePath,
             indexPath = requireNotNull(indexFile).absolutePath,
             startIndex = group.startIndex,
+            modifiedAt = group.modifiedAt,
         )
     }
 
