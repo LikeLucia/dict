@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -413,8 +414,14 @@ private fun FilterChips(
             if (info == null) null else info.offset.toFloat() to (info.offset + info.size).toFloat()
         }
     }
-    LaunchedEffect(target.value, labels.size) {
-        val (left, right) = target.value ?: return@LaunchedEffect
+    // 只有「点击切换」才走弹簧过渡；滑动时直接吸附，指示器不跟随手指移动。
+    var animatingSelection by remember { mutableStateOf(false) }
+    LaunchedEffect(selected) {
+        animatingSelection = true
+        val (left, right) = target.value ?: run {
+            animatingSelection = false
+            return@LaunchedEffect
+        }
         if (!initialized) {
             // 首帧直接落位，不从 0 号槽滑入。
             indicatorLeft.snapTo(left)
@@ -424,6 +431,17 @@ private fun FilterChips(
             launch { indicatorLeft.animateTo(left, GlassMotion.edgeSpring(left <= indicatorLeft.value)) }
             launch { indicatorRight.animateTo(right, GlassMotion.edgeSpring(left > indicatorLeft.value)) }
         }
+        animatingSelection = false
+    }
+    // 滑动过程中把指示器钉在选中项当前位置上，不做过渡。
+    LaunchedEffect(chipListState) {
+        snapshotFlow { chipListState.isScrollInProgress to target.value }
+            .collect { (scrolling, position) ->
+                if (!scrolling || animatingSelection) return@collect
+                val (left, right) = position ?: return@collect
+                indicatorLeft.snapTo(left)
+                indicatorRight.snapTo(right)
+            }
     }
     // 与底栏一致：深色白色淡填充，浅色黑色淡填充。
     val indicatorColor = if (p.isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f)
