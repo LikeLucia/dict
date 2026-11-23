@@ -585,8 +585,8 @@ private fun DetailEntryRow(
                         copyDetailText(context, entry.line.toString())
                     },
                 cornerRadius = 12.dp,
-                // 左右内边距 5dp。
-                insideMargin = PaddingValues(horizontal = 5.dp),
+                // 左右内边距 16dp。
+                insideMargin = PaddingValues(horizontal = 16.dp),
                 colors = CardDefaults.defaultColors(
                     color = colors.tertiaryContainer,
                     contentColor = colors.onTertiaryContainer,
@@ -605,8 +605,8 @@ private fun DetailEntryRow(
                     )
                 }
             }
-            // 行号与多音字之间间距 4dp。
-            Spacer(Modifier.width(4.dp))
+            // 行号与多音字之间间距 6dp。
+            Spacer(Modifier.width(6.dp))
             Text(
                 text = entry.message,
                 modifier = Modifier.weight(1f),
