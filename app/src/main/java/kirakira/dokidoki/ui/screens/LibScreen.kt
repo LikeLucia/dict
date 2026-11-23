@@ -38,6 +38,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
@@ -420,10 +421,8 @@ private fun FilterChips(
             if (info.offset + info.size <= viewportStart || info.offset >= viewportEnd) {
                 return@derivedStateOf null
             }
-            // 部分露出时按可视区裁切，避免画到胶囊外面。
-            val left = maxOf(info.offset, viewportStart).toFloat()
-            val right = minOf(info.offset + info.size, viewportEnd).toFloat()
-            left to right
+            // 保留胶囊的完整位置与宽度，由容器边界裁掉溢出部分（裁切边是平口）。
+            info.offset.toFloat() to (info.offset + info.size).toFloat()
         }
     }
     // 滚动时跟随（不做过渡），点击切换时走弹簧过渡。
@@ -469,6 +468,8 @@ private fun FilterChips(
                 .fillMaxWidth()
                 // 胶囊高度 38dp。
                 .height(38.dp)
+                // 裁掉溢出容器的部分：胶囊滑到边缘时是平口切口，而不是变形。
+                .clipToBounds()
                 // 指示器画在滚动视口坐标系里，位置随选中项与滚动一起变化。
                 .drawBehind {
                     val left = indicatorLeft.value
@@ -477,14 +478,12 @@ private fun FilterChips(
                     // 超出容器范围就不画（选中标签已滚出可视区）。
                     if (right <= 0f || left >= size.width) return@drawBehind
                     val height = size.height
-                    val width = right - left
-                    // 圆角不超过宽度的一半，否则被裁窄时会压成球形。
-                    val radius = minOf(height / 2f, width / 2f)
+                    // 圆角恒为高度的一半：保持完整胶囊形，溢出部分由容器裁掉。
                     drawRoundRect(
                         color = indicatorColor,
                         topLeft = Offset(left, 0f),
-                        size = Size(width, height),
-                        cornerRadius = CornerRadius(radius),
+                        size = Size(right - left, height),
+                        cornerRadius = CornerRadius(height / 2f),
                     )
                 },
         ) {
