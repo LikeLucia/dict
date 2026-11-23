@@ -330,10 +330,25 @@ fun DictTopBar(
                     }
                 }
                 if (onSelectAll != null) {
+                    // 按下高亮为矩形：小圆角矩形底色，与圆形图标按钮区分。
+                    val selectAllInteraction = remember { MutableInteractionSource() }
+                    val selectAllPressed = selectAllInteraction.collectIsPressedAsState().value
+                    val selectAllMask by animateColorAsState(
+                        targetValue = if (selectAllPressed) p.text.copy(alpha = 0.10f) else Color.Transparent,
+                        animationSpec = tween(durationMillis = 120),
+                        label = "select-all-mask",
+                    )
                     Box(
                         modifier = Modifier
                             .heightIn(min = 48.dp)
-                            .clickable(onClick = onSelectAll),
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(selectAllMask)
+                            .clickable(
+                                interactionSource = selectAllInteraction,
+                                indication = null,
+                                onClick = onSelectAll,
+                            )
+                            .padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
