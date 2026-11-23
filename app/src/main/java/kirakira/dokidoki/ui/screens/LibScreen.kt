@@ -413,6 +413,8 @@ private fun FilterChips(
         // 标签较多时横向滑动；指示器跟随选中项的实际位置。
         val chipListState = rememberLazyListState()
         val chipBounds = remember { mutableStateMapOf<Int, Rect>() }
+        // 标签坐标是根坐标，绘制坐标系是本 Box，需要减掉 Box 自身原点。
+        var trackOrigin by remember { mutableStateOf(Offset.Zero) }
         LaunchedEffect(selected) {
             if (selected in labels.indices) chipListState.animateScrollToItem(selected)
         }
@@ -421,12 +423,14 @@ private fun FilterChips(
                 .fillMaxWidth()
                 // 胶囊高度 38dp。
                 .height(38.dp)
+                .onGloballyPositioned { trackOrigin = it.localToRoot(Offset.Zero) }
                 .drawBehind {
                     val bounds = chipBounds[selected] ?: return@drawBehind
                     if (bounds.width <= 0f) return@drawBehind
+                    val left = bounds.left - trackOrigin.x
                     drawRoundRect(
                         color = indicatorColor,
-                        topLeft = Offset(bounds.left, 0f),
+                        topLeft = Offset(left, 0f),
                         size = Size(bounds.width, size.height),
                         cornerRadius = CornerRadius(size.height / 2f),
                     )
@@ -447,7 +451,6 @@ private fun FilterChips(
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
-                            // 用 localToRoot 取得相对父容器的位置，供指示器绘制。
                             .onGloballyPositioned { coords ->
                                 val position = coords.localToRoot(Offset.Zero)
                                 chipBounds[index] = Rect(
