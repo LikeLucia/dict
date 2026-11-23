@@ -477,11 +477,14 @@ private fun FilterChips(
                     // 超出容器范围就不画（选中标签已滚出可视区）。
                     if (right <= 0f || left >= size.width) return@drawBehind
                     val height = size.height
+                    val width = right - left
+                    // 圆角不超过宽度的一半，否则被裁窄时会压成球形。
+                    val radius = minOf(height / 2f, width / 2f)
                     drawRoundRect(
                         color = indicatorColor,
                         topLeft = Offset(left, 0f),
-                        size = Size(right - left, height),
-                        cornerRadius = CornerRadius(height / 2f),
+                        size = Size(width, height),
+                        cornerRadius = CornerRadius(radius),
                     )
                 },
         ) {
