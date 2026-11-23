@@ -647,6 +647,8 @@ private fun DetailEntryRow(
                 reading.others.forEach { other ->
                     CopyableReading(
                         value = other,
+                        // 与上方文字统一左对齐：去掉内部水平内边距。
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
                         onClick = if (replaceMode) ({ handleReading(other, reading.index) }) else null,
                     )
                 }
