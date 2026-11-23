@@ -388,7 +388,7 @@ private val LIBRARY_FILTERS = listOf(
     LibraryFilter("TSV") { it.name.endsWith(".tsv", true) },
     LibraryFilter("ZIP") { it.name.endsWith(".zip", true) },
     // 处理标记分类。
-    LibraryFilter("拼与辅") { it.status == FileStatus.PINYIN_AUX_DONE },
+    LibraryFilter("拼和辅") { it.status == FileStatus.PINYIN_AUX_DONE },
     LibraryFilter("拼音") { it.status == FileStatus.PINYIN_DONE },
     LibraryFilter("辅助码") { it.status == FileStatus.AUX_DONE },
     LibraryFilter("删辅助码") { it.status == FileStatus.AUX_STRIPPED },
