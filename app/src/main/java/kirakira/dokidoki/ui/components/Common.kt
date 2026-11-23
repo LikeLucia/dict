@@ -341,8 +341,8 @@ fun DictTopBar(
                     Box(
                         modifier = Modifier
                             .heightIn(min = 48.dp)
-                            // 灰遮罩圆角 16dp。
-                            .clip(RoundedCornerShape(16.dp))
+                            // 灰遮罩圆角 12dp。
+                            .clip(RoundedCornerShape(12.dp))
                             .background(selectAllMask)
                             .clickable(
                                 interactionSource = selectAllInteraction,

@@ -574,17 +574,19 @@ private fun DetailEntryRow(
         onLongClick = onLongPress,
     )) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+            // 左留白去掉、右侧留 8dp。
+            modifier = Modifier.fillMaxWidth().padding(start = 0.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Card(
-                // 行号徽章：圆角 10dp，最小宽度再放宽，数字两侧留白更足。
+                // 行号徽章：圆角 12dp。
                 modifier = Modifier.widthIn(min = 58.dp).wrapContentWidth(unbounded = true).heightIn(min = 32.dp)
                     .clickable(interactionSource = interaction, indication = indication) {
                         copyDetailText(context, entry.line.toString())
                     },
-                cornerRadius = 10.dp,
-                insideMargin = PaddingValues(horizontal = 10.dp),
+                cornerRadius = 12.dp,
+                // 左右内边距 5dp。
+                insideMargin = PaddingValues(horizontal = 5.dp),
                 colors = CardDefaults.defaultColors(
                     color = colors.tertiaryContainer,
                     contentColor = colors.onTertiaryContainer,
@@ -603,8 +605,8 @@ private fun DetailEntryRow(
                     )
                 }
             }
-            // 行号与多音字之间间距收紧。
-            Spacer(Modifier.width(8.dp))
+            // 行号与多音字之间间距 4dp。
+            Spacer(Modifier.width(4.dp))
             Text(
                 text = entry.message,
                 modifier = Modifier.weight(1f),
@@ -618,12 +620,13 @@ private fun DetailEntryRow(
             CopyableReading(
                 value = entry.pinyin,
                 label = "当前读音：" + entry.pinyin,
-                modifier = Modifier.padding(start = 16.dp),
+                // 左留白去掉后同步贴左，与行号徽章左边缘对齐。
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
             )
         } else {
             Text(
                 text = "当前行未记录有效读音",
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                modifier = Modifier.fillMaxWidth().padding(end = 8.dp, top = 6.dp, bottom = 6.dp),
                 fontSize = 10.5.sp,
                 color = colors.onBackgroundVariant,
             )
@@ -635,14 +638,14 @@ private fun DetailEntryRow(
                     reading.toneUnspecified -> " · 可选读音（原行未标声调）"
                     else -> " · 其他读音"
                 },
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 fontSize = 10.5.sp,
                 color = colors.onBackgroundVariant,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
             FlowRow(
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 reading.others.forEach { other ->
