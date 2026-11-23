@@ -30,7 +30,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -342,8 +341,8 @@ fun DictTopBar(
                     Box(
                         modifier = Modifier
                             .heightIn(min = 48.dp)
-                            // 灰遮罩为矩形：不加圆角，与圆形图标按钮明确区分。
-                            .clip(RectangleShape)
+                            // 灰遮罩圆角 16dp。
+                            .clip(RoundedCornerShape(16.dp))
                             .background(selectAllMask)
                             .clickable(
                                 interactionSource = selectAllInteraction,
