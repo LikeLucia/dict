@@ -418,8 +418,7 @@ private fun RecentCard(files: List<DictFile>, onOpenFile: (String) -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp)
-            // 每行多了一行时间，行高由 54dp 提到 66dp。
-            .height((maxOf(files.size, 1) * 66).dp)
+            .height((maxOf(files.size, 1) * 54).dp)
                 ) {
         if (files.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -467,7 +466,7 @@ private fun RecentRow(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(66.dp)
+            .height(54.dp)
             .clickable(
                 interactionSource = interaction,
                 indication = indication,
@@ -491,12 +490,14 @@ private fun RecentRow(
             Spacer(Modifier.width(12.dp))
             Column {
                 Text(name, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = p.text)
-                Spacer(Modifier.height(3.dp))
-                Text(meta, fontSize = 11.sp, color = p.text2)
-                // 与词库页一致：yy-MM-dd HH:mm:ss，时间未知时不占位。
-                formatModifiedTime(modifiedAt)?.let { time ->
-                    Spacer(Modifier.height(2.dp))
-                    Text(time, fontSize = 10.5.sp, color = p.text3)
+                Spacer(Modifier.height(4.dp))
+                // 时间放在状态文案前面，与词库页同格式 yy-MM-dd HH:mm:ss；未知时不显示。
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    formatModifiedTime(modifiedAt)?.let { time ->
+                        Text(time, fontSize = 11.sp, color = p.text2)
+                        Text(" · ", fontSize = 11.sp, color = p.text2)
+                    }
+                    Text(meta, fontSize = 11.sp, color = p.text2)
                 }
             }
             Spacer(Modifier.weight(1f))

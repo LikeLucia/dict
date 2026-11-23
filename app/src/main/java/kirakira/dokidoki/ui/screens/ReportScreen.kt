@@ -131,10 +131,10 @@ private fun StatsGrid(result: ProcessResult) {
     }
 }
 
-/** 多音字分组所属文件的修改时间：yy-M-dd hh:mm:ss（月不补零、日补零）；0 表示未知，返回 null 由组件省略摘要。 */
+/** 多音字分组所属文件的修改时间：与词库页一致 yy-MM-dd HH:mm:ss；0 表示未知，返回 null 由组件省略摘要。 */
 private fun formatGroupModified(millis: Long): String? {
     if (millis <= 0L) return null
-    return SimpleDateFormat("yy-M-dd HH:mm:ss", Locale.getDefault()).format(Date(millis))
+    return SimpleDateFormat("yy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(millis))
 }
 
 @Composable
