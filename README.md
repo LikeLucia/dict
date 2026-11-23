@@ -55,7 +55,7 @@ app/src/main/java/kirakira/dokidoki/
 
 ## 签名与发布
 
-Release 构建使用仓库中已保存的 Secrets（`KEYSTORE_BASE64`、`DICT_STORE_PASS`，`DICT_KEY_PASS` 可选）。工作流模板见 `ci/signed-apk.yml`：把它放到 `.github/workflows/signed-apk.yml` 后，可在 Actions 页面运行 `Release signed APK`。Release 模式使用源码中的 versionCode 发布，versionName 为三段式并自动递增末段（如 2.1.1 → 2.1.2，末段到 9 后进位为 2.4.0）；CI 模式关闭 `publish_release`，versionName 保持不变、只递增 versionCode。构建完成后写回 `version.properties`，并创建 GitHub Release（默认直接发布），上传 `kirakira-<versionName>.apk` 与 `SHA256SUMS.txt`。
+Release 构建使用仓库中已保存的 Secrets（`KEYSTORE_BASE64`、`DICT_STORE_PASS`，`DICT_KEY_PASS` 可选）。工作流模板见 `ci/Android-APK.yml`：把它放到 `.github/workflows/Android-APK.yml` 后，可在 Actions 页面运行 `Android APK`。Release 模式使用源码中的 versionCode 发布，versionName 为三段式并自动递增末段（如 2.1.1 → 2.1.2，末段到 9 后进位为 2.4.0）；CI 模式关闭 `publish_release`，versionName 保持不变、只递增 versionCode。构建完成后写回 `version.properties`，并创建 GitHub Release（默认直接发布），上传 `kirakira-<versionName>.apk` 与 `SHA256SUMS.txt`。
 
 - `KEYSTORE_BASE64`：签名密钥库的 base64 内容
 - `DICT_STORE_PASS`：密钥库密码
