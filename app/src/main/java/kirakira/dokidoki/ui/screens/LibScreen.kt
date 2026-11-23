@@ -56,6 +56,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.unit.sp
 import kirakira.dokidoki.data.DictFile
 import kirakira.dokidoki.data.FileStatus
@@ -446,7 +447,10 @@ private fun FilterChips(
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .onGloballyPositioned { chipBounds[index] = it.boundsInParent() }
+                            .onGloballyPositioned { coords ->
+                                val topLeft = coords.positionInParent()
+                                chipBounds[index] = Rect(topLeft, coords.size.toSize())
+                            }
                             .clip(RoundedCornerShape(18.dp))
                             // 关掉 clickable 自带的按压指示（ripple）：选中态只由指示器胶囊表达。
                             .clickable(
