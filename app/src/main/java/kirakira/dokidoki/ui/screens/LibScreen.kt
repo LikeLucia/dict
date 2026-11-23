@@ -429,7 +429,8 @@ private fun FilterChips(
             info.offset.toFloat() to (info.offset + info.size).toFloat()
         }
     }
-    // 滚动时跟随（不做过渡），点击切换时走弹簧过渡。
+    // 点击切换时走弹簧过渡；其余时间（含滚动）逐帧贴合选中标签。
+    var animatingSelection by remember { mutableStateOf(false) }
     LaunchedEffect(selected) {
         val bounds = selectedBounds.value ?: return@LaunchedEffect
         if (!initialized) {
@@ -438,23 +439,23 @@ private fun FilterChips(
             indicatorRight.snapTo(bounds.second)
             initialized = true
         } else {
-            launch { indicatorLeft.animateTo(bounds.first, GlassMotion.edgeSpring(bounds.first <= indicatorLeft.value)) }
-            launch { indicatorRight.animateTo(bounds.second, GlassMotion.edgeSpring(bounds.first > indicatorLeft.value)) }
+            animatingSelection = true
+            try {
+                launch { indicatorLeft.animateTo(bounds.first, GlassMotion.edgeSpring(bounds.first <= indicatorLeft.value)) }
+                launch { indicatorRight.animateTo(bounds.second, GlassMotion.edgeSpring(bounds.first > indicatorLeft.value)) }
+            } finally {
+                animatingSelection = false
+            }
         }
     }
-    // 滚动过程中实时跟随选中标签，保持贴合。
+    // 逐帧跟随选中标签：滚动时不播放过渡，直接贴合，长度恒为标签完整宽度。
     LaunchedEffect(chipListState) {
-        snapshotFlow { chipListState.isScrollInProgress to selectedBounds.value }
-            .collect { (scrolling, bounds) ->
-                if (!scrolling) return@collect
-                if (bounds == null) {
-                    // 滑出可视区：收起到零宽，drawBehind 自然不画。
-                    indicatorLeft.snapTo(0f)
-                    indicatorRight.snapTo(0f)
-                } else {
-                    indicatorLeft.snapTo(bounds.first)
-                    indicatorRight.snapTo(bounds.second)
-                }
+        snapshotFlow { selectedBounds.value }
+            .collect { bounds ->
+                if (animatingSelection) return@collect
+                if (bounds == null) return@collect
+                indicatorLeft.snapTo(bounds.first)
+                indicatorRight.snapTo(bounds.second)
             }
     }
     // 与底栏一致：深色白色淡填充，浅色黑色淡填充。
