@@ -413,9 +413,6 @@ private fun FilterChips(
             if (info == null) null else info.offset.toFloat() to (info.offset + info.size).toFloat()
         }
     }
-    LaunchedEffect(selected) {
-        if (selected in labels.indices) chipListState.animateScrollToItem(selected)
-    }
     LaunchedEffect(target.value, labels.size) {
         val (left, right) = target.value ?: return@LaunchedEffect
         if (!initialized) {
@@ -480,7 +477,10 @@ private fun FilterChips(
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
-                            ) { onSelect(index) }
+                            ) {
+                                // 滑动不等于切换：正在滚动时忽略这次点击，避免拖动被识别成选中。
+                                if (!chipListState.isScrollInProgress) onSelect(index)
+                            }
                             .padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center,
                     ) {
