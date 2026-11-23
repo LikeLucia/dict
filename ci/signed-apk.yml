@@ -9,7 +9,7 @@
 #   DICT_STORE_PASS: keystore 密码
 #   DICT_KEY_PASS: key 密码，未设置时与 DICT_STORE_PASS 相同
 
-name: Release signed APK
+name: Android APK
 
 on:
   workflow_dispatch:
