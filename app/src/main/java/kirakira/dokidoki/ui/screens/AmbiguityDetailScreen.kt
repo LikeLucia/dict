@@ -667,14 +667,14 @@ private fun ReplaceModeBar(onExit: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            "替换拼音模式：点读音即替换原有拼音",
+            "替换拼音模式 · 点读音即替换原有拼音",
             modifier = Modifier.weight(1f),
-            fontSize = 11.5.sp,
+            fontSize = 14.sp,
             color = colors.primary,
         )
         Text(
             "退出",
-            fontSize = 11.5.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             color = colors.primary,
             modifier = Modifier

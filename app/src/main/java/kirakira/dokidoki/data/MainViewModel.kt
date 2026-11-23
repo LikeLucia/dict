@@ -215,6 +215,7 @@ class MainViewModel(
                 hasOutput = item.optBoolean("hasOutput"),
                 modifiedAt = item.optLong("modifiedAt"),
                 polyphonicHandled = item.optBoolean("polyphonicHandled"),
+                processedAt = item.optLong("processedAt"),
             )
         }
         val resultObject = root.optJSONObject("resultsByFile") ?: JSONObject()
@@ -324,6 +325,7 @@ class MainViewModel(
         put("hasOutput", file.hasOutput)
         put("modifiedAt", file.modifiedAt)
         put("polyphonicHandled", file.polyphonicHandled)
+        put("processedAt", file.processedAt)
     }
 
     private fun encodeProcessResult(result: ProcessResult) = JSONObject().apply {
@@ -847,6 +849,7 @@ class MainViewModel(
                         current.copy(
                             files = current.files.map {
                                 if (it.id == item.fileId) it.copy(status = status, hasOutput = true,
+                                    processedAt = System.currentTimeMillis(),
                                     meta = formatSize(it.sizeBytes) + " · 已处理") else it
                             },
                             result = partial,
@@ -1233,6 +1236,7 @@ class MainViewModel(
                 files = current.files.map {
                     if (it.id == fileId) {
                         it.copy(polyphonicHandled = true, hasOutput = true,
+                            processedAt = if (it.processedAt > 0L) it.processedAt else System.currentTimeMillis(),
                             meta = formatSize(it.sizeBytes) + " · 已处理")
                     } else it
                 },

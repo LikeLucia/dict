@@ -264,6 +264,8 @@ data class DictFile(
     val modifiedAt: Long = 0L,
     /** 是否在详情页手动替换过多音字拼音；词库页据此显示标记。 */
     val polyphonicHandled: Boolean = false,
+    /** 处理完成时间（毫秒时间戳，0 表示尚未处理）；列表优先显示它，而非源文件修改时间。 */
+    val processedAt: Long = 0L,
 )
 
 enum class FileStatus(val label: String, val highlighted: Boolean) {

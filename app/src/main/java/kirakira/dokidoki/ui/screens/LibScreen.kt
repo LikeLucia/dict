@@ -550,7 +550,9 @@ private fun LibRow(
             Column(Modifier.weight(1f)) {
                 Text(file.name, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = p.text, maxLines = 1)
                 Spacer(Modifier.height(4.dp))
-                val modified = remember(file.modifiedAt) { formatModified(file.modifiedAt) }
+                // 优先显示处理时间；未处理过才回退到源文件修改时间。
+                val shownTime = file.processedAt.takeIf { it > 0L } ?: file.modifiedAt
+                val modified = remember(shownTime) { formatModified(shownTime) }
                 Text(
                     if (modified != null) modified + " · " + file.meta else file.meta,
                     fontSize = 11.sp,
@@ -584,15 +586,16 @@ private fun LibRow(
 @Composable
 private fun PolyphonicBadge() {
     val p = DictTheme.palette
+    // 与 StatusBadge 保持一致：同样的高度、圆角、tint 背景与内边距。
     Box(
         modifier = Modifier
             .height(20.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(p.card2)
-            .padding(horizontal = 8.dp),
+            .background(p.tint)
+            .padding(horizontal = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text("多音字", fontSize = 10.sp, color = p.text2)
+        Text("多音字", fontSize = 10.sp, color = p.onTint)
     }
 }
 

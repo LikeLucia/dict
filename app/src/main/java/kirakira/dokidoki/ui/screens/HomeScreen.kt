@@ -431,7 +431,8 @@ private fun RecentCard(files: List<DictFile>, onOpenFile: (String) -> Unit) {
                         RecentRow(
                             name = file.name,
                             meta = file.meta,
-                            modifiedAt = file.modifiedAt,
+                            // 优先显示处理时间；未处理过才回退到源文件修改时间。
+                            modifiedAt = file.processedAt.takeIf { it > 0L } ?: file.modifiedAt,
                             status = file.status,
                             last = index == files.lastIndex,
                             onClick = { file.id?.let(onOpenFile) },
