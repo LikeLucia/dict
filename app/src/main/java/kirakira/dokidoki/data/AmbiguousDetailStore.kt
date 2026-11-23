@@ -173,7 +173,8 @@ internal object OutputLinePatcher {
     ): Boolean {
         if (line < 1 || pinyinColumn < 1 || syllableIndex < 0 || reading.isEmpty()) return false
         if (!output.isFile) return false
-        val lines = output.readLines(Charsets.UTF_8)
+        // readLines 返回只读 List，这里需要可变副本才能替换目标行。
+        val lines = output.readLines(Charsets.UTF_8).toMutableList()
         if (line > lines.size) return false
         val index = line - 1
         val raw = lines[index]
