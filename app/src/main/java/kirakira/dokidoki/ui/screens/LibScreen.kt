@@ -361,7 +361,7 @@ private fun FilterChips(
     onSelect: (Int) -> Unit,
 ) {
     val p = DictTheme.palette
-    val labels = listOf("全部", "Rime YAML", "TXT", "TSV", "ZIP")
+    val labels = listOf("全部", "YAML", "TXT", "TSV", "ZIP")
     val slots = labels.size
     val indicatorLeft = remember { Animatable(0f) }
     val indicatorRight = remember { Animatable(0f) }
