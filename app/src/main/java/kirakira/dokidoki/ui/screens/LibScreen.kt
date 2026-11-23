@@ -489,7 +489,7 @@ private fun LibRow(
                 Spacer(Modifier.height(4.dp))
                 val modified = remember(file.modifiedAt) { formatModified(file.modifiedAt) }
                 Text(
-                    if (modified != null) file.meta + " · " + modified else file.meta,
+                    if (modified != null) modified + " · " + file.meta else file.meta,
                     fontSize = 11.sp,
                     color = p.text2,
                     maxLines = 1,
