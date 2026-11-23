@@ -578,12 +578,12 @@ private fun DetailEntryRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Card(
-                // 行号徽章：矩形底（小圆角），最小宽度与水平内边距都放宽。
-                modifier = Modifier.widthIn(min = 52.dp).wrapContentWidth(unbounded = true).heightIn(min = 32.dp)
+                // 行号徽章：圆角 10dp，最小宽度再放宽，数字两侧留白更足。
+                modifier = Modifier.widthIn(min = 58.dp).wrapContentWidth(unbounded = true).heightIn(min = 32.dp)
                     .clickable(interactionSource = interaction, indication = indication) {
                         copyDetailText(context, entry.line.toString())
                     },
-                cornerRadius = 4.dp,
+                cornerRadius = 10.dp,
                 insideMargin = PaddingValues(horizontal = 10.dp),
                 colors = CardDefaults.defaultColors(
                     color = colors.tertiaryContainer,
@@ -603,7 +603,8 @@ private fun DetailEntryRow(
                     )
                 }
             }
-            Spacer(Modifier.width(12.dp))
+            // 行号与多音字之间间距收紧。
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = entry.message,
                 modifier = Modifier.weight(1f),
