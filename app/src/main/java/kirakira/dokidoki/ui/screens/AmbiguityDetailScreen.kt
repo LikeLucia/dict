@@ -574,8 +574,8 @@ private fun DetailEntryRow(
         onLongClick = onLongPress,
     )) {
         Row(
-            // 左留白去掉、右侧留 8dp。
-            modifier = Modifier.fillMaxWidth().padding(start = 0.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+            // 左右留白各 16dp。
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Card(
@@ -620,13 +620,12 @@ private fun DetailEntryRow(
             CopyableReading(
                 value = entry.pinyin,
                 label = "当前读音：" + entry.pinyin,
-                // 左留白去掉后同步贴左，与行号徽章左边缘对齐。
-                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                modifier = Modifier.padding(start = 16.dp),
             )
         } else {
             Text(
                 text = "当前行未记录有效读音",
-                modifier = Modifier.fillMaxWidth().padding(end = 8.dp, top = 6.dp, bottom = 6.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 fontSize = 10.5.sp,
                 color = colors.onBackgroundVariant,
             )
@@ -638,21 +637,19 @@ private fun DetailEntryRow(
                     reading.toneUnspecified -> " · 可选读音（原行未标声调）"
                     else -> " · 其他读音"
                 },
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp),
                 fontSize = 10.5.sp,
                 color = colors.onBackgroundVariant,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
             FlowRow(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 reading.others.forEach { other ->
                     CopyableReading(
                         value = other,
-                        // 与上方文字统一左对齐：去掉内部水平内边距。
-                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
                         onClick = if (replaceMode) ({ handleReading(other, reading.index) }) else null,
                     )
                 }
