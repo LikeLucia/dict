@@ -1,5 +1,7 @@
 # kirakira · Android
 
+#纯AI产物
+
 离线词库处理工具的原生 Android 实现，基于 Kotlin + Compose + Miuix + COUI。支持导入 Rime YAML / TXT / TSV / ZIP 词库，在本机完成拼音与辅助码处理并导出结果，词库数据不会上传。
 
 ## 功能
@@ -7,7 +9,7 @@
 - **四个页面**：首页、词库、报告、设置。
 - **导入与队列**：通过系统 SAF 单选或多选导入，自动排队处理；首页展示处理进度、预计时长与队列状态，支持开始和取消。
 - **处理方式**：刷拼音和辅助码、仅刷拼音、仅刷辅助码、仅删辅助码。
-- **辅助码**：内置渊默码、kirakira、自然码、小鹤、墨奇五套码表，支持固定分隔符和替换已有辅助码；码表可含一字多码（如 `sl,af,al`），按上游顺序输出。
+- **辅助码**：内置渊默码、kirakira（自用）、自然码、小鹤、墨奇五套码表，支持固定分隔符和替换已有辅助码；码表可含一字多码（如 `sl,af,al`），按上游顺序输出。
 - **处理设置**：可配置拼音声调、补充权重、替换已有拼音、输出分隔符、输入编码（UTF-8 / GB18030）、词语列、拼音列、导出目录及同名文件策略。
 - **词库管理**：支持搜索、类型筛选、按修改时间 / 文件大小 / 文件名排序及倒序；长按进入多选，可批量导出或删除。
 - **处理报告**：统计处理行数、补拼音、替换辅助码及多音字行数；提供文件列表与多音字详情页，支持按文件名、词语、读音或行号搜索。
@@ -53,17 +55,6 @@ app/src/main/java/kirakira/dokidoki/
 
 产物：`app/build/outputs/apk/debug/app-debug.apk`。
 
-## 签名与发布
-
-Release 构建使用仓库中已保存的 Secrets（`KEYSTORE_BASE64`、`DICT_STORE_PASS`，`DICT_KEY_PASS` 可选）。工作流模板见 `ci/Android-APK.yml`：把它放到 `.github/workflows/Android-APK.yml` 后，可在 Actions 页面运行 `Android APK`。Release 模式使用源码中的 versionCode 发布，versionName 为三段式并自动递增末段（如 2.1.1 → 2.1.2，末段到 9 后进位为 2.4.0）；CI 模式关闭 `publish_release`，versionName 保持不变、只递增 versionCode。构建完成后写回 `version.properties`，并创建 GitHub Release（默认直接发布），上传 `kirakira-<versionName>.apk` 与 `SHA256SUMS.txt`。
-
-- `KEYSTORE_BASE64`：签名密钥库的 base64 内容
-- `DICT_STORE_PASS`：密钥库密码
-- `DICT_KEY_PASS`：密钥密码；未设置时使用 `DICT_STORE_PASS`
-- `publish_release`：工作流输入，默认创建 GitHub Release；关闭后不创建 Release
-- `draft`：工作流输入，默认直接发布；勾选后创建草稿
-- `key_alias`：工作流输入，默认 `ksm`
-
 Gradle 通过 `RELEASE_KEYSTORE_PATH`、`RELEASE_STORE_PASSWORD`、`RELEASE_KEY_ALIAS`、`RELEASE_KEY_PASSWORD` 环境变量读取签名配置。未提供这些环境变量时，Release 构建回退到 debug 签名，仅用于调试。
 
 ## 版本说明
@@ -87,4 +78,3 @@ Gradle 通过 `RELEASE_KEYSTORE_PATH`、`RELEASE_STORE_PASSWORD`、`RELEASE_KEY_
 - 词库正文按块处理，ZIP 中的非词库条目按原内容保留；批量导出时重名条目自动追加序号。
 - QuickJS 与 graphics-path 原生库已按 16 KB 页面大小对齐，APK 仅打包 arm64-v8a 原生库。
 - 第三方组件与许可证见 `app/src/main/assets/THIRD_PARTY_NOTICES.md`。
-
