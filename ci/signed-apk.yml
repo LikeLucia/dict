@@ -113,7 +113,7 @@ jobs:
           echo "name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
           echo "code=$RELEASE_CODE" >> "$GITHUB_OUTPUT"
           echo "mode=$VERSION_MODE" >> "$GITHUB_OUTPUT"
-          echo "${VERSION_MODE}: base=${VERSION_BASE}, latest release=${LATEST_RELEASE_NAME:-none}, source=${CURRENT_NAME}/${CURRENT_CODE} -> ${RELEASE_NAME}/${RELEASE_CODE}"
+          echo "${VERSION_MODE}: source=${CURRENT_NAME}/${CURRENT_CODE} -> ${RELEASE_NAME}/${RELEASE_CODE}"
       - name: Refuse to reuse a released version
         if: ${{ inputs.publish_release }}
         shell: bash
