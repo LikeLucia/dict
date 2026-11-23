@@ -176,15 +176,19 @@ fun LibScreen(
         }
         if (state.sortDescending) filtered.asReversed() else filtered
     }
-    LaunchedEffect(state.libraryFocusId, state.libraryFocusRequest, isActive, query, selectedFilter, visibleFiles) {
+    // 只在收到新的定位请求时清一次筛选；否则用户自己选的标签会被反复重置。
+    var handledFocusRequest by rememberSaveable { mutableIntStateOf(-1) }
+    LaunchedEffect(state.libraryFocusId, state.libraryFocusRequest, isActive, visibleFiles) {
         if (!isActive) return@LaunchedEffect
         val focusId = state.libraryFocusId ?: return@LaunchedEffect
+        if (state.libraryFocusRequest == handledFocusRequest) return@LaunchedEffect
         if (query.isNotEmpty() || selectedFilter != 0) {
-            // Re-enter the effect with the unfiltered list before resolving the row index.
+            // 先恢复成完整列表，下一轮再解析行号。
             query = ""
             selectedFilter = 0
             return@LaunchedEffect
         }
+        handledFocusRequest = state.libraryFocusRequest
         val targetIndex = visibleFiles.indexOfFirst { it.id == focusId }
         if (targetIndex >= 0) {
             listState.requestScrollToItem(LIBRARY_ITEMS_START + targetIndex)
@@ -421,7 +425,7 @@ private fun FilterChips(
             if (info.offset + info.size <= viewportStart || info.offset >= viewportEnd) {
                 return@derivedStateOf null
             }
-            // 保留胶囊的完整位置与宽度，由容器边界裁掉溢出部分（裁切边是平口）。
+            // 始终使用标签的完整宽度，长度不随裁切变化；溢出部分由容器平口裁掉。
             info.offset.toFloat() to (info.offset + info.size).toFloat()
         }
     }
