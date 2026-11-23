@@ -819,7 +819,8 @@ class MainViewModel(
                     val status = when (options.mode) {
                         ProcessMode.PINYIN_ONLY -> FileStatus.PINYIN_DONE
                         ProcessMode.AUX_STRIP -> FileStatus.AUX_STRIPPED
-                        else -> FileStatus.AUX_DONE
+                        ProcessMode.PINYIN_AND_AUX -> FileStatus.PINYIN_AUX_DONE
+                        ProcessMode.AUX_ONLY -> FileStatus.AUX_DONE
                     }
                     // No suspension between checking eligibility and publishing metadata.
                     outputsByFile[item.fileId] = durableOutputs

@@ -255,6 +255,7 @@ data class DictFile(
 )
 
 enum class FileStatus(val label: String, val highlighted: Boolean) {
+    PINYIN_AUX_DONE("已刷拼音和辅助码", true),
     AUX_DONE("已刷辅助码", true),
     AUX_STRIPPED("已删辅助码", true),
     PINYIN_DONE("已刷拼音", true),
