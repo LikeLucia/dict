@@ -757,7 +757,6 @@ class MainViewModel(
         var automaticExportId: String? = null
         var successfulFiles = 0
         val totalFiles = processingQueue.size.coerceAtLeast(1)
-        val processingStartedAt = SystemClock.elapsedRealtime()
 
         _state.update {
             it.copy(
@@ -779,12 +778,14 @@ class MainViewModel(
                 val input = inputFiles[item.fileId] ?: continue
                 val completedBefore = successfulFiles + failures.size
                 activeFileId = item.fileId
+                // 预估只针对当前文件：记录该文件开始时刻，进度归零。
+                val itemStartedAt = SystemClock.elapsedRealtime()
                 _state.update {
                     val current = (completedBefore.toFloat() / totalFiles).coerceIn(0f, 1f)
                     it.copy(
                         processingFile = file.name,
                         progress = current,
-                        estimatedSeconds = estimateTotalSeconds(processingStartedAt, current),
+                        estimatedSeconds = 0,
                     )
                 }
                 syncQueueState()
@@ -797,9 +798,14 @@ class MainViewModel(
                     val durableOutputs = withContext(itemJob) {
                         val outcome = engine.process(input, options) { fraction ->
                             if (itemJob.isActive) {
-                                val progress = ((completedBefore + fraction.coerceIn(0f, 1f)) / totalFiles).coerceIn(0f, 1f)
+                                val itemFraction = fraction.coerceIn(0f, 1f)
+                                val progress = ((completedBefore + itemFraction) / totalFiles).coerceIn(0f, 1f)
                                 _state.update {
-                                    it.copy(progress = progress, estimatedSeconds = estimateTotalSeconds(processingStartedAt, progress))
+                                    it.copy(
+                                        progress = progress,
+                                        // 只按当前文件已用时间与完成比例估算，不再按整体进度。
+                                        estimatedSeconds = estimateItemSeconds(itemStartedAt, itemFraction),
+                                    )
                                 }
                             }
                         }
@@ -958,10 +964,11 @@ class MainViewModel(
         }
     }
 
-    private fun estimateTotalSeconds(startedAt: Long, progress: Float): Int {
-        if (progress <= 0f) return 0
+    /** 单个文件的剩余时间：按该文件已用时间与自身完成比例推算。 */
+    private fun estimateItemSeconds(startedAt: Long, fraction: Float): Int {
+        if (fraction <= 0f) return 0
         val elapsedSeconds = (SystemClock.elapsedRealtime() - startedAt) / 1000.0
-        return ceil(elapsedSeconds / progress).toInt().coerceAtLeast(1)
+        return ceil(elapsedSeconds / fraction).toInt().coerceAtLeast(1)
     }
 
     private fun updateFile(id: String, transform: (DictFile) -> DictFile) {
