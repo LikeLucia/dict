@@ -378,8 +378,8 @@ fun AmbiguityDetailScreen(
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        // 按截图红圈位置：上移避开底部分页行，右侧贴近卡片边缘。
-                        .padding(end = 12.dp, bottom = 56.dp),
+                        // 按截图红圈：贴右侧、位于分页行上方。
+                        .padding(end = 8.dp, bottom = 72.dp),
                 )
             }
         }
