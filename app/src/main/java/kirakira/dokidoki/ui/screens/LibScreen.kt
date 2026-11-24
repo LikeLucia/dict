@@ -84,6 +84,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
+import top.yukonga.miuix.kmp.glass.GlassFloatingToolbarDefaults
 import top.yukonga.miuix.kmp.glass.GlassMotion
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
 import top.yukonga.miuix.kmp.glass.glassPressScale
@@ -510,6 +511,10 @@ private fun FilterChips(
             modifier = Modifier.fillMaxWidth(),
             backdrop = backdrop,
             fill = p.card,
+            // 轨道材质：puredThinGlass 默认 20dp 模糊，这里改成 0dp——
+            // 不做背景模糊，只保留材质的三层颜色层、bloom 描边与投影。
+            // 0dp 时 miuix 的 blur() 会直接返回，不建 RenderEffect，也就没有采样开销。
+            material = GlassFloatingToolbarDefaults.material().copy(blurRadius = 0.dp),
             cornerRadius = FilterTrackHeight / 2,
             // 左右留白从 24dp 收到 12dp：轨道整体变长 24dp，比下方列表卡片更宽。
             outSidePadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
