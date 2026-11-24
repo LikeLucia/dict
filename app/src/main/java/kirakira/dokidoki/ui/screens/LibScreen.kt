@@ -482,7 +482,8 @@ private fun FilterChips(
                                 // 滑动不等于切换：滚动中忽略点击。
                                 if (!chipListState.isScrollInProgress) onSelect(index)
                             }
-                            .padding(horizontal = 16.dp)
+                            // 测量必须放在 padding 之前：挂在 padding 之后只会量到文字宽度，
+                            // 左右各 16dp 的内边距被漏掉，累加后胶囊会一路偏左。
                             .onGloballyPositioned { coords ->
                                 val w = coords.size.width.toFloat()
                                 if (index in chipWidths.indices && chipWidths[index] != w) {
@@ -490,7 +491,8 @@ private fun FilterChips(
                                     copy[index] = w
                                     chipWidths = copy
                                 }
-                            },
+                            }
+                            .padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
