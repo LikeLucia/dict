@@ -314,6 +314,7 @@ fun DictApp(viewModel: MainViewModel) {
                                                         openedMenu = currentMenu,
                                                         onOpenMenu = { menu, anchor ->
                                                             val (items, selected) = when (menu) {
+                                                                SettingsMenu.THEME -> ThemeMode.entries.map { it.label } to state.themeMode.ordinal
                                                                 SettingsMenu.AUX_TYPE -> AuxType.entries.map { it.label } to state.auxType.ordinal
                                                                 SettingsMenu.TONE -> ToneMode.entries.map { it.label } to state.tone.ordinal
                                                                 SettingsMenu.OUTPUT_DELIMITER -> OutputDelimiter.entries.map { it.label } to state.outputDelimiter.ordinal
@@ -364,6 +365,18 @@ fun DictApp(viewModel: MainViewModel) {
                                             FullScreenContentPage {
                                                 ThemeSettingsScreen(
                                                     state = state,
+                                                    openedMenu = currentMenu,
+                                                    onOpenMenu = { menu, anchor ->
+                                                        dropdown = DropdownSpec(
+                                                            anchor = anchor,
+                                                            items = ThemeMode.entries.map { it.label },
+                                                            selectedIndex = state.themeMode.ordinal,
+                                                            key = menu.name,
+                                                            alignToAnchorRight = true,
+                                                            endInset = 20.dp,
+                                                            verticalInset = 6.dp,
+                                                        )
+                                                    },
                                                     onBack = { themeSettingsOpen = false },
                                                     onSelectTheme = viewModel::setThemeMode,
                                                     onToggleBlur = viewModel::setBlurBars,
@@ -416,6 +429,7 @@ fun DictApp(viewModel: MainViewModel) {
                                 onSelect = { index ->
                                     dropdown = null
                                     when (spec.key) {
+                                        "THEME" -> viewModel.setThemeMode(ThemeMode.entries[index])
                                         "AUX_TYPE" -> viewModel.setAuxType(AuxType.entries[index])
                                         "REPORT_SORT" -> when {
                                             index == 0 -> viewModel.setReportSortDescending(false)

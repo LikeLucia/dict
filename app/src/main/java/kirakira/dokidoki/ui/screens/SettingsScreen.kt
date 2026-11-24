@@ -54,7 +54,7 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 
-enum class SettingsMenu { AUX_TYPE, TONE, OUTPUT_DELIMITER, INPUT_ENCODING, EXPORT_CONFLICT }
+enum class SettingsMenu { THEME, AUX_TYPE, TONE, OUTPUT_DELIMITER, INPUT_ENCODING, EXPORT_CONFLICT }
 
 @Composable
 fun SettingsScreen(
@@ -84,7 +84,7 @@ fun SettingsScreen(
     FixedTopScrollPage(modifier = modifier, topBar = { DictTopBar("处理设置") }) {
         Spacer(Modifier.height(16.dp))
 
-        // 主题模式的选择搬到了「主题设置」二级页，这里只留入口。
+        // 「主题设置」入口：右侧不显示当前值，点击进入二级页。
         DictCard(
             modifier = Modifier
                 .fillMaxWidth()
@@ -93,7 +93,8 @@ fun SettingsScreen(
         ) {
             SettingsRow(
                 title = "主题设置",
-                value = state.themeMode.label,
+                // 右侧不显示当前主题名；value 传空串只为保留右向导航箭头。
+                value = "",
                 upDownArrow = false,
                 last = true,
                 onClick = onOpenThemeSettings,
