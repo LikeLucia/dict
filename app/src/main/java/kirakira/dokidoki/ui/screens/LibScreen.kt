@@ -392,14 +392,16 @@ private val FilterTrackHeight = 38.dp
 /**
  * 分类标签：用 miuix 0.9.5-beta03 的 [TabRowWithContour]。
  *
- * 选它而不是 [TabRow]，是因为两条外观要求正好对上它的画法：
- * - **整条轨道是胶囊形**：它把 `colors.backgroundColor(false)` 用 `squircleBackground`
- *   画在整行上（[TabRow] 那边是裸的 `background(color)`，画出来是矩形）；
- * - **选中文字后面没有背景**：把 `selectedBackgroundColor` 设成 [Color.Transparent]，
- *   它内部那块 `squircleBackground(colors.backgroundColor(true))` 就什么都不画。
- *   选中只靠文字颜色与字重区分。
+ * 它的画法正好对应要的外观，三块都由组件自己用 squircleBackground 绘制：
+ * - **整条轨道**：`colors.backgroundColor(false)` 画在整行上，是白色胶囊；
+ * - **选中项**：`colors.backgroundColor(true)` 画在选中那一格上，是灰色圆角胶囊；
+ * - **未选中项**：`TabItemWithContour` 里只有 squircleClip 与 selectable，
+ *   没有任何背景，所以文字后面是空的，透出轨道底色。
  *
- * 标签仍是等宽（`calculateTabWidth` 在 minWidth/maxWidth 之间按可用宽度均分），
+ * 选 [TabRowWithContour] 而不是 [TabRow]，是因为 [TabRow] 的轨道底色是裸的
+ * `background(color)`，画出来是矩形；这里要胶囊形轨道。
+ *
+ * 标签等宽（`calculateTabWidth` 在 minWidth/maxWidth 之间按可用宽度均分），
  * 11 个标签算出来超过一屏，所以可以横向滑动；选中项由
  * `TabRowConfig.scrollToSelected` 自动滚到视口中央。
  */
@@ -418,11 +420,16 @@ private fun FilterChips(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp),
         colors = TabRowDefaults.tabRowColors(
-            // 整条轨道的底色：胶囊形由组件用 squircleBackground 画。
+            // 整条轨道的底色（未选中项透出它，自己不带背景）：组件画成胶囊。
             backgroundColor = p.card,
             contentColor = p.text2,
-            // 选中项不画背景：胶囊只属于整条轨道，不属于单个标签。
-            selectedBackgroundColor = Color.Transparent,
+            // 选中项的圆角灰色胶囊：同样是组件用 squircleBackground 画，
+            // 半径 = cornerRadius（14dp），标签高 28dp，正好是一颗完整胶囊。
+            selectedBackgroundColor = if (p.isDark) {
+                Color.White.copy(alpha = 0.12f)
+            } else {
+                Color.Black.copy(alpha = 0.10f)
+            },
             selectedContentColor = p.text,
         ),
         minWidth = TabRowDefaults.TabRowWithContourMinWidth,
