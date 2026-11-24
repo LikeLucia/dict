@@ -67,7 +67,9 @@ import kirakira.dokidoki.ui.components.DictBottomBar
 import kirakira.dokidoki.ui.components.DialogAction
 import kirakira.dokidoki.ui.components.DropdownOverlay
 import kirakira.dokidoki.ui.components.DropdownSpec
-import kirakira.dokidoki.ui.components.LocalBlurBars
+import kirakira.dokidoki.ui.components.LocalBarBackdrop
+import kirakira.dokidoki.ui.components.LocalPageActive
+import kirakira.dokidoki.ui.components.rememberBarBackdrop
 import kirakira.dokidoki.ui.screens.ThemeSettingsScreen
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.screens.AboutScreen
@@ -226,8 +228,10 @@ fun DictApp(viewModel: MainViewModel) {
         BackHandler(enabled = sourceLicensesOpen) { sourceLicensesOpen = false }
         BackHandler(enabled = !sourceLicensesOpen && aboutOpen) { aboutOpen = false }
         val aboutVisible = aboutOpen && state.selectedTab == 3
-        // 只下发开关值；每个页面各自建采样层，避免 Pager 预组合的相邻页共写一层。
-        CompositionLocalProvider(LocalBlurBars provides state.blurBars) {
+        // 唯一的玻璃采样层：顶栏、轨道、底栏共用，这样三处玻璃采到同一份内容。
+        // Pager 预组合的相邻页靠 LocalPageActive 控制，只有前台页往这层里录。
+        val barBackdrop = rememberBarBackdrop(state.blurBars)
+        CompositionLocalProvider(LocalBarBackdrop provides barBackdrop) {
         Box(Modifier.fillMaxSize().background(p.bg)) {
             MiuixDetailHost(
                 visible = aboutVisible,
@@ -247,7 +251,7 @@ fun DictApp(viewModel: MainViewModel) {
                                         visible = themeSettingsOpen,
                                         dismissImmediately = state.selectedTab != 3,
                                         base = {
-                                        Column(Modifier.fillMaxSize()) {
+                                        Box(Modifier.fillMaxSize()) {
                                         MiuixTabHost(selectedTab = state.selectedTab) { tab, isActive ->
                                             FullScreenContentPage {
                                                 when (tab) {
@@ -615,7 +619,11 @@ private fun MiuixTabHost(
         ) { tab ->
             saveableStateHolder.SaveableStateProvider(tab) {
                 Box(Modifier.fillMaxSize()) {
-                    content(tab, tab == activeTab)
+                    // 告诉页面自己是不是前台页：只有前台页才把正文录进玻璃采样层，
+                    // 否则 Pager 预组合的相邻页会同时写同一层，采样内容会错乱。
+                    CompositionLocalProvider(LocalPageActive provides (tab == activeTab)) {
+                        content(tab, tab == activeTab)
+                    }
                 }
             }
         }

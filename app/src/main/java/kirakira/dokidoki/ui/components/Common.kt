@@ -190,7 +190,9 @@ fun DictScaffoldPage(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                    .nestedScroll(scrollBehavior.nestedScrollConnection)
+                    // 正文作为玻璃采样源，顶栏与底栏共用它。
+                    .then(pageBackdropRecordModifier()),
             ) {
                 content(padding)
             }
@@ -232,10 +234,21 @@ fun FixedTopScrollPage(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = bottomPadding),
+                .padding(bottom = bottomPadding)
+                // 把正文录进玻璃采样层：顶栏与底栏才能采到滚动内容。
+                // 只有前台页录，Pager 预组合的相邻页不写同一层。
+                .then(pageBackdropRecordModifier()),
             content = content,
         )
     }
+}
+
+/** 当前页面的正文是否该录进玻璃采样层。 */
+@Composable
+internal fun pageBackdropRecordModifier(): Modifier {
+    val backdrop = LocalBarBackdrop.current ?: return Modifier
+    if (!LocalPageActive.current) return Modifier
+    return backdrop.recordModifier()
 }
 
 internal val LocalDictTopBarScrollBehavior = staticCompositionLocalOf<ScrollBehavior?> { null }
@@ -256,10 +269,19 @@ fun DictTopBar(
     bottomContent: @Composable () -> Unit = {},
 ) {
     val p = DictTheme.palette
+    // 顶栏玻璃：与 c001apk 的 MiuixScaffold 同一思路——判空决定材质。
+    // 有 backdrop 时顶栏底色透明，背后垫一层模糊；否则保持原来的纯色 p.bg。
+    val backdrop = LocalBarBackdrop.current
+    val barSurface: Modifier = if (backdrop == null) Modifier else Modifier.barBlur(backdrop)
+    Box(Modifier.fillMaxWidth()) {
+        // 模糊层铺满顶栏（含 bottomContent 的分类轨道区域），
+        // 它只在 backdrop 非空时生效，其余情况是空 Modifier。
+        Box(Modifier.matchParentSize().then(barSurface))
     TopAppBar(
         title = title,
         modifier = modifier.fillMaxWidth(),
-        color = p.bg,
+        // 有玻璃时用透明底，让下面的模糊层透出来。
+        color = if (backdrop != null) Color.Transparent else p.bg,
         titleColor = p.text,
         largeTitleColor = p.text,
         defaultWindowInsetsPadding = false,
@@ -365,6 +387,7 @@ fun DictTopBar(
             }
         },
     )
+    }
 }
 
 @Composable
@@ -545,7 +568,8 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
             items = items,
             selectedIndex = selectedIndex,
             onSelect = onSelect,
-            backdrop = null,
+            // 判空双材质：非空走玻璃；为空时组件内部自动降级成 surfaceContainer 纯色。
+            backdrop = LocalBarBackdrop.current?.rawBackdrop,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(barHeight),

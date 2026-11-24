@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -68,8 +67,6 @@ import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.DictScaffoldPage
 import kirakira.dokidoki.ui.components.StatusBadge
 import kirakira.dokidoki.ui.components.LocalBarBackdrop
-import kirakira.dokidoki.ui.components.LocalBlurBars
-import kirakira.dokidoki.ui.components.rememberBarBackdrop
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
 import top.yukonga.miuix.kmp.glass.glassShadow
 import top.yukonga.miuix.kmp.material.GlassShadows
@@ -200,10 +197,6 @@ fun LibScreen(
         delay(1600)
         if (highlightedId == focusId) highlightedId = null
     }
-    // 页面级玻璃采样层：开关打开且系统 ≥ 13 时非空。
-    // 只采样列表内容（下方 LazyColumn），顶栏与轨道不参与采样，避免采到自身形成递归。
-    val barBackdrop = rememberBarBackdrop(LocalBlurBars.current)
-    CompositionLocalProvider(LocalBarBackdrop provides barBackdrop) {
     DictScaffoldPage(
         modifier = modifier,
         topBar = {
@@ -248,9 +241,7 @@ fun LibScreen(
             state = listState,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                // 把列表内容录进采样层，玻璃轨道才能采到下方滚动的内容。
-                .then(barBackdrop?.recordModifier() ?: Modifier),
+                .fillMaxWidth(),
             contentPadding = PaddingValues(bottom = 190.dp),
         ) {
             item(key = "controls") {
@@ -294,7 +285,6 @@ fun LibScreen(
                 }
             }
         }
-    }
     }
 }
 

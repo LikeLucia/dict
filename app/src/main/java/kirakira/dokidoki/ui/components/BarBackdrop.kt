@@ -20,10 +20,16 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 val LocalBarBackdrop = staticCompositionLocalOf<BarBackdrop?> { null }
 
 /**
- * 页面级的模糊开关。由 App 根层下发，每个页面自己按它建采样层，
- * 这样 Pager 预组合的相邻页不会共用同一个采样层。
+ * 全局模糊开关。由 App 根层下发，App 层据此建唯一的采样层，
+ * 顶栏、轨道、底栏共用它——这样三处玻璃采到的是同一份内容。
  */
 val LocalBlurBars = staticCompositionLocalOf { false }
+
+/**
+ * 当前页面是否是前台页。Pager 会预组合相邻页，
+ * 只有前台页才把自己的内容录进采样层，避免多页同时写同一层。
+ */
+val LocalPageActive = staticCompositionLocalOf { true }
 
 /** 不向低版本 Android 暴露任何 AGSL / RenderNode 类型。 */
 interface BarBackdrop {
