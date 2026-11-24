@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -81,6 +82,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.first
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
@@ -499,6 +501,53 @@ private fun FilterChips(
         launch { indicatorRight.animateTo(targetRight, GlassMotion.edgeSpring(leading = movingRight)) }
     }
 
+    // 选中居中：思路照 miuix TabRow 的 scrollToSelected——换标签时把选中项滚到视口中央。
+    // 区别是这里标签不等宽，所以居中偏移要用「该标签自己的宽度」算：
+    // 让内容坐标里的标签中心落在视口中心，即 offset = -(视口宽 - 标签宽) / 2。
+    // scrollToItem 的 offset 是该项相对视口起点的偏移，负值表示推到视口左外侧。
+    // 首尾项由 LazyListState 自动夹到合法滚动范围，所以不会滚出边界。
+    // 居中滚动是程序发起的，不该被「滑动不等于切换」的守卫当成用户拖动。
+    // 否则切换后的动画期间（约 300ms）点其他标签会被直接忽略。
+    var centeringScroll by remember { mutableStateOf(false) }
+    // 首次居中要等宽度测量完：chipWidths 在首帧还是全 0，视口也要等 LazyRow 布局完。
+    // 用 snapshotFlow 等这两个条件就绪，而不是把就绪状态塞进 LaunchedEffect 的 key——
+    // 那样每次宽度刷新都会重跑一遍，首次会连续居中两次。
+    var centeredOnce by remember { mutableStateOf(false) }
+    // snapshotFlow 里要读「当前」选中项，但 effect 的 key 是 Unit（只跑一次），
+    // 所以用 rememberUpdatedState 拿到最新值，避免闭包捕获首帧的 selected。
+    val latestSelected by rememberUpdatedState(selected)
+    LaunchedEffect(Unit) {
+        snapshotFlow {
+            val width = chipWidths.getOrNull(latestSelected) ?: 0f
+            val info = chipListState.layoutInfo
+            val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+            Triple(width, viewport, chipWidths.all { it > 0f })
+        }.first { (width, viewport, ready) -> ready && width > 0f && viewport > 0f }
+        // 首帧直接落位，避免一进页面就看到轨道自己滑一下。
+        val index = latestSelected
+        val width = chipWidths.getOrNull(index) ?: return@LaunchedEffect
+        val info = chipListState.layoutInfo
+        val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+        chipListState.scrollToItem(index, -((viewport - width) / 2f).roundToInt())
+        centeredOnce = true
+    }
+    // 之后每次换标签都动画居中；只跟 selected，按下预览不触发滚动。
+    // centeredOnce 一起进 key：首次居中完成后这个 effect 才会真正开始工作。
+    LaunchedEffect(selected, centeredOnce) {
+        if (!centeredOnce) return@LaunchedEffect
+        val width = chipWidths.getOrNull(selected) ?: return@LaunchedEffect
+        if (width <= 0f) return@LaunchedEffect
+        val info = chipListState.layoutInfo
+        val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+        if (viewport <= 0f) return@LaunchedEffect
+        centeringScroll = true
+        try {
+            chipListState.animateScrollToItem(selected, -((viewport - width) / 2f).roundToInt())
+        } finally {
+            centeringScroll = false
+        }
+    }
+
     Box {
         // 玻璃采样的内容：与标签背后实际可见的顶栏底色一致。
         Box(
@@ -587,7 +636,7 @@ private fun FilterChips(
                         // 松开或手势取消都要复位，否则指示器会停在被按过的那颗上。
                         LaunchedEffect(chipPressed) {
                             if (chipPressed) {
-                                if (!chipListState.isScrollInProgress) pressedIndex = index
+                                if (centeringScroll || !chipListState.isScrollInProgress) pressedIndex = index
                             } else if (pressedIndex == index) {
                                 pressedIndex = -1
                             }
@@ -607,7 +656,7 @@ private fun FilterChips(
                                     indication = null,
                                 ) {
                                     // 滑动不等于切换：滚动中忽略点击。
-                                    if (!chipListState.isScrollInProgress) onSelect(index)
+                                    if (centeringScroll || !chipListState.isScrollInProgress) onSelect(index)
                                 }
                                 // 测量必须放在 padding 之前：挂在 padding 之后只会量到文字宽度，
                                 // 左右各 16dp 的内边距被漏掉，累加后胶囊会一路偏左。
