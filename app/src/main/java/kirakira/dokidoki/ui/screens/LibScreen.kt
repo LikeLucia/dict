@@ -381,7 +381,7 @@ private val LIBRARY_FILTERS = listOf(
     LibraryFilter("拼和辅") { it.status == FileStatus.PINYIN_AUX_DONE },
     LibraryFilter("拼音") { it.status == FileStatus.PINYIN_DONE },
     LibraryFilter("辅助码") { it.status == FileStatus.AUX_DONE },
-    LibraryFilter("删辅助码") { it.status == FileStatus.AUX_STRIPPED },
+    LibraryFilter("删辅") { it.status == FileStatus.AUX_STRIPPED },
     LibraryFilter("多音字") { it.polyphonicHandled },
     LibraryFilter("取消") { it.status == FileStatus.CANCELLED },
 )
@@ -401,6 +401,11 @@ private val FilterTrackHeight = 38.dp
  * 选 [TabRowWithContour] 而不是 [TabRow]，是因为 [TabRow] 的轨道底色是裸的
  * `background(color)`，画出来是矩形；这里要胶囊形轨道。
  *
+ * 动作动画也全部由 miuix 提供，没有自行绘制或自建动画：
+ * - **胶囊切换**：组件内部的 `indicatorPosition: Animatable` 用 `tween(200)` 平移；
+ * - **按压反馈**：传入 [MiuixIndication]（[rememberMiuixIndication]），
+ *   按下时 folme 弹簧把遮罩淡入，松开再淡出。
+ *
  * 标签等宽（`calculateTabWidth` 在 minWidth/maxWidth 之间按可用宽度均分），
  * 11 个标签算出来超过一屏，所以可以横向滑动；选中项由
  * `TabRowConfig.scrollToSelected` 自动滚到视口中央。
@@ -412,6 +417,9 @@ private fun FilterChips(
     onSelect: (Int) -> Unit,
 ) {
     val p = DictTheme.palette
+    // miuix 自带的按压反馈：按下时用 folme 弹簧把矩形遮罩淡入（MiuixIndication）。
+    // 传进 TabRowWithContour 后，每个标签按下都有这个动作反馈。
+    val indication = rememberMiuixIndication()
     TabRowWithContour(
         tabs = labels,
         selectedTabIndex = selected,
@@ -422,21 +430,26 @@ private fun FilterChips(
         colors = TabRowDefaults.tabRowColors(
             // 整条轨道的底色（未选中项透出它，自己不带背景）：组件画成胶囊。
             backgroundColor = p.card,
-            contentColor = p.text2,
+            // 未选中项文字：黑色。暗色主题下轨道底色本身是深色，
+            // 纯黑会看不见，所以那时用正文色（浅色）代替。
+            contentColor = if (p.isDark) p.text else Color.Black,
             // 选中项的圆角灰色胶囊：同样是组件用 squircleBackground 画，
             // 半径 = cornerRadius（14dp），标签高 28dp，正好是一颗完整胶囊。
+            // 切换标签时胶囊位置由组件内部的 Animatable + tween(200) 平滑移动。
             selectedBackgroundColor = if (p.isDark) {
                 Color.White.copy(alpha = 0.12f)
             } else {
                 Color.Black.copy(alpha = 0.10f)
             },
-            selectedContentColor = p.text,
+            // 选中项文字：与未选中一致，只靠字重区分。
+            selectedContentColor = if (p.isDark) p.text else Color.Black,
         ),
         minWidth = TabRowDefaults.TabRowWithContourMinWidth,
         maxWidth = TabRowDefaults.TabRowWithContourMaxWidth,
         height = FilterTrackHeight,
         cornerRadius = FilterTrackHeight / 2 - 5.dp,
         itemSpacing = 2.dp,
+        indication = indication,
     )
 }
 
