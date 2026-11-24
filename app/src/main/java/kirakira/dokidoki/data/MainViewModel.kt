@@ -146,16 +146,27 @@ class MainViewModel(
             }
             if (outputs.isNotEmpty()) restoredOutputs[id] = outputs
 
+            // 早期记录没有 processedAt 字段：用输出文件的写入时间补回来。
+            // 输出文件正是在处理完成那一刻写出的，所以这是真实处理时间，
+            // 比回退到源文件修改时间（那只是文件自己的时间）可靠。
+            val restoredFile = if (file.processedAt <= 0L && outputs.isNotEmpty()) {
+                val writtenAt = outputs.maxOf { it.file.lastModified() }
+                if (writtenAt > 0L) file.copy(processedAt = writtenAt) else file
+            } else {
+                file
+            }
+
             when {
-                file.hasOutput && outputs.isEmpty() -> file.copy(
+                restoredFile.hasOutput && outputs.isEmpty() -> restoredFile.copy(
                     hasOutput = false,
-                    meta = file.meta + " · 输出文件缺失",
+                    meta = restoredFile.meta + " · 输出文件缺失",
                 )
-                (file.status == FileStatus.PENDING || file.status == FileStatus.FAILED) && id !in restoredInputs -> file.copy(
+                (restoredFile.status == FileStatus.PENDING || restoredFile.status == FileStatus.FAILED) &&
+                    id !in restoredInputs -> restoredFile.copy(
                     status = FileStatus.FAILED,
-                    meta = file.meta + " · 输入文件缺失，请重新导入",
+                    meta = restoredFile.meta + " · 输入文件缺失，请重新导入",
                 )
-                else -> file
+                else -> restoredFile
             }
         }
         val runIds = snapshot.lastRunFileIds.filter { it in restoredResults }
@@ -719,7 +730,7 @@ class MainViewModel(
                 file.copy(
                     status = FileStatus.CANCELLED,
                     hasOutput = false,
-                    meta = formatSize(file.sizeBytes) + " · 已取消",
+                    meta = formatSize(file.sizeBytes) + " · 取消",
                 )
             }
         }

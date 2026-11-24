@@ -275,7 +275,7 @@ enum class FileStatus(val label: String, val highlighted: Boolean) {
     PINYIN_DONE("拼音", true),
     /** 已导出不再作为状态展示：导出后保留原处理状态，此值仅用于兼容旧记录。 */
     EXPORTED("", true),
-    CANCELLED("已取消", false),
+    CANCELLED("取消", false),
     PENDING("待处理", false),
     FAILED("处理失败", false),
 }

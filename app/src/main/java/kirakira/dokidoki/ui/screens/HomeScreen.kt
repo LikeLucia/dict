@@ -431,8 +431,8 @@ private fun RecentCard(files: List<DictFile>, onOpenFile: (String) -> Unit) {
                         RecentRow(
                             name = file.name,
                             meta = file.meta,
-                            // 优先显示处理时间；未处理过才回退到源文件修改时间。
-                            modifiedAt = file.processedAt.takeIf { it > 0L } ?: file.modifiedAt,
+                            // 只显示处理时间：未处理过的文件不回退到源文件修改时间。
+                            processedAt = file.processedAt.takeIf { it > 0L },
                             status = file.status,
                             last = index == files.lastIndex,
                             onClick = { file.id?.let(onOpenFile) },
@@ -445,7 +445,7 @@ private fun RecentCard(files: List<DictFile>, onOpenFile: (String) -> Unit) {
 }
 
 private fun recentBadge(status: FileStatus): Pair<String, Boolean>? = when (status) {
-    FileStatus.CANCELLED -> "已取消" to false
+    FileStatus.CANCELLED -> "取消" to false
     FileStatus.EXPORTED, FileStatus.PINYIN_AUX_DONE, FileStatus.AUX_DONE, FileStatus.AUX_STRIPPED, FileStatus.PINYIN_DONE -> "处理完成" to true
     FileStatus.FAILED -> "处理失败" to false
     FileStatus.PENDING -> null
@@ -455,7 +455,7 @@ private fun recentBadge(status: FileStatus): Pair<String, Boolean>? = when (stat
 private fun RecentRow(
     name: String,
     meta: String,
-    modifiedAt: Long,
+    processedAt: Long?,
     status: FileStatus,
     last: Boolean,
     onClick: () -> Unit,
@@ -493,7 +493,7 @@ private fun RecentRow(
                 Spacer(Modifier.height(4.dp))
                 // 时间放在状态文案前面，与词库页同格式 yy-MM-dd HH:mm:ss；未知时不显示。
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    formatModifiedTime(modifiedAt)?.let { time ->
+                    formatModifiedTime(processedAt)?.let { time ->
                         Text(time, fontSize = 11.sp, color = p.text2)
                         Text(" · ", fontSize = 11.sp, color = p.text2)
                     }
@@ -525,9 +525,9 @@ private fun RecentRow(
     }
 }
 
-/** 首页最近使用的时间：与词库页同一格式 yy-MM-dd HH:mm:ss；0 表示未知，返回 null 不显示。 */
-private fun formatModifiedTime(millis: Long): String? {
-    if (millis <= 0L) return null
+/** 首页最近使用的时间：与词库页同一格式 yy-MM-dd HH:mm:ss；null 表示还没处理过，不显示。 */
+private fun formatModifiedTime(millis: Long?): String? {
+    if (millis == null || millis <= 0L) return null
     return SimpleDateFormat("yy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(millis))
 }
 

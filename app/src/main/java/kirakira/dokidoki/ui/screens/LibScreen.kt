@@ -400,8 +400,7 @@ private val LIBRARY_FILTERS = listOf(
     LibraryFilter("辅助码") { it.status == FileStatus.AUX_DONE },
     LibraryFilter("删辅助码") { it.status == FileStatus.AUX_STRIPPED },
     LibraryFilter("多音字") { it.polyphonicHandled },
-    LibraryFilter("待处理") { it.status == FileStatus.PENDING },
-    LibraryFilter("处理失败") { it.status == FileStatus.FAILED },
+    LibraryFilter("取消") { it.status == FileStatus.CANCELLED },
 )
 
 /** 轨道高度：沿用本页原来的 38dp，换材质不改版面。 */
@@ -733,11 +732,12 @@ private fun LibRow(
             Column(Modifier.weight(1f)) {
                 Text(file.name, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = p.text, maxLines = 1)
                 Spacer(Modifier.height(4.dp))
-                // 优先显示处理时间；未处理过才回退到源文件修改时间。
-                val shownTime = file.processedAt.takeIf { it > 0L } ?: file.modifiedAt
-                val modified = remember(shownTime) { formatModified(shownTime) }
+                // 只显示处理时间：未处理过的文件不再回退到源文件修改时间，
+                // 否则列表里出现的是文件本身的时间，而不是处理词库的时间。
+                val processedTime = file.processedAt.takeIf { it > 0L }
+                val processed = remember(processedTime) { processedTime?.let { formatModified(it) } }
                 Text(
-                    if (modified != null) modified + " · " + file.meta else file.meta,
+                    if (processed != null) processed + " · " + file.meta else file.meta,
                     fontSize = 11.sp,
                     color = p.text2,
                     maxLines = 1,
@@ -785,7 +785,7 @@ private fun PolyphonicBadge() {
     }
 }
 
-/** 词库修改时间：yy-MM-dd HH:mm:ss（modifiedAt 为毫秒时间戳，0 表示未知）。 */
+/** 列表时间文案：yy-MM-dd HH:mm:ss（入参为处理时间毫秒时间戳，0 表示还没处理过）。 */
 private fun formatModified(millis: Long): String? {
     if (millis <= 0L) return null
     return SimpleDateFormat("yy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(millis))
