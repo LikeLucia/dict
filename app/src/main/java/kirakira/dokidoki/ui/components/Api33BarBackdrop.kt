@@ -4,7 +4,9 @@ import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurDefaults
@@ -17,6 +19,9 @@ import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
 import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.glass.glass
+import top.yukonga.miuix.kmp.material.GlassColorBlendMode
+import top.yukonga.miuix.kmp.material.GlassColorLayer
+import top.yukonga.miuix.kmp.material.GlassMaterial
 import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -66,14 +71,33 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
             ),
         )
 
-    /** 轨道玻璃：材质与描边都取 miuix 自己的分段标签默认值。 */
+    /**
+     * 轨道玻璃。
+     *
+     * 材质不用 [GlassSegmentedTabRowDefaults.material] 的默认值：那套 puredThinGlass
+     * 自带明显的灰色层（暗色下 second/third 是 0x66565656 / 0x993F3F3F），
+     * 叠在 TabRowWithContour 自己的选中胶囊上会看成「两层灰胶囊」。
+     *
+     * 这里换成只留模糊与极淡高光的材质：玻璃仍然透出下方内容，
+     * 但不再自带一层底色，选中态只剩 TabRowWithContour 那层
+     * 由 indicatorPosition + tween(200) 驱动的动画胶囊。
+     */
     @Composable
     override fun glassTabModifier(shape: GlassShape): Modifier =
         Modifier.glass(
             backdrop = layer,
             shape = shape,
-            material = GlassSegmentedTabRowDefaults.material(),
+            material = TrackGlassMaterial,
             stroke = GlassSegmentedTabRowDefaults.stroke(),
             shading = false,
         )
+
+    private companion object {
+        /** 只保留模糊 + 极淡高光的轨道材质，不带可见底色。 */
+        val TrackGlassMaterial = GlassMaterial(
+            blurRadius = 20.dp,
+            first = GlassColorLayer(Color(0x08000000), GlassColorBlendMode.PlusDarker),
+            second = GlassColorLayer(Color(0x26FFFFFF), GlassColorBlendMode.SoftLight),
+        )
+    }
 }
