@@ -624,7 +624,7 @@ private fun FilterChips(
                         ) {
                             Text(
                                 label,
-                                fontSize = 11.5.sp,
+                                fontSize = 15.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 color = textColor,
                                 textAlign = TextAlign.Center,
