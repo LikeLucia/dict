@@ -32,9 +32,13 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @RequiresApi(33)
 @Composable
 internal fun rememberApi33BarBackdrop(): BarBackdrop {
-    val surface = MiuixTheme.colorScheme.surface
-    // 采样层：先铺一层 surface 底色，再把内容区画进来。
+    // 采样层：先铺一层卡片色，再把内容区画进来。
     // 有这层底色，玻璃后面不会出现透明空洞；内容滚到下方时也会被一起采样。
+    //
+    // 不用 MiuixTheme.colorScheme.surface：本项目把它映射成了 p.bg（页面底色，
+    // 浅色 #F6F6F8 / 深色 #161618），比卡片色更暗更灰；垫在玻璃下会让轨道与底栏
+    // 整体发灰偏黑。改用 surfaceContainer（= p.card）才和轨道、底栏的实际底色一致。
+    val surface = MiuixTheme.colorScheme.surfaceContainer
     val layer = rememberLayerBackdrop {
         drawRect(surface)
         drawContent()
@@ -55,7 +59,7 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
             shape = shape,
             blurRadius = 25f,
             colors = BlurDefaults.blurColors(
-                blendColors = listOf(BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.8f))),
+                blendColors = listOf(BlendColorEntry(MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f))),
             ),
         )
 
@@ -67,7 +71,7 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
             blurRadius = GlassTopAppBarDefaults.ProgressiveBlurRadius.value,
             gradient = ProgressiveBlur.Top.copy(curve = 0.5f),
             colors = BlurDefaults.blurColors(
-                blendColors = listOf(BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.3f))),
+                blendColors = listOf(BlendColorEntry(MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.3f))),
             ),
         )
 

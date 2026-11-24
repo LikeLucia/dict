@@ -417,7 +417,9 @@ private fun FilterChips(
 ) {
     val p = DictTheme.palette
     val backdrop = LocalBarBackdrop.current
-    val indication = rememberMiuixIndication()
+    // 不传 indication：MiuixIndication 按下时会在每格上 drawRect 一层遮罩，
+    // 被 TabItemWithContour 的 squircleClip 裁成胶囊后，看起来就是第二层
+    // 「没有动画的灰色胶囊」。选中态只保留 indicatorPosition 那层动画胶囊。
     val tabColors = TabRowDefaults.tabRowColors(
         // 轨道底色交给外层悬浮组件，标签行本身不画底。
         backgroundColor = Color.Transparent,
@@ -453,7 +455,6 @@ private fun FilterChips(
             // 外轮廓圆角 = cornerRadius + contourPadding(5dp)，取半高减 5dp 才是真胶囊。
             cornerRadius = FilterTrackHeight / 2 - 5.dp,
             itemSpacing = 2.dp,
-            indication = indication,
         )
     }
 }

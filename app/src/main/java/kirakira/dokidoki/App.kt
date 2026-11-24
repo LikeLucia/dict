@@ -633,9 +633,10 @@ private fun MiuixTabHost(
         ) { tab ->
             saveableStateHolder.SaveableStateProvider(tab) {
                 Box(Modifier.fillMaxSize()) {
-                    // 告诉页面自己是不是前台页：只有前台页才把正文录进玻璃采样层，
-                    // 否则 Pager 预组合的相邻页会同时写同一层，采样内容会错乱。
-                    CompositionLocalProvider(LocalPageActive provides (tab == activeTab)) {
+                    // 录制用 currentPage 而不是 activeTab：activeTab 在滚动中会变成 -1，
+                    // 那样没有任何页面往采样层里录，采样层为空，底栏与轨道就会闪。
+                    // 用 currentPage 保证任何时刻都恰好有一页在录，不会空也不会多页同写。
+                    CompositionLocalProvider(LocalPageActive provides (tab == pagerState.currentPage)) {
                         content(tab, tab == activeTab)
                     }
                 }

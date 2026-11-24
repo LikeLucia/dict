@@ -75,7 +75,7 @@ fun ThemeSettingsScreen(
                 .height(52.dp),
         ) {
             SettingsRow(
-                title = "模糊",
+                title = "开启模糊效果",
                 switchOn = state.blurBars && blurSupported,
                 last = true,
                 onSwitch = { if (blurSupported) onToggleBlur(it) },

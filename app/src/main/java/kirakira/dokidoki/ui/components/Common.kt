@@ -570,6 +570,9 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
             onSelect = onSelect,
             // 判空双材质：非空走玻璃；为空时组件内部自动降级成 surfaceContainer 纯色。
             backdrop = LocalBarBackdrop.current?.rawBackdrop,
+            // 材质与轨道统一：默认 puredThinGlass 在暗色下是灰黑色系，
+            // 会让底栏整体发灰偏黑；改用只留模糊与极淡高光的中性材质。
+            material = TrackGlassMaterial,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(barHeight),
