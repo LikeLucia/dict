@@ -67,10 +67,15 @@ import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.DictScaffoldPage
 import kirakira.dokidoki.ui.components.StatusBadge
 import kirakira.dokidoki.ui.components.LocalBarBackdrop
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.unit.Density
+import top.yukonga.miuix.kmp.blur.Backdrop
+import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRow
 import kirakira.dokidoki.ui.components.TrackGlassMaterial
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
 import top.yukonga.miuix.kmp.material.GlassShadows
-import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.theme.DictTheme
 import kotlinx.coroutines.delay
@@ -78,8 +83,6 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
-import top.yukonga.miuix.kmp.basic.TabRowDefaults
-import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 import top.yukonga.miuix.kmp.icon.basic.Check
@@ -397,17 +400,39 @@ private val LIBRARY_FILTERS = listOf(
 private val FilterTrackHeight = 38.dp
 
 /**
- * 分类标签轨道：用 miuix 的 [GlassFloatingToolbar] 包住 [TabRowWithContour]。
+ * 不产生任何采样的空 [Backdrop]。
  *
- * 悬浮组件本身就是 miuix 的「判空双材质」实现，不需要我们再写分支：
- * - 传了 [Backdrop]（开了模糊且系统 ≥ Android 13）→ `glassPanel` 走玻璃管线，
- *   材质 [TrackGlassMaterial]、描边 [GlassSegmentedTabRowDefaults.stroke]、
- *   投影 [GlassShadows.Float]；
- * - backdrop 为 null（关了模糊，或系统低于 13）→ 组件内部自动用
- *   `Modifier.clip(shape).background(fill)` 回退成纯色胶囊。
+ * [GlassSegmentedTabRow] 的 `backdrop` 参数在 0.9.5-beta03 里是非空类型，
+ * 但关模糊时又必须不画玻璃。这里给它一个什么都不画的实现，
+ * 配合 `surfaceAlpha = 0f`（内部 `showGlass` 为 false）就能只保留纯色轨道。
+ */
+private object NoopBackdrop : Backdrop {
+    override val isCoordinatesDependent: Boolean get() = false
+
+    override fun DrawScope.drawBackdrop(
+        density: Density,
+        coordinates: LayoutCoordinates?,
+        layerBlock: (GraphicsLayerScope.() -> Unit)?,
+        downscaleFactor: Float,
+    ) = Unit
+}
+
+/**
+ * 分类标签轨道：用 miuix 的 [GlassSegmentedTabRow]（c001apk 用的同一个组件）。
  *
- * 轨道形状、圆角、外留白、投影全部由组件负责，这里不再自己画任何背景。
- * 选中胶囊与切换动画仍由 [TabRowWithContour] 提供（`indicatorPosition` + `tween(200)`）。
+ * 这个组件自己就是完整实现，轨道、选中胶囊、动画全在内部：
+ * - 轨道：`drawBehind { drawRect(trackColor) }` 打底，玻璃层再叠上去；
+ * - 选中胶囊：`indicatorLeft` / `indicatorRight` 两个 Animatable，
+ *   用 edgeSpring 驱动，途中会被拉长、到位回弹；
+ * - 按下：`pressedIndex` 预览 + `glassPressScale` 缩放；
+ * - 拖动：可以直接在轨道上拖着选。
+ *
+ * 判空双材质靠 `surfaceAlpha`：
+ * - 开模糊（backdrop 非空）→ `surfaceAlpha = 1f`，玻璃层淡入；
+ * - 关模糊或系统 < 13 → `surfaceAlpha = 0f`，内部 `showGlass` 为 false，
+ *   玻璃层完全不画，只剩 `drawRect(trackColor)` 的纯色胶囊。
+ *
+ * 轨道与胶囊都由这一个组件负责，不会再出现「两层灰胶囊」。
  */
 @Composable
 private fun FilterChips(
@@ -417,44 +442,28 @@ private fun FilterChips(
 ) {
     val p = DictTheme.palette
     val backdrop = LocalBarBackdrop.current
-    // 不传 indication：MiuixIndication 按下时会在每格上 drawRect 一层遮罩，
-    // 被 TabItemWithContour 的 squircleClip 裁成胶囊后，看起来就是第二层
-    // 「没有动画的灰色胶囊」。选中态只保留 indicatorPosition 那层动画胶囊。
-    val tabColors = TabRowDefaults.tabRowColors(
-        // 轨道底色交给外层悬浮组件，标签行本身不画底。
-        backgroundColor = Color.Transparent,
-        contentColor = if (p.isDark) p.text else Color.Black,
-        // 选中项：那层带弹簧动画的胶囊。
-        selectedBackgroundColor = if (p.isDark) {
-            Color.White.copy(alpha = 0.12f)
-        } else {
-            Color.Black.copy(alpha = 0.10f)
-        },
-        selectedContentColor = if (p.isDark) p.text else Color.Black,
-    )
-    GlassFloatingToolbar(
-        modifier = Modifier.fillMaxWidth(),
-        backdrop = backdrop?.rawBackdrop,
-        cornerRadius = FilterTrackHeight / 2,
-        outSidePadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-        material = TrackGlassMaterial,
-        // 无 backdrop 时的回退底色。
-        fill = p.card,
-        stroke = GlassSegmentedTabRowDefaults.stroke(),
-        shadow = GlassShadows.Float,
-    ) {
-        TabRowWithContour(
+    // 选中胶囊：浅色主题黑 10%，暗色白 12%。
+    val indicator = if (p.isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f)
+    val labelColor = if (p.isDark) p.text else Color.Black
+
+    Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+        GlassSegmentedTabRow(
             tabs = labels,
-            selectedTabIndex = selected,
-            onTabSelected = onSelect,
+            selectedIndex = selected,
+            onSelect = onSelect,
+            // 组件要求非空 backdrop；关模糊时用 surfaceAlpha = 0 让玻璃层彻底不画。
+            backdrop = backdrop?.rawBackdrop ?: NoopBackdrop,
             modifier = Modifier.fillMaxWidth(),
-            colors = tabColors,
-            minWidth = TabRowDefaults.TabRowWithContourMinWidth,
-            maxWidth = TabRowDefaults.TabRowWithContourMaxWidth,
             height = FilterTrackHeight,
-            // 外轮廓圆角 = cornerRadius + contourPadding(5dp)，取半高减 5dp 才是真胶囊。
-            cornerRadius = FilterTrackHeight / 2 - 5.dp,
-            itemSpacing = 2.dp,
+            // 开模糊才让材质升上来，否则只留纯色轨道。
+            surfaceAlpha = if (backdrop != null) 1f else 0f,
+            trackColor = p.card,
+            indicatorColor = indicator,
+            selectedContentColor = labelColor,
+            contentColor = labelColor,
+            material = if (backdrop != null) TrackGlassMaterial else null,
+            stroke = if (backdrop != null) GlassSegmentedTabRowDefaults.stroke() else null,
+            shadow = GlassShadows.Float,
         )
     }
 }
