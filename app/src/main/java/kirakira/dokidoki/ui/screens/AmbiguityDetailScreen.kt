@@ -378,8 +378,8 @@ fun AmbiguityDetailScreen(
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        // 贴右侧、位于分页行上方；按反馈在原有基础上左移 20dp、下移 5dp。
-                        .padding(end = 28.dp, bottom = 67.dp),
+                        // 贴右侧、位于分页行上方；按反馈累计左移 30dp、下移 10dp。
+                        .padding(end = 38.dp, bottom = 62.dp),
                 )
             }
         }

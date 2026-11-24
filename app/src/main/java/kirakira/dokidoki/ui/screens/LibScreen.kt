@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
@@ -414,8 +415,13 @@ private val FilterTrackHeight = 38.dp
  * 随选中位置滑动的指示器胶囊——beta03 的指示器本来就是「玻璃上的一层着色」，颜色与
  * 按下反馈都取 [GlassSegmentedTabRowDefaults]。
  *
+ * 指示器部分完全照 [GlassSegmentedTabRow]：左右两条边各一个 [Animatable]，
+ * 切换时前缘用 [GlassMotion.navIndicator]、后缘用 [GlassMotion.navIndicatorTrail]，
+ * 途中胶囊被拉长、到位回弹收拢；按下先预览、松手才切换；按下时按 glassPressScale 缩放。
+ *
  * 与官方组件的差别只有一处：官方要求等宽且不滚动，这里标签有 12 个、宽度不等，
- * 所以仍用 LazyRow 横向滑动，指示器按「内容坐标 − 滚动偏移」在布局阶段定位。
+ * 所以仍用 LazyRow 横向滑动——指示器的两条边用「内容坐标」做动画，
+ * 滚动偏移在布局阶段直接减掉，于是切换有弹簧、滚动仍逐帧贴合，快速滑动不丢帧。
  */
 @Composable
 private fun FilterChips(
@@ -447,24 +453,51 @@ private fun FilterChips(
     // 玻璃画在 layer 之上，不会采到自己。
     val backdrop = rememberLayerBackdrop()
 
-    // 指示器：颜色与按下反馈都走 beta03 的默认值，不自己另配一套。
+    // 指示器完全照 GlassSegmentedTabRow 的做法：
+    // 左右两条边各是一个 Animatable，切换时用 GlassMotion.edgeSpring 分别驱动——
+    // 朝移动方向的那条边是前缘（navIndicator，更快），另一条是后缘（navIndicatorTrail），
+    // 所以胶囊在途中会被拉长，到位后回弹收拢。
+    val indicatorLeft = remember { Animatable(0f) }
+    val indicatorRight = remember { Animatable(0f) }
+    // 按下先预览：指示器跟着按住的那颗走，松手才真正切换。
+    var pressedIndex by remember { mutableIntStateOf(-1) }
+    val indicatorIndex = if (pressedIndex >= 0) pressedIndex else selected
+    val indicatorPressed = pressedIndex >= 0
+    var indicatorSettled by remember { mutableStateOf(false) }
+
     val indicatorColor = GlassSegmentedTabRowDefaults.indicatorColor()
     val indicatorPressedColor = GlassSegmentedTabRowDefaults.indicatorPressedColor()
-    // 指示器位置只跟 selected：这里的定位在布局阶段瞬时完成（为快速滑动不丢帧），
-    // 若按下就先把指示器挪到按下的标签上，会变成硬跳一下，反而更差。
-    // 所以按下反馈只作用在「选中的那颗被按住」时——颜色与缩放仍取 beta03 的值。
-    var selectedPressed by remember { mutableStateOf(false) }
     val indicatorFill by animateColorAsState(
-        targetValue = if (selectedPressed) indicatorPressedColor else indicatorColor,
-        animationSpec = if (selectedPressed) GlassMotion.navPressEnter() else GlassMotion.navPressExit(),
+        targetValue = if (indicatorPressed) indicatorPressedColor else indicatorColor,
+        animationSpec = if (indicatorPressed) GlassMotion.navPressEnter() else GlassMotion.navPressExit(),
         label = "filter-indicator-fill",
     )
     val innerHeightPx = with(density) { (FilterTrackHeight - GlassSegmentedTabRowDefaults.TrackPadding * 2).toPx() }
     val indicatorScale by animateFloatAsState(
-        targetValue = if (selectedPressed) glassPressScale(innerHeightPx, density.density) else 1f,
-        animationSpec = if (selectedPressed) GlassMotion.pressDown() else GlassMotion.pressUp(),
+        targetValue = if (indicatorPressed) glassPressScale(innerHeightPx, density.density) else 1f,
+        animationSpec = if (indicatorPressed) GlassMotion.pressDown() else GlassMotion.pressUp(),
         label = "filter-indicator-press",
     )
+
+    // 目标位置用「内容坐标」，滚动不参与动画：滚动偏移在布局阶段直接减掉，
+    // 所以快速滑动时指示器逐帧贴着标签走，不会因为弹簧而滞后。
+    // key 只取这一颗标签的位置，宽度测量刷新时不会把动画反复重启。
+    val targetLeft = contentLeft(indicatorIndex)
+    val targetWidth = chipWidths.getOrNull(indicatorIndex) ?: 0f
+    LaunchedEffect(targetLeft, targetWidth) {
+        if (targetWidth <= 0f) return@LaunchedEffect
+        val targetRight = targetLeft + targetWidth
+        if (!indicatorSettled) {
+            // 首帧直接落位，避免从 0 滑进来。
+            indicatorLeft.snapTo(targetLeft)
+            indicatorRight.snapTo(targetRight)
+            indicatorSettled = true
+            return@LaunchedEffect
+        }
+        val movingRight = targetLeft > indicatorLeft.value
+        launch { indicatorLeft.animateTo(targetLeft, GlassMotion.edgeSpring(leading = !movingRight)) }
+        launch { indicatorRight.animateTo(targetRight, GlassMotion.edgeSpring(leading = movingRight)) }
+    }
 
     Box {
         // 玻璃采样的内容：与标签背后实际可见的顶栏底色一致。
@@ -491,38 +524,49 @@ private fun FilterChips(
                     // 溢出部分由容器平口裁掉。
                     .clipToBounds(),
             ) {
-                // 指示器在布局阶段按「内容坐标 − 滚动偏移」定位，与滚动严格同步，快速滑动也不丢帧。
-                val selectedWidth = if (selected in chipWidths.indices) chipWidths[selected] else 0f
-                val innerHeight = FilterTrackHeight - GlassSegmentedTabRowDefaults.TrackPadding * 2
+                // 指示器照 GlassSegmentedTabRow 的结构：外层节点铺满轨道、只负责定位，
+                // 内层才是真正的胶囊（尺寸、缩放、圆角、填色都只作用在它身上）。
+                // 两条边的动画值在这里直接减掉滚动偏移，所以切换有弹簧、滚动逐帧贴合。
+                val trackPad = GlassSegmentedTabRowDefaults.TrackPadding
+                val innerHeight = FilterTrackHeight - trackPad * 2
                 Box(
                     modifier = Modifier
-                        .offset {
-                            // offset 的 lambda 本身就是 Density 作用域，纵向内缩直接取像素。
-                            if (selectedWidth <= 0f) {
-                                IntOffset(0, 0)
-                            } else {
-                                IntOffset(
-                                    (contentLeft(selected) - scrollOffset()).roundToInt(),
-                                    GlassSegmentedTabRowDefaults.TrackPadding.roundToPx(),
-                                )
+                        .layout { measurable, constraints ->
+                            val start = (indicatorLeft.value - scrollOffset()).roundToInt()
+                            val end = (indicatorRight.value - scrollOffset()).roundToInt()
+                            val width = (end - start).coerceAtLeast(0)
+                            val height = (constraints.maxHeight - trackPad.roundToPx() * 2).coerceAtLeast(0)
+                            val placeable = measurable.measure(
+                                constraints.copy(
+                                    minWidth = width,
+                                    maxWidth = width,
+                                    minHeight = height,
+                                    maxHeight = height,
+                                ),
+                            )
+                            layout(constraints.maxWidth, constraints.maxHeight) {
+                                placeable.placeRelative(IntOffset(start, trackPad.roundToPx()))
                             }
-                        }
-                        .width(with(density) { selectedWidth.toDp() })
-                        .height(innerHeight)
-                        // 与 beta03 指示器一致：按下时整体缩小，宽度按高度差值等比收缩。
-                        .graphicsLayer {
-                            val scale = indicatorScale
-                            val insetPx = (1f - scale) * size.height
-                            scaleX = if (size.width > 0f) {
-                                ((size.width - insetPx) / size.width).coerceIn(0f, 1f)
-                            } else {
-                                1f
+                        },
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            // 与 beta03 指示器一致：按下时整体缩小，宽度按高度差值等比收缩。
+                            .graphicsLayer {
+                                val scale = indicatorScale
+                                val insetPx = (1f - scale) * size.height
+                                scaleX = if (size.width > 0f) {
+                                    ((size.width - insetPx) / size.width).coerceIn(0f, 1f)
+                                } else {
+                                    1f
+                                }
+                                scaleY = scale
                             }
-                            scaleY = scale
-                        }
-                        .clip(RoundedCornerShape(innerHeight / 2))
-                        .background(indicatorFill),
-                )
+                            .clip(RoundedCornerShape(innerHeight / 2))
+                            .background(indicatorFill),
+                    )
+                }
                 LazyRow(
                     state = chipListState,
                     modifier = Modifier.fillMaxSize(),
@@ -534,11 +578,14 @@ private fun FilterChips(
                         val isSelected = index == selected
                         val chipInteraction = remember { MutableInteractionSource() }
                         val chipPressed by chipInteraction.collectIsPressedAsState()
-                        // 只有选中的那颗被按住时才缩放：指示器就在它下面，视觉上是同一个面。
-                        LaunchedEffect(chipPressed, isSelected) {
-                            // 松开一定要复位，否则选中项被滚出视口后按下态会卡住。
-                            if (chipPressed && isSelected) selectedPressed = true
-                            else if (!chipPressed) selectedPressed = false
+                        // 按下先让指示器跟过去预览，松手才切换（与 GlassSegmentedTabRow 一致）。
+                        // 松开或手势取消都要复位，否则指示器会停在被按过的那颗上。
+                        LaunchedEffect(chipPressed) {
+                            if (chipPressed) {
+                                if (!chipListState.isScrollInProgress) pressedIndex = index
+                            } else if (pressedIndex == index) {
+                                pressedIndex = -1
+                            }
                         }
                         val textColor by animateColorAsState(
                             targetValue = p.text,
