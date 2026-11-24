@@ -34,7 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -59,6 +59,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.unit.sp
 import kirakira.dokidoki.data.DictFile
@@ -75,6 +76,7 @@ import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.theme.DictTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.firstOrNull
 import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
 import top.yukonga.miuix.kmp.glass.GlassMotion
@@ -409,56 +411,23 @@ private fun FilterChips(
 ) {
     val p = DictTheme.palette
     val chipListState = rememberLazyListState()
-    // 指示器左右两条边各一条弹簧，切换时按方向分别使用 navIndicator / navIndicatorTrail。
-    val indicatorLeft = remember { Animatable(0f) }
-    val indicatorRight = remember { Animatable(0f) }
-    var initialized by remember { mutableStateOf(false) }
-    // 与视频里的效果一致：胶囊贴着选中的标签走，标签滑出屏幕就不画。
-    // 位置取自 layoutInfo，坐标系与 drawBehind 相同。
-    val selectedBounds = remember(chipListState, selected, labels.size) {
-        derivedStateOf {
-            val info = chipListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == selected }
-                ?: return@derivedStateOf null
-            val viewportStart = chipListState.layoutInfo.viewportStartOffset
-            val viewportEnd = chipListState.layoutInfo.viewportEndOffset
-            // 完全滚出可视区：不显示胶囊。
-            if (info.offset + info.size <= viewportStart || info.offset >= viewportEnd) {
-                return@derivedStateOf null
-            }
-            // 始终使用标签的完整宽度，长度不随裁切变化；溢出部分由容器平口裁掉。
-            info.offset.toFloat() to (info.offset + info.size).toFloat()
+    val density = LocalDensity.current
+    val spacingPx = with(density) { 2.dp.toPx() }
+    // 只记录每个标签的宽度（宽度不随滚动变化），内容坐标由累加得出，天然稳定。
+    var chipWidths by remember(labels.size) { mutableStateOf(FloatArray(labels.size)) }
+    fun contentLeft(index: Int): Float {
+        var x = 0f
+        for (i in 0 until index.coerceAtMost(chipWidths.size)) {
+            x += chipWidths[i] + spacingPx
         }
+        return x
     }
-    // 点击切换时走弹簧过渡；其余时间（含滚动）逐帧贴合选中标签。
-    var animatingSelection by remember { mutableStateOf(false) }
-    LaunchedEffect(selected) {
-        val bounds = selectedBounds.value ?: return@LaunchedEffect
-        if (!initialized) {
-            // 首帧直接落位，不从 0 号槽滑入。
-            indicatorLeft.snapTo(bounds.first)
-            indicatorRight.snapTo(bounds.second)
-            initialized = true
-        } else {
-            animatingSelection = true
-            try {
-                launch { indicatorLeft.animateTo(bounds.first, GlassMotion.edgeSpring(bounds.first <= indicatorLeft.value)) }
-                launch { indicatorRight.animateTo(bounds.second, GlassMotion.edgeSpring(bounds.first > indicatorLeft.value)) }
-            } finally {
-                animatingSelection = false
-            }
-        }
+    // 滚动偏移：首个可见项的内容坐标减去它在视口里的偏移（与 miuix TabRow 同一思路）。
+    fun scrollOffset(): Float {
+        val info = chipListState.layoutInfo
+        val first = info.visibleItemsInfo.firstOrNull() ?: return 0f
+        return contentLeft(first.index) - first.offset
     }
-    // 逐帧跟随选中标签：滚动时不播放过渡，直接贴合，长度恒为标签完整宽度。
-    LaunchedEffect(chipListState) {
-        snapshotFlow { selectedBounds.value }
-            .collect { bounds ->
-                if (animatingSelection) return@collect
-                if (bounds == null) return@collect
-                indicatorLeft.snapTo(bounds.first)
-                indicatorRight.snapTo(bounds.second)
-            }
-    }
-    // 与底栏一致：深色白色淡填充，浅色黑色淡填充。
     val indicatorColor = if (p.isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f)
     GlassFloatingToolbar(
         modifier = Modifier.fillMaxWidth(),
@@ -471,33 +440,27 @@ private fun FilterChips(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                // 胶囊高度 38dp。
                 .height(38.dp)
-                // 裁掉溢出容器的部分：胶囊滑到边缘时是平口切口，而不是变形。
-                .clipToBounds()
-                // 指示器画在滚动视口坐标系里，位置随选中项与滚动一起变化。
-                .drawBehind {
-                    val left = indicatorLeft.value
-                    val right = indicatorRight.value
-                    if (right <= left) return@drawBehind
-                    // 超出容器范围就不画（选中标签已滚出可视区）。
-                    if (right <= 0f || left >= size.width) return@drawBehind
-                    val height = size.height
-                    // 圆角恒为高度的一半：保持完整胶囊形，溢出部分由容器裁掉。
-                    drawRoundRect(
-                        color = indicatorColor,
-                        topLeft = Offset(left, 0f),
-                        size = Size(right - left, height),
-                        cornerRadius = CornerRadius(height / 2f),
-                    )
-                },
+                // 溢出部分由容器平口裁掉。
+                .clipToBounds(),
         ) {
+            // 指示器在布局阶段按「内容坐标 − 滚动偏移」定位，与滚动严格同步，快速滑动也不丢帧。
+            val selectedWidth = if (selected in chipWidths.indices) chipWidths[selected] else 0f
+            Box(
+                modifier = Modifier
+                    .offset {
+                        if (selectedWidth <= 0f) IntOffset(0, 0)
+                        else IntOffset((contentLeft(selected) - scrollOffset()).roundToInt(), 0)
+                    }
+                    .width(with(density) { selectedWidth.toDp() })
+                    .fillMaxHeight()
+                    .background(indicatorColor, RoundedCornerShape(19.dp)),
+            )
             LazyRow(
                 state = chipListState,
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
-                // 到顶端或末端就停住：关掉拉伸回弹，避免到头还能继续拖。
                 overscrollEffect = null,
             ) {
                 itemsIndexed(labels) { index, label ->
@@ -510,18 +473,24 @@ private fun FilterChips(
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
-                            // 按内容宽度排布，长标签不再被压缩或截断。
                             .wrapContentWidth()
                             .clip(RoundedCornerShape(19.dp))
-                            // 关掉 clickable 自带的按压指示（ripple）：选中态只由指示器胶囊表达。
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
                             ) {
-                                // 滑动不等于切换：正在滚动时忽略这次点击，避免拖动被识别成选中。
+                                // 滑动不等于切换：滚动中忽略点击。
                                 if (!chipListState.isScrollInProgress) onSelect(index)
                             }
-                            .padding(horizontal = 16.dp),
+                            .padding(horizontal = 16.dp)
+                            .onGloballyPositioned { coords ->
+                                val w = coords.size.width.toFloat()
+                                if (index in chipWidths.indices && chipWidths[index] != w) {
+                                    val copy = chipWidths.copyOf()
+                                    copy[index] = w
+                                    chipWidths = copy
+                                }
+                            },
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
