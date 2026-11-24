@@ -39,6 +39,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -189,7 +190,8 @@ fun DictScaffoldPage(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
+                    // 不在这里 padding(top)：正文要延伸到顶栏下方，
+                    // 玻璃才采得到滚动内容；顶栏高度由页面自己的滚动容器作为 contentPadding 消化。
                     .nestedScroll(scrollBehavior.nestedScrollConnection)
                     // 正文作为玻璃采样源，顶栏与底栏共用它。
                     .then(pageBackdropRecordModifier()),
@@ -228,18 +230,36 @@ fun FixedTopScrollPage(
     topBar: @Composable () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    FixedTopPage(modifier = modifier, topBar = topBar) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = bottomPadding)
-                // 把正文录进玻璃采样层：顶栏与底栏才能采到滚动内容。
-                // 只有前台页录，Pager 预组合的相邻页不写同一层。
-                .then(pageBackdropRecordModifier()),
-            content = content,
-        )
+    val scrollBehavior = MiuixScrollBehavior()
+    val density = LocalDensity.current
+    val topBarHeight = remember { mutableIntStateOf(0) }
+    CompositionLocalProvider(LocalDictTopBarScrollBehavior provides scrollBehavior) {
+        Box(
+            modifier
+                .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    // 顶栏是叠加层，正文用内边距避开它；滚动内容仍然从顶栏下方经过，
+                    // 玻璃才能采到真实内容而不是固定底色。
+                    .padding(
+                        top = with(density) { topBarHeight.intValue.toDp() } + 4.dp,
+                        bottom = bottomPadding,
+                    )
+                    .then(pageBackdropRecordModifier()),
+                content = content,
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { topBarHeight.intValue = it.height },
+            ) {
+                topBar()
+            }
+        }
     }
 }
 

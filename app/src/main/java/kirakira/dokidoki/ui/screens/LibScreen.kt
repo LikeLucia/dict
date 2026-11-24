@@ -237,13 +237,17 @@ fun LibScreen(
                 },
             )
         },
-    ) { _ ->
+    ) { padding ->
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = 190.dp),
+            // 正文延伸到顶栏下方：顶栏高度用内容内边距让开，滚动内容仍从玻璃下面经过。
+            contentPadding = PaddingValues(
+                top = padding.calculateTopPadding(),
+                bottom = 190.dp,
+            ),
         ) {
             item(key = "controls") {
                 SortHeader(
