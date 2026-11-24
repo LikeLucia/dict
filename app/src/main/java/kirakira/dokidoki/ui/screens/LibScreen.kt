@@ -512,7 +512,8 @@ private fun FilterChips(
             backdrop = backdrop,
             fill = p.card,
             cornerRadius = FilterTrackHeight / 2,
-            outSidePadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
+            // 左右留白从 24dp 收到 12dp：轨道整体变长 24dp，比下方列表卡片更宽。
+            outSidePadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
             shadow = GlassShadows.Float,
         ) {
             // 玻璃材质叠在采样层上时，轨道内部不要再画不透明底色，
