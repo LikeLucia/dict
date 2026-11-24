@@ -2,6 +2,7 @@ package kirakira.dokidoki.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateColorAsState
@@ -47,6 +48,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalFocusManager
@@ -78,8 +80,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.firstOrNull
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
 import top.yukonga.miuix.kmp.glass.GlassMotion
+import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
+import top.yukonga.miuix.kmp.glass.glassPressScale
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
@@ -378,12 +384,6 @@ private fun SearchBar(
     )
 }
 
-/**
- * 分类标签：与底部导航栏同款的 miuix 玻璃胶囊（GlassFloatingToolbar）。
- * 指示器沿用悬浮底栏的实现：左右两条边各用一条弹簧（GlassMotion.edgeSpring），
- * 移动时前缘领先、后缘跟随，胶囊在途中被拉长，到位后回弹收拢；
- * 文字配色也照底栏来——选中与否都读正文色，由指示器胶囊本身区分选中项。
- */
 /** 词库页的一个筛选标签：文案 + 命中条件。 */
 private class LibraryFilter(val label: String, val matches: (DictFile) -> Boolean)
 
@@ -403,6 +403,20 @@ private val LIBRARY_FILTERS = listOf(
     LibraryFilter("处理失败") { it.status == FileStatus.FAILED },
 )
 
+/** 轨道高度：沿用本页原来的 38dp，换材质不改版面。 */
+private val FilterTrackHeight = 38.dp
+
+/**
+ * 分类标签：miuix 0.9.5-beta03 的玻璃轨道 + 玻璃指示器。
+ *
+ * 结构照 [top.yukonga.miuix.kmp.glass.GlassSegmentedTabRow]：整条轨道是一块玻璃面板
+ * （puredThinGlass 材质、bloom 描边、Float 投影），选中项不是另一块玻璃，而是轨道内
+ * 随选中位置滑动的指示器胶囊——beta03 的指示器本来就是「玻璃上的一层着色」，颜色与
+ * 按下反馈都取 [GlassSegmentedTabRowDefaults]。
+ *
+ * 与官方组件的差别只有一处：官方要求等宽且不滚动，这里标签有 12 个、宽度不等，
+ * 所以仍用 LazyRow 横向滑动，指示器按「内容坐标 − 滚动偏移」在布局阶段定位。
+ */
 @Composable
 private fun FilterChips(
     labels: List<String>,
@@ -410,8 +424,8 @@ private fun FilterChips(
     onSelect: (Int) -> Unit,
 ) {
     val p = DictTheme.palette
-    val chipListState = rememberLazyListState()
     val density = LocalDensity.current
+    val chipListState = rememberLazyListState()
     val spacingPx = with(density) { 2.dp.toPx() }
     // 只记录每个标签的宽度（宽度不随滚动变化），内容坐标由累加得出，天然稳定。
     var chipWidths by remember(labels.size) { mutableStateOf(FloatArray(labels.size)) }
@@ -428,81 +442,143 @@ private fun FilterChips(
         val first = info.visibleItemsInfo.firstOrNull() ?: return 0f
         return contentLeft(first.index) - first.offset
     }
-    val indicatorColor = if (p.isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f)
-    GlassFloatingToolbar(
-        modifier = Modifier.fillMaxWidth(),
-        backdrop = null,
-        fill = p.card,
-        cornerRadius = 26.dp,
-        outSidePadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
-        shadow = GlassShadows.Float,
-    ) {
+
+    // 采样层：标签浮在顶栏自己的不透明底色上，所以只把这块底色记进 layer。
+    // 玻璃画在 layer 之上，不会采到自己。
+    val backdrop = rememberLayerBackdrop()
+
+    // 指示器：颜色与按下反馈都走 beta03 的默认值，不自己另配一套。
+    val indicatorColor = GlassSegmentedTabRowDefaults.indicatorColor()
+    val indicatorPressedColor = GlassSegmentedTabRowDefaults.indicatorPressedColor()
+    // 指示器位置只跟 selected：这里的定位在布局阶段瞬时完成（为快速滑动不丢帧），
+    // 若按下就先把指示器挪到按下的标签上，会变成硬跳一下，反而更差。
+    // 所以按下反馈只作用在「选中的那颗被按住」时——颜色与缩放仍取 beta03 的值。
+    var selectedPressed by remember { mutableStateOf(false) }
+    val indicatorFill by animateColorAsState(
+        targetValue = if (selectedPressed) indicatorPressedColor else indicatorColor,
+        animationSpec = if (selectedPressed) GlassMotion.navPressEnter() else GlassMotion.navPressExit(),
+        label = "filter-indicator-fill",
+    )
+    val innerHeightPx = with(density) { (FilterTrackHeight - GlassSegmentedTabRowDefaults.TrackPadding * 2).toPx() }
+    val indicatorScale by animateFloatAsState(
+        targetValue = if (selectedPressed) glassPressScale(innerHeightPx, density.density) else 1f,
+        animationSpec = if (selectedPressed) GlassMotion.pressDown() else GlassMotion.pressUp(),
+        label = "filter-indicator-press",
+    )
+
+    Box {
+        // 玻璃采样的内容：与标签背后实际可见的顶栏底色一致。
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(38.dp)
-                // 溢出部分由容器平口裁掉。
-                .clipToBounds(),
+            Modifier
+                .matchParentSize()
+                .layerBackdrop(backdrop)
+                .background(p.bg),
+        )
+        GlassFloatingToolbar(
+            modifier = Modifier.fillMaxWidth(),
+            backdrop = backdrop,
+            fill = p.card,
+            cornerRadius = FilterTrackHeight / 2,
+            outSidePadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
+            shadow = GlassShadows.Float,
         ) {
-            // 指示器在布局阶段按「内容坐标 − 滚动偏移」定位，与滚动严格同步，快速滑动也不丢帧。
-            val selectedWidth = if (selected in chipWidths.indices) chipWidths[selected] else 0f
+            // 玻璃材质叠在采样层上时，轨道内部不要再画不透明底色，
+            // 否则玻璃被盖住；这里只保留布局与裁切。
             Box(
                 modifier = Modifier
-                    .offset {
-                        if (selectedWidth <= 0f) IntOffset(0, 0)
-                        else IntOffset((contentLeft(selected) - scrollOffset()).roundToInt(), 0)
-                    }
-                    .width(with(density) { selectedWidth.toDp() })
-                    .fillMaxHeight()
-                    .background(indicatorColor, RoundedCornerShape(19.dp)),
-            )
-            LazyRow(
-                state = chipListState,
-                modifier = Modifier.fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                overscrollEffect = null,
+                    .fillMaxWidth()
+                    .height(FilterTrackHeight)
+                    // 溢出部分由容器平口裁掉。
+                    .clipToBounds(),
             ) {
-                itemsIndexed(labels) { index, label ->
-                    val isSelected = index == selected
-                    val textColor by animateColorAsState(
-                        targetValue = p.text,
-                        animationSpec = tween(160),
-                        label = "filter-chip-text",
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .wrapContentWidth()
-                            .clip(RoundedCornerShape(19.dp))
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) {
-                                // 滑动不等于切换：滚动中忽略点击。
-                                if (!chipListState.isScrollInProgress) onSelect(index)
+                // 指示器在布局阶段按「内容坐标 − 滚动偏移」定位，与滚动严格同步，快速滑动也不丢帧。
+                val selectedWidth = if (selected in chipWidths.indices) chipWidths[selected] else 0f
+                val innerHeight = FilterTrackHeight - GlassSegmentedTabRowDefaults.TrackPadding * 2
+                Box(
+                    modifier = Modifier
+                        .offset {
+                            // offset 的 lambda 本身就是 Density 作用域，纵向内缩直接取像素。
+                            if (selectedWidth <= 0f) {
+                                IntOffset(0, 0)
+                            } else {
+                                IntOffset(
+                                    (contentLeft(selected) - scrollOffset()).roundToInt(),
+                                    GlassSegmentedTabRowDefaults.TrackPadding.roundToPx(),
+                                )
                             }
-                            // 测量必须放在 padding 之前：挂在 padding 之后只会量到文字宽度，
-                            // 左右各 16dp 的内边距被漏掉，累加后胶囊会一路偏左。
-                            .onGloballyPositioned { coords ->
-                                val w = coords.size.width.toFloat()
-                                if (index in chipWidths.indices && chipWidths[index] != w) {
-                                    val copy = chipWidths.copyOf()
-                                    copy[index] = w
-                                    chipWidths = copy
-                                }
+                        }
+                        .width(with(density) { selectedWidth.toDp() })
+                        .height(innerHeight)
+                        // 与 beta03 指示器一致：按下时整体缩小，宽度按高度差值等比收缩。
+                        .graphicsLayer {
+                            val scale = indicatorScale
+                            val insetPx = (1f - scale) * size.height
+                            scaleX = if (size.width > 0f) {
+                                ((size.width - insetPx) / size.width).coerceIn(0f, 1f)
+                            } else {
+                                1f
                             }
-                            .padding(horizontal = 16.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            label,
-                            fontSize = 11.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = textColor,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
+                            scaleY = scale
+                        }
+                        .clip(RoundedCornerShape(innerHeight / 2))
+                        .background(indicatorFill),
+                )
+                LazyRow(
+                    state = chipListState,
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    overscrollEffect = null,
+                ) {
+                    itemsIndexed(labels) { index, label ->
+                        val isSelected = index == selected
+                        val chipInteraction = remember { MutableInteractionSource() }
+                        val chipPressed by chipInteraction.collectIsPressedAsState()
+                        // 只有选中的那颗被按住时才缩放：指示器就在它下面，视觉上是同一个面。
+                        LaunchedEffect(chipPressed, isSelected) {
+                            // 松开一定要复位，否则选中项被滚出视口后按下态会卡住。
+                            if (chipPressed && isSelected) selectedPressed = true
+                            else if (!chipPressed) selectedPressed = false
+                        }
+                        val textColor by animateColorAsState(
+                            targetValue = p.text,
+                            animationSpec = tween(160),
+                            label = "filter-chip-text",
                         )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .wrapContentWidth()
+                                .clip(RoundedCornerShape(FilterTrackHeight / 2))
+                                .clickable(
+                                    interactionSource = chipInteraction,
+                                    indication = null,
+                                ) {
+                                    // 滑动不等于切换：滚动中忽略点击。
+                                    if (!chipListState.isScrollInProgress) onSelect(index)
+                                }
+                                // 测量必须放在 padding 之前：挂在 padding 之后只会量到文字宽度，
+                                // 左右各 16dp 的内边距被漏掉，累加后胶囊会一路偏左。
+                                .onGloballyPositioned { coords ->
+                                    val w = coords.size.width.toFloat()
+                                    if (index in chipWidths.indices && chipWidths[index] != w) {
+                                        val copy = chipWidths.copyOf()
+                                        copy[index] = w
+                                        chipWidths = copy
+                                    }
+                                }
+                                .padding(horizontal = 16.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                label,
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = textColor,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
             }
