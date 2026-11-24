@@ -73,8 +73,8 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
-import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.TabRowDefaults
+import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 import top.yukonga.miuix.kmp.icon.basic.Check
@@ -390,17 +390,18 @@ private val LIBRARY_FILTERS = listOf(
 private val FilterTrackHeight = 38.dp
 
 /**
- * 分类标签：直接用 miuix 0.9.5-beta03 的 [TabRow]。
+ * 分类标签：用 miuix 0.9.5-beta03 的 [TabRowWithContour]。
  *
- * 换掉了之前的玻璃轨道 + 自研指示器，改用组件自带的纯色实现：
- * - 轨道：`colors.backgroundColor`（未选中项底色）铺满整行；
- * - 选中项：`colors.selectedBackgroundColor` 的纯色胶囊，位置由 TabRow 内部按
- *   「等宽标签 + 视口宽度」计算，换标签时自动滚到视口中央（`TabRowConfig.scrollToSelected`）；
- * - 标签等宽：`calculateTabWidth` 在 [minWidth] 与 [maxWidth] 之间按可用宽度均分，
- *   11 个标签算出来会超过一屏，所以仍然可以横向滑动。
+ * 选它而不是 [TabRow]，是因为两条外观要求正好对上它的画法：
+ * - **整条轨道是胶囊形**：它把 `colors.backgroundColor(false)` 用 `squircleBackground`
+ *   画在整行上（[TabRow] 那边是裸的 `background(color)`，画出来是矩形）；
+ * - **选中文字后面没有背景**：把 `selectedBackgroundColor` 设成 [Color.Transparent]，
+ *   它内部那块 `squircleBackground(colors.backgroundColor(true))` 就什么都不画。
+ *   选中只靠文字颜色与字重区分。
  *
- * 之前那些自研逻辑（宽度累加、指示器双弹簧、布局阶段定位、选中居中）全部交给组件，
- * 不再需要。
+ * 标签仍是等宽（`calculateTabWidth` 在 minWidth/maxWidth 之间按可用宽度均分），
+ * 11 个标签算出来超过一屏，所以可以横向滑动；选中项由
+ * `TabRowConfig.scrollToSelected` 自动滚到视口中央。
  */
 @Composable
 private fun FilterChips(
@@ -409,7 +410,7 @@ private fun FilterChips(
     onSelect: (Int) -> Unit,
 ) {
     val p = DictTheme.palette
-    TabRow(
+    TabRowWithContour(
         tabs = labels,
         selectedTabIndex = selected,
         onTabSelected = onSelect,
@@ -417,21 +418,17 @@ private fun FilterChips(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp),
         colors = TabRowDefaults.tabRowColors(
-            // 轨道底色：与卡片同色，让整条轨道看起来是一块纯色条。
+            // 整条轨道的底色：胶囊形由组件用 squircleBackground 画。
             backgroundColor = p.card,
             contentColor = p.text2,
-            // 选中胶囊：沿用原来的浅灰对比色。
-            selectedBackgroundColor = if (p.isDark) {
-                Color.White.copy(alpha = 0.12f)
-            } else {
-                Color.Black.copy(alpha = 0.10f)
-            },
+            // 选中项不画背景：胶囊只属于整条轨道，不属于单个标签。
+            selectedBackgroundColor = Color.Transparent,
             selectedContentColor = p.text,
         ),
-        minWidth = TabRowDefaults.TabRowMinWidth,
-        maxWidth = TabRowDefaults.TabRowMaxWidth,
+        minWidth = TabRowDefaults.TabRowWithContourMinWidth,
+        maxWidth = TabRowDefaults.TabRowWithContourMaxWidth,
         height = FilterTrackHeight,
-        cornerRadius = FilterTrackHeight / 2,
+        cornerRadius = FilterTrackHeight / 2 - 5.dp,
         itemSpacing = 2.dp,
     )
 }
