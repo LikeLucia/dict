@@ -60,6 +60,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.popupClipReveal
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -579,41 +580,55 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
         )
     }
     val barHeight = 54.dp
+    val backdrop = LocalBarBackdrop.current
+    val shape = RoundedCornerShape(barHeight / 2)
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 28.dp)
-            .height(barHeight),
+            .height(barHeight)
+            // 与 c001apk 的 FloatingNavigationBar 一致：胶囊形状 + barBlur 纹理模糊。
+            // 关闭模糊（backdrop 为 null）时退回纯色卡片底。
+            .clip(shape)
+            .then(
+                if (backdrop != null) {
+                    Modifier.barBlur(backdrop, shape)
+                } else {
+                    Modifier.background(p.card, shape)
+                },
+            ),
         contentAlignment = Alignment.Center,
     ) {
-        GlassNavigationBar(
-            items = items,
-            selectedIndex = selectedIndex,
-            onSelect = onSelect,
-            // 判空双材质：非空走玻璃；为空时组件内部自动降级成 surfaceContainer 纯色。
-            backdrop = LocalBarBackdrop.current?.rawBackdrop,
-            // 材质与轨道统一：默认 puredThinGlass 在暗色下是灰黑色系，
-            // 会让底栏整体发灰偏黑；改用只留模糊与极淡高光的中性材质。
-            material = TrackGlassMaterial,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(barHeight),
-            defaultWindowInsetsPadding = false,
-            shadow = GlassShadows.Float,
-            height = barHeight,
-            selectedColor = p.text,
-            unselectedColor = p.text,
-            indicatorColor = if (p.isDark) {
-                Color.White.copy(alpha = 0.12f)
-            } else {
-                Color.Black.copy(alpha = 0.10f)
-            },
-            indicatorPressedColor = if (p.isDark) {
-                Color.White.copy(alpha = 0.18f)
-            } else {
-                Color.Black.copy(alpha = 0.16f)
-            },
-        )
+        // 内容本身不画底：模糊由外层 barBlur 提供，
+        // 所以把 GlassNavigationBar 的 surfaceContainer 覆盖成透明，只保留它的指示器与图标。
+        MiuixTheme(colors = MiuixTheme.colorScheme.copy(surfaceContainer = Color.Transparent)) {
+            GlassNavigationBar(
+                items = items,
+                selectedIndex = selectedIndex,
+                onSelect = onSelect,
+                backdrop = null,
+                material = null,
+                stroke = null,
+                shadow = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(barHeight),
+                defaultWindowInsetsPadding = false,
+                height = barHeight,
+                selectedColor = p.text,
+                unselectedColor = p.text,
+                indicatorColor = if (p.isDark) {
+                    Color.White.copy(alpha = 0.12f)
+                } else {
+                    Color.Black.copy(alpha = 0.10f)
+                },
+                indicatorPressedColor = if (p.isDark) {
+                    Color.White.copy(alpha = 0.18f)
+                } else {
+                    Color.Black.copy(alpha = 0.16f)
+                },
+            )
+        }
     }
 }
 
