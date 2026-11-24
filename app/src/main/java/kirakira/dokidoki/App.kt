@@ -67,6 +67,8 @@ import kirakira.dokidoki.ui.components.DictBottomBar
 import kirakira.dokidoki.ui.components.DialogAction
 import kirakira.dokidoki.ui.components.DropdownOverlay
 import kirakira.dokidoki.ui.components.DropdownSpec
+import kirakira.dokidoki.ui.components.LocalBlurBars
+import kirakira.dokidoki.ui.screens.ThemeSettingsScreen
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.screens.AboutScreen
 import kirakira.dokidoki.ui.screens.AmbiguityDetailScreen
@@ -161,6 +163,7 @@ fun DictApp(viewModel: MainViewModel) {
         var showDeleteConfirm by remember { mutableStateOf(false) }
         var detailFileId by remember { mutableStateOf<String?>(null) }
         var aboutOpen by remember { mutableStateOf(false) }
+        var themeSettingsOpen by remember { mutableStateOf(false) }
         var sourceLicensesOpen by remember { mutableStateOf(false) }
         val openLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             viewModel.importFiles(context.contentResolver, uris)
@@ -202,6 +205,7 @@ fun DictApp(viewModel: MainViewModel) {
             if (state.selectedTab != 3) {
                 aboutOpen = false
                 sourceLicensesOpen = false
+                themeSettingsOpen = false
             }
         }
         LaunchedEffect(aboutOpen) {
@@ -218,9 +222,12 @@ fun DictApp(viewModel: MainViewModel) {
         BackHandler(enabled = dropdown == null && state.selectionMode) { viewModel.clearSelection() }
         BackHandler(enabled = dropdown == null && !state.selectionMode && state.selectedTab != 0) { viewModel.selectTab(0) }
         BackHandler(enabled = detailVisible) { detailFileId = null }
+        BackHandler(enabled = themeSettingsOpen) { themeSettingsOpen = false }
         BackHandler(enabled = sourceLicensesOpen) { sourceLicensesOpen = false }
         BackHandler(enabled = !sourceLicensesOpen && aboutOpen) { aboutOpen = false }
         val aboutVisible = aboutOpen && state.selectedTab == 3
+        // 只下发开关值；每个页面各自建采样层，避免 Pager 预组合的相邻页共写一层。
+        CompositionLocalProvider(LocalBlurBars provides state.blurBars) {
         Box(Modifier.fillMaxSize().background(p.bg)) {
             MiuixDetailHost(
                 visible = aboutVisible,
@@ -236,6 +243,11 @@ fun DictApp(viewModel: MainViewModel) {
                                 dismissImmediately = state.selectedTab != 2,
                                 base = {
                                     Box(Modifier.fillMaxSize()) {
+                                      MiuixDetailHost(
+                                        visible = themeSettingsOpen,
+                                        dismissImmediately = state.selectedTab != 3,
+                                        base = {
+                                        Column(Modifier.fillMaxSize()) {
                                         MiuixTabHost(selectedTab = state.selectedTab) { tab, isActive ->
                                             FullScreenContentPage {
                                                 when (tab) {
@@ -298,7 +310,6 @@ fun DictApp(viewModel: MainViewModel) {
                                                         openedMenu = currentMenu,
                                                         onOpenMenu = { menu, anchor ->
                                                             val (items, selected) = when (menu) {
-                                                                SettingsMenu.THEME -> ThemeMode.entries.map { it.label } to state.themeMode.ordinal
                                                                 SettingsMenu.AUX_TYPE -> AuxType.entries.map { it.label } to state.auxType.ordinal
                                                                 SettingsMenu.TONE -> ToneMode.entries.map { it.label } to state.tone.ordinal
                                                                 SettingsMenu.OUTPUT_DELIMITER -> OutputDelimiter.entries.map { it.label } to state.outputDelimiter.ordinal
@@ -328,6 +339,7 @@ fun DictApp(viewModel: MainViewModel) {
                                                                 .onFailure { folderLauncher.launch(null) }
                                                         },
                                                         onAbout = { aboutOpen = true },
+                                                        onOpenThemeSettings = { themeSettingsOpen = true },
                                                     )
                                                 }
                                             }
@@ -342,6 +354,19 @@ fun DictApp(viewModel: MainViewModel) {
                                             onDelete = { if (state.selectedFileIds.isNotEmpty()) showDeleteConfirm = true },
                                             onClearSelection = viewModel::clearSelection,
                                         )
+                                        }
+                                        },
+                                        detail = {
+                                            FullScreenContentPage {
+                                                ThemeSettingsScreen(
+                                                    state = state,
+                                                    onBack = { themeSettingsOpen = false },
+                                                    onSelectTheme = viewModel::setThemeMode,
+                                                    onToggleBlur = viewModel::setBlurBars,
+                                                )
+                                            }
+                                        },
+                                      )
                                     }
                                 },
                                 detail = {
@@ -387,7 +412,6 @@ fun DictApp(viewModel: MainViewModel) {
                                 onSelect = { index ->
                                     dropdown = null
                                     when (spec.key) {
-                                        "THEME" -> viewModel.setThemeMode(ThemeMode.entries[index])
                                         "AUX_TYPE" -> viewModel.setAuxType(AuxType.entries[index])
                                         "REPORT_SORT" -> when {
                                             index == 0 -> viewModel.setReportSortDescending(false)
@@ -441,6 +465,7 @@ fun DictApp(viewModel: MainViewModel) {
                     }
                 },
             )
+        }
         }
     }
 }

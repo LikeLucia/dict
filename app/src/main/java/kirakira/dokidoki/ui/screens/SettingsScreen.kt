@@ -54,7 +54,7 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 
-enum class SettingsMenu { THEME, AUX_TYPE, TONE, OUTPUT_DELIMITER, INPUT_ENCODING, EXPORT_CONFLICT }
+enum class SettingsMenu { AUX_TYPE, TONE, OUTPUT_DELIMITER, INPUT_ENCODING, EXPORT_CONFLICT }
 
 @Composable
 fun SettingsScreen(
@@ -69,10 +69,10 @@ fun SettingsScreen(
     onSetWeight: (Int) -> Unit,
     onPickExportDirectory: () -> Unit,
     onAbout: () -> Unit,
+    onOpenThemeSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val p = DictTheme.palette
-    val themeAnchor = remember { DropdownAnchor() }
     val auxAnchor = remember { DropdownAnchor() }
     val toneAnchor = remember { DropdownAnchor() }
     val delimiterAnchor = remember { DropdownAnchor() }
@@ -80,48 +80,24 @@ fun SettingsScreen(
     val exportConflictAnchor = remember { DropdownAnchor() }
     var columnsDialog by remember { mutableStateOf(false) }
     var weightDialog by remember { mutableStateOf(false) }
-    val themeInteraction = remember { MutableInteractionSource() }
-    val themePressed by themeInteraction.collectIsPressedAsState()
-    val themeMask by animateColorAsState(
-        targetValue = if (openedMenu == SettingsMenu.THEME || themePressed) Color.Black.copy(alpha = 0.10f) else Color.Transparent,
-        animationSpec = tween(durationMillis = 120),
-        label = "theme-row-mask",
-    )
 
     FixedTopScrollPage(modifier = modifier, topBar = { DictTopBar("处理设置") }) {
         Spacer(Modifier.height(16.dp))
 
+        // 主题模式的选择搬到了「主题设置」二级页，这里只留入口。
         DictCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .height(54.dp)
-                .captureDropdownAnchor(themeAnchor),
+                .height(52.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(themeMask)
-                    .clickable(
-                        interactionSource = themeInteraction,
-                        indication = null,
-                    ) {
-                        onOpenMenu(SettingsMenu.THEME, themeAnchor.bounds())
-                    },
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(start = 10.dp, end = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("主题模式", fontSize = 16.sp, color = p.text)
-                    Spacer(Modifier.weight(1f))
-                    Text(state.themeMode.label, fontSize = 15.sp, color = p.text2)
-                    Spacer(Modifier.width(8.dp))
-                    Icon(MiuixIcons.Basic.ArrowUpDown, null, Modifier.size(13.dp), tint = p.text3)
-                }
-            }
+            SettingsRow(
+                title = "主题设置",
+                value = state.themeMode.label,
+                upDownArrow = false,
+                last = true,
+                onClick = onOpenThemeSettings,
+            )
         }
 
         Spacer(Modifier.height(14.dp))
@@ -305,7 +281,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsRow(
+internal fun SettingsRow(
     title: String,
     value: String? = null,
     valueColor: Color = DictTheme.palette.text2,
@@ -383,7 +359,7 @@ private fun SettingsRow(
 }
 
 @Composable
-private fun RadioRow(
+internal fun RadioRow(
     title: String,
     selected: Boolean,
     last: Boolean,
@@ -459,7 +435,7 @@ private fun RadioRow(
 }
 
 @Composable
-private fun DictSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun DictSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
     val p = DictTheme.palette
     Switch(
         checked = checked,

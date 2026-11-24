@@ -214,6 +214,8 @@ fun demoProcessResult(outputName: String = "万象.dict.yaml"): ProcessResult = 
 data class DictUiState(
     val selectedTab: Int = 0,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    /** 是否启用玻璃材质（顶栏与分类轨道）。Android 13 以下无效。 */
+    val blurBars: Boolean = false,
     val processMode: ProcessMode = ProcessMode.PINYIN_AND_AUX,
     val auxType: AuxType = AuxType.KIRAKIRA,
     val auxSeparator: String = ";",

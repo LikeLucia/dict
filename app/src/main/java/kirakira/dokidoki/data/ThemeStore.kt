@@ -32,6 +32,8 @@ data class SavedSettings(
     val exportDirectoryUri: String? = null,
     val exportDirectoryName: String = "Download",
     val exportConflictMode: ExportConflictMode = ExportConflictMode.RENAME,
+    /** 顶栏/轨道是否走玻璃材质。默认关闭，与 c001apk 的 blurBars 默认值一致。 */
+    val blurBars: Boolean = false,
 )
 
 data class ThemeSnapshot(
@@ -58,6 +60,7 @@ class ThemeStore(private val context: Context) {
     private val exportDirectoryUriKey = stringPreferencesKey("export_directory_uri")
     private val exportDirectoryNameKey = stringPreferencesKey("export_directory_name")
     private val exportConflictModeKey = stringPreferencesKey("export_conflict_mode")
+    private val blurBarsKey = booleanPreferencesKey("blur_bars")
 
     val snapshot: Flow<ThemeSnapshot> = context.settingsDataStore.data.map { prefs ->
         ThemeSnapshot(
@@ -96,6 +99,7 @@ class ThemeStore(private val context: Context) {
         exportDirectoryName = this[exportDirectoryNameKey]?.takeIf { it.isNotBlank() } ?: "Download",
         exportConflictMode = ExportConflictMode.entries.firstOrNull { it.name == this[exportConflictModeKey] }
             ?: ExportConflictMode.RENAME,
+        blurBars = this[blurBarsKey] ?: false,
     )
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -166,5 +170,9 @@ class ThemeStore(private val context: Context) {
 
     suspend fun setExportConflictMode(mode: ExportConflictMode) {
         context.settingsDataStore.edit { it[exportConflictModeKey] = mode.name }
+    }
+
+    suspend fun setBlurBars(value: Boolean) {
+        context.settingsDataStore.edit { it[blurBarsKey] = value }
     }
 }

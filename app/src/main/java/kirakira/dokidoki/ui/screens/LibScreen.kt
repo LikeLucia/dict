@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -66,6 +67,12 @@ import kirakira.dokidoki.ui.components.DropdownAnchor
 import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.DictScaffoldPage
 import kirakira.dokidoki.ui.components.StatusBadge
+import kirakira.dokidoki.ui.components.LocalBarBackdrop
+import kirakira.dokidoki.ui.components.LocalBlurBars
+import kirakira.dokidoki.ui.components.rememberBarBackdrop
+import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
+import top.yukonga.miuix.kmp.glass.glassShadow
+import top.yukonga.miuix.kmp.material.GlassShadows
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.theme.DictTheme
 import kotlinx.coroutines.delay
@@ -193,6 +200,10 @@ fun LibScreen(
         delay(1600)
         if (highlightedId == focusId) highlightedId = null
     }
+    // 页面级玻璃采样层：开关打开且系统 ≥ 13 时非空。
+    // 只采样列表内容（下方 LazyColumn），顶栏与轨道不参与采样，避免采到自身形成递归。
+    val barBackdrop = rememberBarBackdrop(LocalBlurBars.current)
+    CompositionLocalProvider(LocalBarBackdrop provides barBackdrop) {
     DictScaffoldPage(
         modifier = modifier,
         topBar = {
@@ -235,7 +246,11 @@ fun LibScreen(
     ) { _ ->
         LazyColumn(
             state = listState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                // 把列表内容录进采样层，玻璃轨道才能采到下方滚动的内容。
+                .then(barBackdrop?.recordModifier() ?: Modifier),
             contentPadding = PaddingValues(bottom = 190.dp),
         ) {
             item(key = "controls") {
@@ -279,6 +294,7 @@ fun LibScreen(
                 }
             }
         }
+    }
     }
 }
 
@@ -390,25 +406,20 @@ private val LIBRARY_FILTERS = listOf(
 private val FilterTrackHeight = 38.dp
 
 /**
- * 分类标签：用 miuix 0.9.5-beta03 的 [TabRowWithContour]。
+ * 分类标签轨道。材质移植自 c001apk 的判空双材质（`MiuixTabs.kt` + `Api33BarBackdrop.kt`）。
  *
- * 它的画法正好对应要的外观，三块都由组件自己用 squircleBackground 绘制：
- * - **整条轨道**：`colors.backgroundColor(false)` 画在整行上，是白色胶囊；
- * - **选中项**：`colors.backgroundColor(true)` 画在选中那一格上，是灰色圆角胶囊；
- * - **未选中项**：`TabItemWithContour` 里只有 squircleClip 与 selectable，
- *   没有任何背景，所以文字后面是空的，透出轨道底色。
+ * 同一个 [LocalBarBackdrop] 判空，决定走哪条路径，轨道尺寸与内容完全复用：
+ * - **有 backdrop（开了模糊且系统 ≥ Android 13）**：玻璃路径。外层用
+ *   `backdrop.glassTabModifier(shape)` —— 即 miuix 的 `Modifier.glass(...)`，
+ *   材质取 [GlassSegmentedTabRowDefaults.material]，描边取 [GlassSegmentedTabRowDefaults.stroke]；
+ *   内层 [TabRowWithContour] 的轨道底色设成透明，让玻璃透出来。
+ * - **backdrop 为 null（关了模糊，或系统低于 13）**：纯色路径。轨道用
+ *   `Modifier.background(p.card, shape)`，就是原来那块纯色胶囊。
  *
- * 选 [TabRowWithContour] 而不是 [TabRow]，是因为 [TabRow] 的轨道底色是裸的
- * `background(color)`，画出来是矩形；这里要胶囊形轨道。
+ * 玻璃的采样源是内容区（App 里用 `backdrop.recordModifier()` 铺在内容上），
+ * 不是顶栏底色，所以列表滚动时玻璃后面能看到内容。
  *
- * 动作动画也全部由 miuix 提供，没有自行绘制或自建动画：
- * - **胶囊切换**：组件内部的 `indicatorPosition: Animatable` 用 `tween(200)` 平移；
- * - **按压反馈**：传入 [MiuixIndication]（[rememberMiuixIndication]），
- *   按下时 folme 弹簧把遮罩淡入，松开再淡出。
- *
- * 标签等宽（`calculateTabWidth` 在 minWidth/maxWidth 之间按可用宽度均分），
- * 11 个标签算出来超过一屏，所以可以横向滑动；选中项由
- * `TabRowConfig.scrollToSelected` 自动滚到视口中央。
+ * 选中胶囊、文字、按压动画都不变，仍由 [TabRowWithContour] 负责。
  */
 @Composable
 private fun FilterChips(
@@ -417,40 +428,62 @@ private fun FilterChips(
     onSelect: (Int) -> Unit,
 ) {
     val p = DictTheme.palette
-    // miuix 自带的按压反馈：按下时用 folme 弹簧把矩形遮罩淡入（MiuixIndication）。
-    // 传进 TabRowWithContour 后，每个标签按下都有这个动作反馈。
+    val backdrop = LocalBarBackdrop.current
     val indication = rememberMiuixIndication()
-    TabRowWithContour(
-        tabs = labels,
-        selectedTabIndex = selected,
-        onTabSelected = onSelect,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        colors = TabRowDefaults.tabRowColors(
-            // 整条轨道的底色（未选中项透出它，自己不带背景）：组件画成胶囊。
-            backgroundColor = p.card,
-            // 未选中项文字：黑色。暗色主题下轨道底色本身是深色，
-            // 纯黑会看不见，所以那时用正文色（浅色）代替。
-            contentColor = if (p.isDark) p.text else Color.Black,
-            // 选中项的圆角灰色胶囊：同样是组件用 squircleBackground 画，
-            // 半径 = cornerRadius（14dp），标签高 28dp，正好是一颗完整胶囊。
-            // 切换标签时胶囊位置由组件内部的 Animatable + tween(200) 平滑移动。
-            selectedBackgroundColor = if (p.isDark) {
-                Color.White.copy(alpha = 0.12f)
-            } else {
-                Color.Black.copy(alpha = 0.10f)
-            },
-            // 选中项文字：与未选中一致，只靠字重区分。
-            selectedContentColor = if (p.isDark) p.text else Color.Black,
-        ),
-        minWidth = TabRowDefaults.TabRowWithContourMinWidth,
-        maxWidth = TabRowDefaults.TabRowWithContourMaxWidth,
-        height = FilterTrackHeight,
-        cornerRadius = FilterTrackHeight / 2 - 5.dp,
-        itemSpacing = 2.dp,
-        indication = indication,
+    // 选中胶囊与文字配色：两条路径共用。
+    val tabColors = TabRowDefaults.tabRowColors(
+        // 有玻璃时轨道底色透明，让玻璃透出来；否则是纯色卡片色。
+        backgroundColor = if (backdrop != null) Color.Transparent else p.card,
+        contentColor = if (p.isDark) p.text else Color.Black,
+        selectedBackgroundColor = if (p.isDark) {
+            Color.White.copy(alpha = 0.12f)
+        } else {
+            Color.Black.copy(alpha = 0.10f)
+        },
+        selectedContentColor = if (p.isDark) p.text else Color.Black,
     )
+    val row: @Composable (Modifier) -> Unit = { rowModifier ->
+        TabRowWithContour(
+            tabs = labels,
+            selectedTabIndex = selected,
+            onTabSelected = onSelect,
+            modifier = rowModifier,
+            colors = tabColors,
+            minWidth = TabRowDefaults.TabRowWithContourMinWidth,
+            maxWidth = TabRowDefaults.TabRowWithContourMaxWidth,
+            height = FilterTrackHeight,
+            cornerRadius = FilterTrackHeight / 2 - 5.dp,
+            itemSpacing = 2.dp,
+            indication = indication,
+        )
+    }
+
+    if (backdrop == null) {
+        // 纯色路径：轨道底色由 TabRowWithContour 自己用 squircleBackground 画
+        // （colors.backgroundColor = p.card），这里只补外边距，不重复画底。
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+                .height(FilterTrackHeight),
+        ) {
+            row(Modifier.fillMaxWidth())
+        }
+    } else {
+        // 玻璃路径。
+        val shape = GlassSegmentedTabRowDefaults.shape(FilterTrackHeight)
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+                .height(FilterTrackHeight)
+                .glassShadow(shape, GlassShadows.Float)
+                .clip(shape)
+                .then(backdrop.glassTabModifier(shape)),
+        ) {
+            row(Modifier.fillMaxWidth())
+        }
+    }
 }
 
 @Composable

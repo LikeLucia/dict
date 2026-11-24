@@ -107,6 +107,7 @@ class MainViewModel(
                         exportDirectoryUri = saved.exportDirectoryUri,
                         exportDirectoryName = saved.exportDirectoryName,
                         exportConflictMode = saved.exportConflictMode,
+                        blurBars = saved.blurBars,
                     )
                 }
             }
@@ -419,6 +420,11 @@ class MainViewModel(
     fun setThemeMode(mode: ThemeMode) {
         _state.update { it.copy(themeMode = mode) }
         viewModelScope.launch { themeStore.setThemeMode(mode) }
+    }
+
+    fun setBlurBars(value: Boolean) {
+        _state.update { it.copy(blurBars = value) }
+        viewModelScope.launch { themeStore.setBlurBars(value) }
     }
 
     fun setProcessMode(mode: ProcessMode) {
