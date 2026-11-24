@@ -67,9 +67,10 @@ import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.DictScaffoldPage
 import kirakira.dokidoki.ui.components.StatusBadge
 import kirakira.dokidoki.ui.components.LocalBarBackdrop
+import kirakira.dokidoki.ui.components.TrackGlassMaterial
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
-import top.yukonga.miuix.kmp.glass.glassShadow
 import top.yukonga.miuix.kmp.material.GlassShadows
+import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.theme.DictTheme
 import kotlinx.coroutines.delay
@@ -396,20 +397,17 @@ private val LIBRARY_FILTERS = listOf(
 private val FilterTrackHeight = 38.dp
 
 /**
- * 分类标签轨道。材质移植自 c001apk 的判空双材质（`MiuixTabs.kt` + `Api33BarBackdrop.kt`）。
+ * 分类标签轨道：用 miuix 的 [GlassFloatingToolbar] 包住 [TabRowWithContour]。
  *
- * 同一个 [LocalBarBackdrop] 判空，决定走哪条路径，轨道尺寸与内容完全复用：
- * - **有 backdrop（开了模糊且系统 ≥ Android 13）**：玻璃路径。外层用
- *   `backdrop.glassTabModifier(shape)` —— 即 miuix 的 `Modifier.glass(...)`，
- *   材质取 [GlassSegmentedTabRowDefaults.material]，描边取 [GlassSegmentedTabRowDefaults.stroke]；
- *   内层 [TabRowWithContour] 的轨道底色设成透明，让玻璃透出来。
- * - **backdrop 为 null（关了模糊，或系统低于 13）**：纯色路径。轨道用
- *   `Modifier.background(p.card, shape)`，就是原来那块纯色胶囊。
+ * 悬浮组件本身就是 miuix 的「判空双材质」实现，不需要我们再写分支：
+ * - 传了 [Backdrop]（开了模糊且系统 ≥ Android 13）→ `glassPanel` 走玻璃管线，
+ *   材质 [TrackGlassMaterial]、描边 [GlassSegmentedTabRowDefaults.stroke]、
+ *   投影 [GlassShadows.Float]；
+ * - backdrop 为 null（关了模糊，或系统低于 13）→ 组件内部自动用
+ *   `Modifier.clip(shape).background(fill)` 回退成纯色胶囊。
  *
- * 玻璃的采样源是内容区（App 里用 `backdrop.recordModifier()` 铺在内容上），
- * 不是顶栏底色，所以列表滚动时玻璃后面能看到内容。
- *
- * 选中胶囊、文字、按压动画都不变，仍由 [TabRowWithContour] 负责。
+ * 轨道形状、圆角、外留白、投影全部由组件负责，这里不再自己画任何背景。
+ * 选中胶囊与切换动画仍由 [TabRowWithContour] 提供（`indicatorPosition` + `tween(200)`）。
  */
 @Composable
 private fun FilterChips(
@@ -420,11 +418,11 @@ private fun FilterChips(
     val p = DictTheme.palette
     val backdrop = LocalBarBackdrop.current
     val indication = rememberMiuixIndication()
-    // 选中胶囊与文字配色：两条路径共用。
     val tabColors = TabRowDefaults.tabRowColors(
-        // 有玻璃时轨道底色透明，让玻璃透出来；否则是纯色卡片色。
-        backgroundColor = if (backdrop != null) Color.Transparent else p.card,
+        // 轨道底色交给外层悬浮组件，标签行本身不画底。
+        backgroundColor = Color.Transparent,
         contentColor = if (p.isDark) p.text else Color.Black,
+        // 选中项：那层带弹簧动画的胶囊。
         selectedBackgroundColor = if (p.isDark) {
             Color.White.copy(alpha = 0.12f)
         } else {
@@ -432,47 +430,31 @@ private fun FilterChips(
         },
         selectedContentColor = if (p.isDark) p.text else Color.Black,
     )
-    val row: @Composable (Modifier) -> Unit = { rowModifier ->
+    GlassFloatingToolbar(
+        modifier = Modifier.fillMaxWidth(),
+        backdrop = backdrop?.rawBackdrop,
+        cornerRadius = FilterTrackHeight / 2,
+        outSidePadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+        material = TrackGlassMaterial,
+        // 无 backdrop 时的回退底色。
+        fill = p.card,
+        stroke = GlassSegmentedTabRowDefaults.stroke(),
+        shadow = GlassShadows.Float,
+    ) {
         TabRowWithContour(
             tabs = labels,
             selectedTabIndex = selected,
             onTabSelected = onSelect,
-            modifier = rowModifier,
+            modifier = Modifier.fillMaxWidth(),
             colors = tabColors,
             minWidth = TabRowDefaults.TabRowWithContourMinWidth,
             maxWidth = TabRowDefaults.TabRowWithContourMaxWidth,
             height = FilterTrackHeight,
+            // 外轮廓圆角 = cornerRadius + contourPadding(5dp)，取半高减 5dp 才是真胶囊。
             cornerRadius = FilterTrackHeight / 2 - 5.dp,
             itemSpacing = 2.dp,
             indication = indication,
         )
-    }
-
-    if (backdrop == null) {
-        // 纯色路径：轨道底色由 TabRowWithContour 自己用 squircleBackground 画
-        // （colors.backgroundColor = p.card），这里只补外边距，不重复画底。
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 4.dp)
-                .height(FilterTrackHeight),
-        ) {
-            row(Modifier.fillMaxWidth())
-        }
-    } else {
-        // 玻璃路径。
-        val shape = GlassSegmentedTabRowDefaults.shape(FilterTrackHeight)
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 4.dp)
-                .height(FilterTrackHeight)
-                .glassShadow(shape, GlassShadows.Float)
-                .clip(shape)
-                .then(backdrop.glassTabModifier(shape)),
-        ) {
-            row(Modifier.fillMaxWidth())
-        }
     }
 }
 

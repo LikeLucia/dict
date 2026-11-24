@@ -91,13 +91,16 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
             stroke = GlassSegmentedTabRowDefaults.stroke(),
             shading = false,
         )
-
-    private companion object {
-        /** 只保留模糊 + 极淡高光的轨道材质，不带可见底色。 */
-        val TrackGlassMaterial = GlassMaterial(
-            blurRadius = 20.dp,
-            first = GlassColorLayer(Color(0x08000000), GlassColorBlendMode.PlusDarker),
-            second = GlassColorLayer(Color(0x26FFFFFF), GlassColorBlendMode.SoftLight),
-        )
-    }
 }
+
+/**
+ * 轨道玻璃材质：只保留模糊与极淡高光，不带可见底色。
+ *
+ * 不用 [GlassSegmentedTabRowDefaults.material] 的 puredThinGlass——那套自带明显灰层
+ * （暗色下 0x66565656 / 0x993F3F3F），叠在选中胶囊上会看成两层灰胶囊。
+ */
+internal val TrackGlassMaterial: GlassMaterial = GlassMaterial(
+    blurRadius = 20.dp,
+    first = GlassColorLayer(Color(0x08000000), GlassColorBlendMode.PlusDarker),
+    second = GlassColorLayer(Color(0x26FFFFFF), GlassColorBlendMode.SoftLight),
+)
