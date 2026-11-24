@@ -45,6 +45,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.text.KeyboardActions
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.unit.sp
@@ -67,6 +69,19 @@ import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.DictScaffoldPage
 import kirakira.dokidoki.ui.components.StatusBadge
 import kirakira.dokidoki.ui.components.LocalBarBackdrop
+import androidx.compose.animation.core.animate
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Density
+import top.yukonga.miuix.kmp.blur.Backdrop
+import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRow
+import kotlin.math.roundToInt
 import kirakira.dokidoki.ui.components.TrackGlassMaterial
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
 import top.yukonga.miuix.kmp.material.GlassShadows
@@ -78,8 +93,6 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
-import top.yukonga.miuix.kmp.basic.TabRowDefaults
-import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 import top.yukonga.miuix.kmp.icon.basic.Check
@@ -397,24 +410,31 @@ private val LIBRARY_FILTERS = listOf(
 private val FilterTrackHeight = 38.dp
 
 /**
- * 分类标签轨道：用 miuix 的 [GlassFloatingToolbar] 包住 [TabRowWithContour]。
+ * 不产生任何采样的空 Backdrop：`GlassSegmentedTabRow` 的 backdrop 在 0.9.5-beta03 是非空参数，
+ * 而轨道材质由外层 [GlassFloatingToolbar] 提供，组件自身不需要采样。
+ */
+private object NoopBackdrop : Backdrop {
+    override val isCoordinatesDependent: Boolean get() = false
+
+    override fun DrawScope.drawBackdrop(
+        density: Density,
+        coordinates: LayoutCoordinates?,
+        layerBlock: (GraphicsLayerScope.() -> Unit)?,
+        downscaleFactor: Float,
+    ) = Unit
+}
+
+/**
+ * 分类标签轨道：miuix 的 [GlassFloatingToolbar] 提供轨道材质，
+ * [GlassSegmentedTabRow] 提供选中胶囊与 edgeSpring 回弹，外面套一层手势层做横向滚动。
  *
- * 为什么用 [TabRowWithContour]：miuix 里真正能横向滚动的标签组件是
- * [top.yukonga.miuix.kmp.basic.TabRow] / [TabRowWithContour]，内部是 LazyRow。
- * 玻璃包那边的 `GlassSegmentedTabRow` 虽然胶囊更花哨，但它把轨道**等分**给每个标签
- * （`weight(1f)`，没有滚动），11 个标签每格只剩约 28dp，减去
- * `TabPaddingHorizontal` 左右共 32dp 后文字宽度为负，会全部被省略号裁掉。
+ * 为什么要手势层：0.9.5-beta03/beta04 的 [GlassSegmentedTabRow] 把轨道**等分**给每个标签、
+ * 并且自身会消费横向拖动（用来「拖动选择」）。直接放进 horizontalScroll 会滚不动，
+ * 而不滚动时 11 个标签每格只有约 28dp，减去左右各 16dp 内边距后文字宽度为负、全被裁掉。
  *
- * 材质由外层悬浮组件负责，它本身就是 miuix 的判空双材质：
- * - 传了 Backdrop（开模糊且系统 ≥ Android 13）→ `glassPanel` 走玻璃管线，
- *   材质 [TrackGlassMaterial]、描边 [GlassSegmentedTabRowDefaults.stroke]、
- *   投影 [GlassShadows.Float]；
- * - backdrop 为 null（关模糊或系统 < 13）→ 组件内部
- *   `Modifier.clip(shape).background(fill)` 回退成纯色胶囊。
- *
- * 选中胶囊只有一层：由 [TabRowWithContour] 自己的 `indicatorPosition` 绘制。
- * 这里刻意**不传** `indication`——`MiuixIndication` 按下时会在每格 `drawRect`
- * 一层遮罩，被 `squircleClip` 裁成胶囊后就是那层「没有动画的灰色胶囊」。
+ * 这里在轨道上方叠一层手势覆盖层，只接管超过 touchSlop 的横向拖动并转成滚动位移；
+ * 按下/抬起不消费，所以点选、按下预览、回弹仍由下面的 miuix 组件处理。
+ * 胶囊与轨道形状全部由 miuix 组件绘制，手势层只做位移，不画任何东西。
  */
 @Composable
 private fun FilterChips(
@@ -424,18 +444,27 @@ private fun FilterChips(
 ) {
     val p = DictTheme.palette
     val backdrop = LocalBarBackdrop.current
-    val tabColors = TabRowDefaults.tabRowColors(
-        // 轨道底色交给外层悬浮组件，标签行本身不画底。
-        backgroundColor = Color.Transparent,
-        contentColor = if (p.isDark) p.text else Color.Black,
-        // 选中项：组件自己的胶囊，随选中位置平滑移动。
-        selectedBackgroundColor = if (p.isDark) {
-            Color.White.copy(alpha = 0.12f)
-        } else {
-            Color.Black.copy(alpha = 0.10f)
-        },
-        selectedContentColor = if (p.isDark) p.text else Color.Black,
-    )
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val selectedStyle = MiuixTheme.textStyles.subtitle
+    val normalStyle = MiuixTheme.textStyles.body2
+    // 等宽槽位：取所有标签在两种字重下的最大宽度，保证一个都不被省略。
+    val labelWidthPx = remember(labels, measurer, selectedStyle, normalStyle) {
+        labels.flatMap { label ->
+            listOf(
+                measurer.measure(AnnotatedString(label), selectedStyle, maxLines = 1, softWrap = false).size.width,
+                measurer.measure(AnnotatedString(label), normalStyle, maxLines = 1, softWrap = false).size.width,
+            )
+        }.maxOrNull() ?: 0
+    }
+    val trackInset = with(density) { GlassSegmentedTabRowDefaults.TrackPadding.roundToPx() }
+    val gap = with(density) { GlassSegmentedTabRowDefaults.TabGap.roundToPx() }
+    val labelPadding = with(density) { GlassSegmentedTabRowDefaults.TabPaddingHorizontal.roundToPx() }
+    val naturalWidth = (labelWidthPx + labelPadding * 2) * labels.size + gap * (labels.size - 1) + trackInset * 2
+    val indicatorColor = if (p.isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f)
+    val labelColor = if (p.isDark) p.text else Color.Black
+    var scrollOffset by remember(labels.size) { mutableFloatStateOf(0f) }
+
     GlassFloatingToolbar(
         modifier = Modifier.fillMaxWidth(),
         backdrop = backdrop?.rawBackdrop,
@@ -447,19 +476,66 @@ private fun FilterChips(
         stroke = GlassSegmentedTabRowDefaults.stroke(),
         shadow = GlassShadows.Float,
     ) {
-        TabRowWithContour(
-            tabs = labels,
-            selectedTabIndex = selected,
-            onTabSelected = onSelect,
-            modifier = Modifier.fillMaxWidth(),
-            colors = tabColors,
-            minWidth = TabRowDefaults.TabRowWithContourMinWidth,
-            maxWidth = TabRowDefaults.TabRowWithContourMaxWidth,
-            height = FilterTrackHeight,
-            // 外轮廓圆角 = cornerRadius + contourPadding(5dp)，取半高减 5dp 才是真胶囊。
-            cornerRadius = FilterTrackHeight / 2 - 5.dp,
-            itemSpacing = 2.dp,
-        )
+        BoxWithConstraints(
+            Modifier
+                .fillMaxWidth()
+                .height(FilterTrackHeight)
+                .clip(RoundedCornerShape(FilterTrackHeight / 2)),
+        ) {
+            val viewport = constraints.maxWidth
+            val contentWidth = maxOf(viewport, naturalWidth)
+            val canScroll = contentWidth > viewport
+            val maxScroll = (contentWidth - viewport).coerceAtLeast(0)
+            val slot = (contentWidth - trackInset * 2 - gap * (labels.size - 1)).toFloat() /
+                labels.size.coerceAtLeast(1)
+            val center = trackInset + selected * (slot + gap) + slot / 2f
+            val targetScroll = (center - viewport / 2f).roundToInt().coerceIn(0, maxScroll)
+
+            // 换标签时把选中项滚到视口中央。
+            LaunchedEffect(targetScroll, canScroll) {
+                if (!canScroll) {
+                    scrollOffset = 0f
+                } else {
+                    animate(scrollOffset, targetScroll.toFloat()) { value, _ -> scrollOffset = value }
+                }
+            }
+
+            Box(Modifier.fillMaxWidth().height(FilterTrackHeight)) {
+                Box(Modifier.offset { IntOffset(-scrollOffset.roundToInt(), 0) }) {
+                    GlassSegmentedTabRow(
+                        tabs = labels,
+                        selectedIndex = selected,
+                        onSelect = onSelect,
+                        // 轨道材质由外层悬浮组件提供，组件自身不采样、不画轨道底。
+                        backdrop = backdrop?.rawBackdrop ?: NoopBackdrop,
+                        modifier = Modifier.requiredWidth(with(density) { contentWidth.toDp() }),
+                        height = FilterTrackHeight,
+                        surfaceAlpha = 0f,
+                        trackColor = Color.Transparent,
+                        stroke = null,
+                        shadow = null,
+                        indicatorColor = indicatorColor,
+                        selectedContentColor = labelColor,
+                        contentColor = labelColor,
+                        material = null,
+                    )
+                }
+                if (canScroll) {
+                    // 手势覆盖层：只接管横向拖动，按下/抬起不消费，
+                    // 点选仍由下面的 miuix 组件处理，所以按下预览与回弹不受影响。
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .pointerInput(maxScroll) {
+                                detectHorizontalDragGestures { change, dragAmount ->
+                                    change.consume()
+                                    scrollOffset = (scrollOffset - dragAmount).coerceIn(0f, maxScroll.toFloat())
+                                }
+                            },
+                    )
+                }
+            }
+        }
     }
 }
 
