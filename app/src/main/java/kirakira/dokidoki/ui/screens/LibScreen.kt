@@ -1,8 +1,6 @@
 package kirakira.dokidoki.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateColorAsState
@@ -19,7 +17,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -31,7 +28,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -39,9 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -50,11 +43,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -63,7 +54,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.unit.sp
 import kirakira.dokidoki.data.DictFile
@@ -79,27 +69,17 @@ import kirakira.dokidoki.ui.components.StatusBadge
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.theme.DictTheme
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.first
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
-import top.yukonga.miuix.kmp.glass.GlassFloatingToolbarDefaults
-import top.yukonga.miuix.kmp.glass.GlassMotion
-import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
-import top.yukonga.miuix.kmp.glass.glassPressScale
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
+import top.yukonga.miuix.kmp.basic.TabRow
+import top.yukonga.miuix.kmp.basic.TabRowDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.glass.File
-import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -410,20 +390,17 @@ private val LIBRARY_FILTERS = listOf(
 private val FilterTrackHeight = 38.dp
 
 /**
- * 分类标签：miuix 0.9.5-beta03 的玻璃轨道 + 玻璃指示器。
+ * 分类标签：直接用 miuix 0.9.5-beta03 的 [TabRow]。
  *
- * 结构照 [top.yukonga.miuix.kmp.glass.GlassSegmentedTabRow]：整条轨道是一块玻璃面板
- * （puredThinGlass 材质、bloom 描边、Float 投影），选中项不是另一块玻璃，而是轨道内
- * 随选中位置滑动的指示器胶囊——beta03 的指示器本来就是「玻璃上的一层着色」，颜色与
- * 按下反馈都取 [GlassSegmentedTabRowDefaults]。
+ * 换掉了之前的玻璃轨道 + 自研指示器，改用组件自带的纯色实现：
+ * - 轨道：`colors.backgroundColor`（未选中项底色）铺满整行；
+ * - 选中项：`colors.selectedBackgroundColor` 的纯色胶囊，位置由 TabRow 内部按
+ *   「等宽标签 + 视口宽度」计算，换标签时自动滚到视口中央（`TabRowConfig.scrollToSelected`）；
+ * - 标签等宽：`calculateTabWidth` 在 [minWidth] 与 [maxWidth] 之间按可用宽度均分，
+ *   11 个标签算出来会超过一屏，所以仍然可以横向滑动。
  *
- * 指示器部分完全照 [GlassSegmentedTabRow]：左右两条边各一个 [Animatable]，
- * 切换时前缘用 [GlassMotion.navIndicator]、后缘用 [GlassMotion.navIndicatorTrail]，
- * 途中胶囊被拉长、到位回弹收拢；按下先预览、松手才切换；按下时按 glassPressScale 缩放。
- *
- * 与官方组件的差别只有一处：官方要求等宽且不滚动，这里标签有 12 个、宽度不等，
- * 所以仍用 LazyRow 横向滑动——指示器的两条边用「内容坐标」做动画，
- * 滚动偏移在布局阶段直接减掉，于是切换有弹簧、滚动仍逐帧贴合，快速滑动不丢帧。
+ * 之前那些自研逻辑（宽度累加、指示器双弹簧、布局阶段定位、选中居中）全部交给组件，
+ * 不再需要。
  */
 @Composable
 private fun FilterChips(
@@ -432,259 +409,31 @@ private fun FilterChips(
     onSelect: (Int) -> Unit,
 ) {
     val p = DictTheme.palette
-    val density = LocalDensity.current
-    val chipListState = rememberLazyListState()
-    val spacingPx = with(density) { 2.dp.toPx() }
-    // 只记录每个标签的宽度（宽度不随滚动变化），内容坐标由累加得出，天然稳定。
-    var chipWidths by remember(labels.size) { mutableStateOf(FloatArray(labels.size)) }
-    fun contentLeft(index: Int): Float {
-        var x = 0f
-        for (i in 0 until index.coerceAtMost(chipWidths.size)) {
-            x += chipWidths[i] + spacingPx
-        }
-        return x
-    }
-    // 滚动偏移：首个可见项的内容坐标减去它在视口里的偏移（与 miuix TabRow 同一思路）。
-    fun scrollOffset(): Float {
-        val info = chipListState.layoutInfo
-        val first = info.visibleItemsInfo.firstOrNull() ?: return 0f
-        return contentLeft(first.index) - first.offset
-    }
-
-    // 采样层：标签浮在顶栏自己的不透明底色上，所以只把这块底色记进 layer。
-    // 玻璃画在 layer 之上，不会采到自己。
-    val backdrop = rememberLayerBackdrop()
-
-    // 指示器完全照 GlassSegmentedTabRow 的做法：
-    // 左右两条边各是一个 Animatable，切换时用 GlassMotion.edgeSpring 分别驱动——
-    // 朝移动方向的那条边是前缘（navIndicator，更快），另一条是后缘（navIndicatorTrail），
-    // 所以胶囊在途中会被拉长，到位后回弹收拢。
-    val indicatorLeft = remember { Animatable(0f) }
-    val indicatorRight = remember { Animatable(0f) }
-    // 按下先预览：指示器跟着按住的那颗走，松手才真正切换。
-    var pressedIndex by remember { mutableIntStateOf(-1) }
-    val indicatorIndex = if (pressedIndex >= 0) pressedIndex else selected
-    val indicatorPressed = pressedIndex >= 0
-    var indicatorSettled by remember { mutableStateOf(false) }
-
-    val indicatorColor = GlassSegmentedTabRowDefaults.indicatorColor()
-    val indicatorPressedColor = GlassSegmentedTabRowDefaults.indicatorPressedColor()
-    val indicatorFill by animateColorAsState(
-        targetValue = if (indicatorPressed) indicatorPressedColor else indicatorColor,
-        animationSpec = if (indicatorPressed) GlassMotion.navPressEnter() else GlassMotion.navPressExit(),
-        label = "filter-indicator-fill",
+    TabRow(
+        tabs = labels,
+        selectedTabIndex = selected,
+        onTabSelected = onSelect,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        colors = TabRowDefaults.tabRowColors(
+            // 轨道底色：与卡片同色，让整条轨道看起来是一块纯色条。
+            backgroundColor = p.card,
+            contentColor = p.text2,
+            // 选中胶囊：沿用原来的浅灰对比色。
+            selectedBackgroundColor = if (p.isDark) {
+                Color.White.copy(alpha = 0.12f)
+            } else {
+                Color.Black.copy(alpha = 0.10f)
+            },
+            selectedContentColor = p.text,
+        ),
+        minWidth = TabRowDefaults.TabRowMinWidth,
+        maxWidth = TabRowDefaults.TabRowMaxWidth,
+        height = FilterTrackHeight,
+        cornerRadius = FilterTrackHeight / 2,
+        itemSpacing = 2.dp,
     )
-    val innerHeightPx = with(density) { (FilterTrackHeight - GlassSegmentedTabRowDefaults.TrackPadding * 2).toPx() }
-    val indicatorScale by animateFloatAsState(
-        targetValue = if (indicatorPressed) glassPressScale(innerHeightPx, density.density) else 1f,
-        animationSpec = if (indicatorPressed) GlassMotion.pressDown() else GlassMotion.pressUp(),
-        label = "filter-indicator-press",
-    )
-
-    // 目标位置用「内容坐标」，滚动不参与动画：滚动偏移在布局阶段直接减掉，
-    // 所以快速滑动时指示器逐帧贴着标签走，不会因为弹簧而滞后。
-    // key 只取这一颗标签的位置，宽度测量刷新时不会把动画反复重启。
-    val targetLeft = contentLeft(indicatorIndex)
-    val targetWidth = chipWidths.getOrNull(indicatorIndex) ?: 0f
-    LaunchedEffect(targetLeft, targetWidth) {
-        if (targetWidth <= 0f) return@LaunchedEffect
-        val targetRight = targetLeft + targetWidth
-        if (!indicatorSettled) {
-            // 首帧直接落位，避免从 0 滑进来。
-            indicatorLeft.snapTo(targetLeft)
-            indicatorRight.snapTo(targetRight)
-            indicatorSettled = true
-            return@LaunchedEffect
-        }
-        val movingRight = targetLeft > indicatorLeft.value
-        launch { indicatorLeft.animateTo(targetLeft, GlassMotion.edgeSpring(leading = !movingRight)) }
-        launch { indicatorRight.animateTo(targetRight, GlassMotion.edgeSpring(leading = movingRight)) }
-    }
-
-    // 选中居中：思路照 miuix TabRow 的 scrollToSelected——换标签时把选中项滚到视口中央。
-    // 区别是这里标签不等宽，所以居中偏移要用「该标签自己的宽度」算：
-    // 让内容坐标里的标签中心落在视口中心，即 offset = -(视口宽 - 标签宽) / 2。
-    // scrollToItem 的 offset 是该项相对视口起点的偏移，负值表示推到视口左外侧。
-    // 首尾项由 LazyListState 自动夹到合法滚动范围，所以不会滚出边界。
-    // 居中滚动是程序发起的，不该被「滑动不等于切换」的守卫当成用户拖动。
-    // 否则切换后的动画期间（约 300ms）点其他标签会被直接忽略。
-    var centeringScroll by remember { mutableStateOf(false) }
-    // 首次居中要等宽度测量完：chipWidths 在首帧还是全 0，视口也要等 LazyRow 布局完。
-    // 用 snapshotFlow 等这两个条件就绪，而不是把就绪状态塞进 LaunchedEffect 的 key——
-    // 那样每次宽度刷新都会重跑一遍，首次会连续居中两次。
-    var centeredOnce by remember { mutableStateOf(false) }
-    // snapshotFlow 里要读「当前」选中项，但 effect 的 key 是 Unit（只跑一次），
-    // 所以用 rememberUpdatedState 拿到最新值，避免闭包捕获首帧的 selected。
-    val latestSelected by rememberUpdatedState(selected)
-    LaunchedEffect(Unit) {
-        snapshotFlow {
-            val width = chipWidths.getOrNull(latestSelected) ?: 0f
-            val info = chipListState.layoutInfo
-            val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-            Triple(width, viewport, chipWidths.all { it > 0f })
-        }.first { (width, viewport, ready) -> ready && width > 0f && viewport > 0f }
-        // 首帧直接落位，避免一进页面就看到轨道自己滑一下。
-        val index = latestSelected
-        val width = chipWidths.getOrNull(index) ?: return@LaunchedEffect
-        val info = chipListState.layoutInfo
-        val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-        chipListState.scrollToItem(index, -((viewport - width) / 2f).roundToInt())
-        centeredOnce = true
-    }
-    // 之后每次换标签都动画居中；只跟 selected，按下预览不触发滚动。
-    // centeredOnce 一起进 key：首次居中完成后这个 effect 才会真正开始工作。
-    LaunchedEffect(selected, centeredOnce) {
-        if (!centeredOnce) return@LaunchedEffect
-        val width = chipWidths.getOrNull(selected) ?: return@LaunchedEffect
-        if (width <= 0f) return@LaunchedEffect
-        val info = chipListState.layoutInfo
-        val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-        if (viewport <= 0f) return@LaunchedEffect
-        centeringScroll = true
-        try {
-            chipListState.animateScrollToItem(selected, -((viewport - width) / 2f).roundToInt())
-        } finally {
-            centeringScroll = false
-        }
-    }
-
-    Box {
-        // 玻璃采样的内容：与标签背后实际可见的顶栏底色一致。
-        Box(
-            Modifier
-                .matchParentSize()
-                .layerBackdrop(backdrop)
-                .background(p.bg),
-        )
-        GlassFloatingToolbar(
-            modifier = Modifier.fillMaxWidth(),
-            backdrop = backdrop,
-            fill = p.card,
-            // 轨道材质：puredThinGlass 默认 20dp 模糊，这里改成 0dp——
-            // 不做背景模糊，只保留材质的三层颜色层、bloom 描边与投影。
-            // 0dp 时 miuix 的 blur() 会直接返回，不建 RenderEffect，也就没有采样开销。
-            material = GlassFloatingToolbarDefaults.material().copy(blurRadius = 0.dp),
-            cornerRadius = FilterTrackHeight / 2,
-            // 左右留白从 24dp 收到 12dp：轨道整体变长 24dp，比下方列表卡片更宽。
-            outSidePadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-            shadow = GlassShadows.Float,
-        ) {
-            // 玻璃材质叠在采样层上时，轨道内部不要再画不透明底色，
-            // 否则玻璃被盖住；这里只保留布局与裁切。
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(FilterTrackHeight)
-                    // 溢出部分由容器平口裁掉。
-                    .clipToBounds(),
-            ) {
-                // 指示器照 GlassSegmentedTabRow 的结构：外层节点铺满轨道、只负责定位，
-                // 内层才是真正的胶囊（尺寸、缩放、圆角、填色都只作用在它身上）。
-                // 两条边的动画值在这里直接减掉滚动偏移，所以切换有弹簧、滚动逐帧贴合。
-                val trackPad = GlassSegmentedTabRowDefaults.TrackPadding
-                val innerHeight = FilterTrackHeight - trackPad * 2
-                Box(
-                    modifier = Modifier
-                        .layout { measurable, constraints ->
-                            val start = (indicatorLeft.value - scrollOffset()).roundToInt()
-                            val end = (indicatorRight.value - scrollOffset()).roundToInt()
-                            val width = (end - start).coerceAtLeast(0)
-                            val height = (constraints.maxHeight - trackPad.roundToPx() * 2).coerceAtLeast(0)
-                            val placeable = measurable.measure(
-                                constraints.copy(
-                                    minWidth = width,
-                                    maxWidth = width,
-                                    minHeight = height,
-                                    maxHeight = height,
-                                ),
-                            )
-                            layout(constraints.maxWidth, constraints.maxHeight) {
-                                placeable.placeRelative(IntOffset(start, trackPad.roundToPx()))
-                            }
-                        },
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            // 与 beta03 指示器一致：按下时整体缩小，宽度按高度差值等比收缩。
-                            .graphicsLayer {
-                                val scale = indicatorScale
-                                val insetPx = (1f - scale) * size.height
-                                scaleX = if (size.width > 0f) {
-                                    ((size.width - insetPx) / size.width).coerceIn(0f, 1f)
-                                } else {
-                                    1f
-                                }
-                                scaleY = scale
-                            }
-                            .clip(RoundedCornerShape(innerHeight / 2))
-                            .background(indicatorFill),
-                    )
-                }
-                LazyRow(
-                    state = chipListState,
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    overscrollEffect = null,
-                ) {
-                    itemsIndexed(labels) { index, label ->
-                        val isSelected = index == selected
-                        val chipInteraction = remember { MutableInteractionSource() }
-                        val chipPressed by chipInteraction.collectIsPressedAsState()
-                        // 按下先让指示器跟过去预览，松手才切换（与 GlassSegmentedTabRow 一致）。
-                        // 松开或手势取消都要复位，否则指示器会停在被按过的那颗上。
-                        LaunchedEffect(chipPressed) {
-                            if (chipPressed) {
-                                if (centeringScroll || !chipListState.isScrollInProgress) pressedIndex = index
-                            } else if (pressedIndex == index) {
-                                pressedIndex = -1
-                            }
-                        }
-                        val textColor by animateColorAsState(
-                            targetValue = p.text,
-                            animationSpec = tween(160),
-                            label = "filter-chip-text",
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .wrapContentWidth()
-                                .clip(RoundedCornerShape(FilterTrackHeight / 2))
-                                .clickable(
-                                    interactionSource = chipInteraction,
-                                    indication = null,
-                                ) {
-                                    // 滑动不等于切换：滚动中忽略点击。
-                                    if (centeringScroll || !chipListState.isScrollInProgress) onSelect(index)
-                                }
-                                // 测量必须放在 padding 之前：挂在 padding 之后只会量到文字宽度，
-                                // 左右各 16dp 的内边距被漏掉，累加后胶囊会一路偏左。
-                                .onGloballyPositioned { coords ->
-                                    val w = coords.size.width.toFloat()
-                                    if (index in chipWidths.indices && chipWidths[index] != w) {
-                                        val copy = chipWidths.copyOf()
-                                        copy[index] = w
-                                        chipWidths = copy
-                                    }
-                                }
-                                .padding(horizontal = 16.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                label,
-                                fontSize = 15.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = textColor,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable
