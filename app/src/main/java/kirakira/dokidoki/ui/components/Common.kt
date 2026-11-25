@@ -48,8 +48,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
-import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
@@ -551,15 +549,14 @@ fun StatusBadge(text: String, highlighted: Boolean, modifier: Modifier = Modifie
 @Composable
 fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val p = DictTheme.palette
-    val tabs = remember {
+    val items = remember {
         listOf(
-            MiuixIcons.Glass.HomeOutline to "首页",
-            MiuixIcons.Glass.BookOutline to "词库",
-            MiuixIcons.Glass.DigitalStatistics to "报告",
-            MiuixIcons.Glass.SettingsOutline to "设置",
+            GlassNavigationItem(MiuixIcons.Glass.HomeOutline, "首页"),
+            GlassNavigationItem(MiuixIcons.Glass.BookOutline, "词库"),
+            GlassNavigationItem(MiuixIcons.Glass.DigitalStatistics, "报告"),
+            GlassNavigationItem(MiuixIcons.Glass.SettingsOutline, "设置"),
         )
     }
-    val glassItems = remember(tabs) { tabs.map { (icon, label) -> GlassNavigationItem(icon, label) } }
     val barHeight = 54.dp
     val backdrop = LocalBarBackdrop.current?.rawBackdrop
     Box(
@@ -569,52 +566,36 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
             .height(barHeight),
         contentAlignment = Alignment.Center,
     ) {
-        if (backdrop == null) {
-            // 关模糊/低版本：用 miuix 原生 FloatingNavigationBar，保留悬浮圆角与投影，
-            // 不再退回 GlassNavigationBar 的纯色平面回退。
-            FloatingNavigationBar(
-                color = p.card,
+        // 统一使用 miuix 0.9.5-beta04 的 GlassNavigationBar：
+        // 有采样层时走 OS4 玻璃；无采样层（关闭模糊/低版本）时用 surfaceContainer 纯色回退，
+        // 但仍保留悬浮投影和选中胶囊的 edgeSpring 回弹。
+        MiuixTheme(colors = MiuixTheme.colorScheme.copy(surfaceContainer = p.card.copy(alpha = 1f))) {
+            GlassNavigationBar(
+                items = items,
+                selectedIndex = selectedIndex,
+                onSelect = onSelect,
+                backdrop = backdrop,
+                material = GlassNavigationBarDefaults.material().copy(blurRadius = 60.dp),
+                stroke = GlassNavigationBarDefaults.stroke(),
+                shadow = GlassShadows.Float,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(barHeight),
                 defaultWindowInsetsPadding = false,
-            ) {
-                tabs.forEachIndexed { index, (icon, label) ->
-                    FloatingNavigationBarItem(
-                        selected = selectedIndex == index,
-                        onClick = { onSelect(index) },
-                        icon = icon,
-                        label = label,
-                    )
-                }
-            }
-        } else {
-            // 开模糊：c001apk OS4 底栏，GlassNavigationBar 自己画玻璃与悬浮投影。
-            MiuixTheme(colors = MiuixTheme.colorScheme.copy(surfaceContainer = p.card.copy(alpha = 1f))) {
-                GlassNavigationBar(
-                    items = glassItems,
-                    selectedIndex = selectedIndex,
-                    onSelect = onSelect,
-                    backdrop = backdrop,
-                    material = GlassNavigationBarDefaults.material().copy(blurRadius = 60.dp),
-                    stroke = GlassNavigationBarDefaults.stroke(),
-                    shadow = GlassShadows.Float,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(barHeight),
-                    defaultWindowInsetsPadding = false,
-                    height = barHeight,
-                    selectedColor = p.text,
-                    unselectedColor = p.text,
-                    indicatorColor = if (p.isDark) {
-                        Color.White.copy(alpha = 0.12f)
-                    } else {
-                        Color.Black.copy(alpha = 0.10f)
-                    },
-                    indicatorPressedColor = if (p.isDark) {
-                        Color.White.copy(alpha = 0.18f)
-                    } else {
-                        Color.Black.copy(alpha = 0.16f)
-                    },
-                )
-            }
+                height = barHeight,
+                selectedColor = p.text,
+                unselectedColor = p.text,
+                indicatorColor = if (p.isDark) {
+                    Color.White.copy(alpha = 0.12f)
+                } else {
+                    Color.Black.copy(alpha = 0.10f)
+                },
+                indicatorPressedColor = if (p.isDark) {
+                    Color.White.copy(alpha = 0.18f)
+                } else {
+                    Color.Black.copy(alpha = 0.16f)
+                },
+            )
         }
     }
 }
