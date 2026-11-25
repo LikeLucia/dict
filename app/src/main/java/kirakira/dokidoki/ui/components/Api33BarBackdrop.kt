@@ -4,9 +4,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurDefaults
@@ -19,14 +17,12 @@ import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
 import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.glass.glass
-import top.yukonga.miuix.kmp.material.GlassColorBlendMode
-import top.yukonga.miuix.kmp.material.GlassColorLayer
-import top.yukonga.miuix.kmp.material.GlassMaterial
 import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * 移植自 c001apk 的 Api33BarBackdrop（`ui/component/Api33BarBackdrop.kt`）。
+ * 移植自 c001apk 的 Api33BarBackdrop（`ui/component/Api33BarBackdrop.kt`，AGPL-3.0，
+ * 参考提交 8cfc1c099c5b473614e02f68de3fd1091cd571dc）。
  * 只在 [rememberBarBackdrop] 做完运行时版本判断后才会被加载。
  */
 @RequiresApi(33)
@@ -55,10 +51,11 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
             shape = shape,
             blurRadius = 25f,
             colors = BlurDefaults.blurColors(
-                blendColors = listOf(BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.15f))),
+                blendColors = listOf(BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.8f))),
             ),
         )
 
+    // 渐进模糊与标签材质参考 c001apk 的 Api33BarBackdrop；其来源注明 BoxProxy bf0b1d5（GPL-3.0）。
     @Composable
     override fun progressiveBlurModifier(shape: Shape): Modifier =
         Modifier.progressiveTextureBlur(
@@ -71,36 +68,13 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
             ),
         )
 
-    /**
-     * 轨道玻璃。
-     *
-     * 材质不用 [GlassSegmentedTabRowDefaults.material] 的默认值：那套 puredThinGlass
-     * 自带明显的灰色层（暗色下 second/third 是 0x66565656 / 0x993F3F3F），
-     * 叠在 TabRowWithContour 自己的选中胶囊上会看成「两层灰胶囊」。
-     *
-     * 这里换成只留模糊与极淡高光的材质：玻璃仍然透出下方内容，
-     * 但不再自带一层底色，选中态只剩 TabRowWithContour 那层
-     * 由 indicatorPosition + tween(200) 驱动的动画胶囊。
-     */
     @Composable
     override fun glassTabModifier(shape: GlassShape): Modifier =
         Modifier.glass(
             backdrop = layer,
             shape = shape,
-            material = TrackGlassMaterial,
+            material = GlassSegmentedTabRowDefaults.material(),
             stroke = GlassSegmentedTabRowDefaults.stroke(),
             shading = false,
         )
 }
-
-/**
- * 轨道玻璃材质：只保留模糊与极淡高光，不带可见底色。
- *
- * 不用 [GlassSegmentedTabRowDefaults.material] 的 puredThinGlass——那套自带明显灰层
- * （暗色下 0x66565656 / 0x993F3F3F），叠在选中胶囊上会看成两层灰胶囊。
- */
-internal val TrackGlassMaterial: GlassMaterial = GlassMaterial(
-    blurRadius = 20.dp,
-    first = GlassColorLayer(Color(0x08000000), GlassColorBlendMode.PlusDarker),
-    second = GlassColorLayer(Color(0x26FFFFFF), GlassColorBlendMode.SoftLight),
-)

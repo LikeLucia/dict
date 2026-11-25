@@ -60,6 +60,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.popupClipReveal
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
+import top.yukonga.miuix.kmp.glass.GlassNavigationBarDefaults
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.material.GlassShadows
@@ -213,15 +214,34 @@ fun FixedTopPage(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
+    val density = LocalDensity.current
+    val topBarHeight = remember { mutableIntStateOf(0) }
     CompositionLocalProvider(LocalDictTopBarScrollBehavior provides scrollBehavior) {
-        Column(
+        Box(
             modifier
                 .fillMaxSize()
-                .padding(top = 4.dp)
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
         ) {
-            topBar()
-            content()
+            // 整页铺一层采样源（不包含顶栏本身），顶栏与底栏才能采到当前页内容。
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(pageBackdropRecordModifier()),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = with(density) { topBarHeight.intValue.toDp() } + 4.dp),
+                    content = content,
+                )
+            }
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { topBarHeight.intValue = it.height },
+            ) {
+                topBar()
+            }
         }
     }
 }
@@ -242,19 +262,26 @@ fun FixedTopScrollPage(
                 .fillMaxSize()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
         ) {
-            Column(
+            // 采样层必须覆盖整个视口：如果只录滚动内容，内容短于屏幕时底栏会采不到像素，
+            // 顶栏上方也会落在采样层外，开模糊后两处就只剩透明。
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    // 顶栏是叠加层，正文用内边距避开它；滚动内容仍然从顶栏下方经过，
-                    // 玻璃才能采到真实内容而不是固定底色。
-                    .padding(
-                        top = with(density) { topBarHeight.intValue.toDp() } + 4.dp,
-                        bottom = bottomPadding,
-                    )
+                    .fillMaxSize()
                     .then(pageBackdropRecordModifier()),
-                content = content,
-            )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        // 顶栏是叠加层，正文用内边距避开它；滚动内容仍然从顶栏下方经过，
+                        // 玻璃才能采到真实内容而不是固定底色。
+                        .padding(
+                            top = with(density) { topBarHeight.intValue.toDp() } + 4.dp,
+                            bottom = bottomPadding,
+                        ),
+                    content = content,
+                )
+            }
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -580,36 +607,25 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
         )
     }
     val barHeight = 54.dp
-    val backdrop = LocalBarBackdrop.current
-    val shape = RoundedCornerShape(barHeight / 2)
+    val backdrop = LocalBarBackdrop.current?.rawBackdrop
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 28.dp)
-            .height(barHeight)
-            // 与 c001apk 的 FloatingNavigationBar 一致：胶囊形状 + barBlur 纹理模糊。
-            // 关闭模糊（backdrop 为 null）时退回纯色卡片底。
-            .clip(shape)
-            .then(
-                if (backdrop != null) {
-                    Modifier.barBlur(backdrop, shape)
-                } else {
-                    Modifier.background(p.card, shape)
-                },
-            ),
-        contentAlignment = Alignment.Center,
+            .height(barHeight),
     ) {
-        // 内容本身不画底：模糊由外层 barBlur 提供，
-        // 所以把 GlassNavigationBar 的 surfaceContainer 覆盖成透明，只保留它的指示器与图标。
-        MiuixTheme(colors = MiuixTheme.colorScheme.copy(surfaceContainer = Color.Transparent)) {
+        // 与 c001apk 的 OS4 底栏一致：有采样层时由 GlassNavigationBar 自己画玻璃和悬浮投影，
+        // 不再在外面套一层只有模糊、没有投影的平面 Box。
+        // 没有采样层（关模糊或系统 < Android 13）时回退到 surfaceContainer 纯色。
+        MiuixTheme(colors = MiuixTheme.colorScheme.copy(surfaceContainer = p.card.copy(alpha = 1f))) {
             GlassNavigationBar(
                 items = items,
                 selectedIndex = selectedIndex,
                 onSelect = onSelect,
-                backdrop = null,
-                material = null,
-                stroke = null,
-                shadow = null,
+                backdrop = backdrop,
+                material = GlassNavigationBarDefaults.material(),
+                stroke = if (backdrop != null) GlassNavigationBarDefaults.stroke() else null,
+                shadow = if (backdrop != null) GlassShadows.Float else null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(barHeight),

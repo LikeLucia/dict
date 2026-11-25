@@ -100,9 +100,9 @@ dependencies {
     implementation("io.github.suqi8.coui.kmp:coui-preference-android:2.1.0")
     implementation("io.github.suqi8.coui.kmp:coui-icons-android:2.1.0")
 
-    implementation("top.yukonga.miuix.kmp:miuix-ui:0.9.5-beta03")
-    implementation("top.yukonga.miuix.kmp:miuix-glass:0.9.5-beta03")
-    implementation("top.yukonga.miuix.kmp:miuix-preference:0.9.5-beta03")
-    implementation("top.yukonga.miuix.kmp:miuix-icons:0.9.5-beta03")
-    implementation("top.yukonga.miuix.kmp:miuix-glass-icons:0.9.5-beta03")
+    implementation("top.yukonga.miuix.kmp:miuix-ui:0.9.5-beta04")
+    implementation("top.yukonga.miuix.kmp:miuix-glass:0.9.5-beta04")
+    implementation("top.yukonga.miuix.kmp:miuix-preference:0.9.5-beta04")
+    implementation("top.yukonga.miuix.kmp:miuix-icons:0.9.5-beta04")
+    implementation("top.yukonga.miuix.kmp:miuix-glass-icons:0.9.5-beta04")
 }

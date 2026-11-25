@@ -67,7 +67,6 @@ import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.DictScaffoldPage
 import kirakira.dokidoki.ui.components.StatusBadge
 import kirakira.dokidoki.ui.components.LocalBarBackdrop
-import kirakira.dokidoki.ui.components.TrackGlassMaterial
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
 import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
@@ -411,7 +410,7 @@ private val FilterTrackHeight = 38.dp
  *
  * 材质由外层悬浮组件负责，它本身就是 miuix 的判空双材质：
  * - 传了 Backdrop（开模糊且系统 ≥ Android 13）→ `glassPanel` 走玻璃管线，
- *   材质 [TrackGlassMaterial]、描边 [GlassSegmentedTabRowDefaults.stroke]、
+ *   材质 [GlassSegmentedTabRowDefaults.material]、描边 [GlassSegmentedTabRowDefaults.stroke]、
  *   投影 [GlassShadows.Float]；
  * - backdrop 为 null（关模糊或系统 < 13）→ 组件内部
  *   `Modifier.clip(shape).background(fill)` 回退成纯色胶囊。
@@ -445,7 +444,7 @@ private fun FilterChips(
         backdrop = backdrop?.rawBackdrop,
         cornerRadius = FilterTrackHeight / 2,
         outSidePadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-        material = TrackGlassMaterial,
+        material = GlassSegmentedTabRowDefaults.material(),
         // 无 backdrop 时的回退底色。
         fill = p.card,
         stroke = GlassSegmentedTabRowDefaults.stroke(),
