@@ -167,7 +167,7 @@ fun DictApp(viewModel: MainViewModel) {
             }
         }
         var showDeleteConfirm by remember { mutableStateOf(false) }
-        var showExportExtractDialog by remember { mutableStateOf(false) }
+        var showExportZipDialog by remember { mutableStateOf(false) }
         var pendingBatchExport by remember { mutableStateOf<ExportPayload?>(null) }
         var detailFileId by remember { mutableStateOf<String?>(null) }
         var aboutOpen by remember { mutableStateOf(false) }
@@ -182,10 +182,10 @@ fun DictApp(viewModel: MainViewModel) {
         val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) viewModel.setExportDirectory(uri)
         }
-        val startExport: (ExportPayload, Boolean) -> Unit = { payload, extract ->
-            val target = if (extract) payload.copy(extract = true) else payload
+        val startExport: (ExportPayload, Boolean) -> Unit = { payload, asZip ->
+            val target = payload.copy(asZip = asZip)
             if (!viewModel.exportPayloadToConfiguredPath(target)) {
-                if (extract) {
+                if (!asZip) {
                     Toast.makeText(context, "请先在设置中选择导出目录", Toast.LENGTH_SHORT).show()
                 } else {
                     exportLauncher.launch(payload.name)
@@ -197,13 +197,11 @@ fun DictApp(viewModel: MainViewModel) {
             if (payload == null) {
                 Toast.makeText(context, "所选词库没有可导出的处理结果", Toast.LENGTH_SHORT).show()
             } else {
-                val selectedFiles = state.files.filter { it.id in state.selectedFileIds }
-                val hasZipSelection = selectedFiles.any { it.name.endsWith(".zip", ignoreCase = true) }
-                if (payload.entries.size > 1 && !hasZipSelection) {
+                if (payload.entries.size > 1) {
                     pendingBatchExport = payload
-                    showExportExtractDialog = true
+                    showExportZipDialog = true
                 } else {
-                    startExport(payload, false)
+                    startExport(payload, true)
                 }
             }
         }
@@ -404,20 +402,20 @@ fun DictApp(viewModel: MainViewModel) {
                                                 viewModel.deleteSelected()
                                             },
                                         )
-                                        ExportExtractDialog(
-                                            show = showExportExtractDialog,
+                                        ExportZipDialog(
+                                            show = showExportZipDialog,
                                             onDismiss = {
-                                                showExportExtractDialog = false
+                                                showExportZipDialog = false
                                                 pendingBatchExport = null
                                             },
-                                            onKeepArchive = {
-                                                showExportExtractDialog = false
+                                            onExportFiles = {
+                                                showExportZipDialog = false
                                                 val payload = pendingBatchExport
                                                 pendingBatchExport = null
                                                 payload?.let { startExport(it, false) }
                                             },
-                                            onExtract = {
-                                                showExportExtractDialog = false
+                                            onExportZip = {
+                                                showExportZipDialog = false
                                                 val payload = pendingBatchExport
                                                 pendingBatchExport = null
                                                 payload?.let { startExport(it, true) }
@@ -793,16 +791,16 @@ private fun CompactActionButton(
 }
 
 @Composable
-private fun ExportExtractDialog(
+private fun ExportZipDialog(
     show: Boolean,
     onDismiss: () -> Unit,
-    onKeepArchive: () -> Unit,
-    onExtract: () -> Unit,
+    onExportFiles: () -> Unit,
+    onExportZip: () -> Unit,
 ) {
     OverlayDialog(
         show = show,
         title = "导出词库",
-        summary = "是否解压压缩包内的文件？",
+        summary = "是否以 ZIP 压缩包导出？",
         onDismissRequest = onDismiss,
     ) {
         Row(
@@ -810,13 +808,13 @@ private fun ExportExtractDialog(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             TextButton(
-                text = "不解压",
-                onClick = onKeepArchive,
+                text = "普通文件",
+                onClick = onExportFiles,
                 modifier = Modifier.weight(1f),
             )
             TextButton(
-                text = "解压",
-                onClick = onExtract,
+                text = "ZIP 压缩包",
+                onClick = onExportZip,
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
             )

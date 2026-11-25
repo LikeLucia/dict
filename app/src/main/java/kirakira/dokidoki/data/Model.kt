@@ -79,8 +79,8 @@ data class ExportPayload(
     val name: String,
     val entries: List<ExportEntry>,
     val fileId: String? = null,
-    /** 为 true 时把 entries 逐个写入导出目录，不生成批量 zip。 */
-    val extract: Boolean = false,
+    /** 为 false 时把 entries 逐个写入导出目录，不生成批量 zip。 */
+    val asZip: Boolean = true,
 )
 
 data class AmbiguousReading(

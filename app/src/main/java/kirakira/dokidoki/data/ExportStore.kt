@@ -56,8 +56,8 @@ class ExportStore(private val context: Context) {
     ): ExportWriteResult {
         val name = ExportNaming.safeName(payload.name)
         val safePayload = if (name == payload.name) payload else payload.copy(name = name)
-        return if (safePayload.extract) {
-            saveExtracted(safePayload, directoryUri, directoryName, conflictMode)
+        return if (!safePayload.asZip) {
+            saveAsFiles(safePayload, directoryUri, directoryName, conflictMode)
         } else if (directoryUri != null) {
             saveToTree(Uri.parse(directoryUri), safePayload, directoryName, conflictMode)
         } else {
@@ -73,7 +73,7 @@ class ExportStore(private val context: Context) {
      * caller never has to build a potentially huge archive on the UI thread.
      */
     fun writePayload(payload: ExportPayload, output: OutputStream) {
-        if (payload.extract) error("解压导出需要选择保存目录")
+        if (!payload.asZip) error("普通文件导出需要选择保存目录")
         if (payload.entries.size == 1) {
             FileInputStream(payload.entries[0].file).use { input ->
                 input.copyTo(output, 64 * 1024)
@@ -107,7 +107,7 @@ class ExportStore(private val context: Context) {
         }
     }
 
-    private fun saveExtracted(
+    private fun saveAsFiles(
         payload: ExportPayload,
         directoryUri: String?,
         directoryName: String,
@@ -119,7 +119,7 @@ class ExportStore(private val context: Context) {
                     name = entry.name,
                     entries = listOf(entry),
                     fileId = null,
-                    extract = false,
+                    asZip = true,
                 ),
                 directoryUri,
                 directoryName,
