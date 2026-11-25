@@ -49,7 +49,7 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
         Modifier.textureBlur(
             backdrop = layer,
             shape = shape,
-            blurRadius = 20f,
+            blurRadius = 60f,
             colors = BlurDefaults.blurColors(
                 blendColors = listOf(BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.8f))),
             ),
@@ -75,7 +75,7 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
         Modifier.glass(
             backdrop = layer,
             shape = shape,
-            material = GlassSegmentedTabRowDefaults.material(),
+            material = GlassSegmentedTabRowDefaults.material().copy(blurRadius = 60.dp),
             stroke = GlassSegmentedTabRowDefaults.stroke(),
             shading = false,
         )
