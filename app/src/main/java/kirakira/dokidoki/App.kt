@@ -68,6 +68,7 @@ import kirakira.dokidoki.ui.components.DialogAction
 import kirakira.dokidoki.ui.components.DropdownOverlay
 import kirakira.dokidoki.ui.components.DropdownSpec
 import kirakira.dokidoki.ui.components.LocalBarBackdrop
+import kirakira.dokidoki.ui.components.LocalBottomBarBackdrop
 import kirakira.dokidoki.ui.components.LocalPageActive
 import kirakira.dokidoki.ui.components.rememberBarBackdrop
 import kirakira.dokidoki.ui.screens.ThemeSettingsScreen
@@ -228,10 +229,14 @@ fun DictApp(viewModel: MainViewModel) {
         BackHandler(enabled = sourceLicensesOpen) { sourceLicensesOpen = false }
         BackHandler(enabled = !sourceLicensesOpen && aboutOpen) { aboutOpen = false }
         val aboutVisible = aboutOpen && state.selectedTab == 3
-        // 唯一的玻璃采样层：顶栏、轨道、底栏共用，这样三处玻璃采到同一份内容。
-        // Pager 预组合的相邻页靠 LocalPageActive 控制，只有前台页往这层里录。
+        // 页面级玻璃采样层：顶栏、轨道共用；底栏另用挂在 pager 静止根节点上的视口级层。
+        // Pager 预组合的相邻页靠 LocalPageActive 控制，只有前台页往页面级层里录。
         val barBackdrop = rememberBarBackdrop(state.blurBars)
-        CompositionLocalProvider(LocalBarBackdrop provides barBackdrop) {
+        val bottomBarBackdrop = rememberBarBackdrop(state.blurBars)
+        CompositionLocalProvider(
+            LocalBarBackdrop provides barBackdrop,
+            LocalBottomBarBackdrop provides bottomBarBackdrop,
+        ) {
         Box(Modifier.fillMaxSize().background(p.bg)) {
             MiuixDetailHost(
                 visible = aboutVisible,
@@ -624,7 +629,14 @@ private fun MiuixTabHost(
         pagerState.springAnimateToPage(selectedTab)
     }
 
-    Box(modifier.fillMaxSize().clipToBounds()) {
+    val bottomBarBackdrop = LocalBottomBarBackdrop.current
+    Box(
+        modifier
+            .fillMaxSize()
+            // 底栏的视口级采样层：挂在 pager 外层的静止节点上，页面平移不会带走采样纹理。
+            .then(if (bottomBarBackdrop != null) bottomBarBackdrop.recordModifier() else Modifier)
+            .clipToBounds(),
+    ) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
@@ -634,7 +646,7 @@ private fun MiuixTabHost(
             saveableStateHolder.SaveableStateProvider(tab) {
                 Box(Modifier.fillMaxSize()) {
                     // 录制用 currentPage 而不是 activeTab：activeTab 在滚动中会变成 -1，
-                    // 那样没有任何页面往采样层里录，采样层为空，底栏与轨道就会闪。
+                    // 那样没有任何页面往页面级层里录，顶栏与轨道就会闪。
                     // 用 currentPage 保证任何时刻都恰好有一页在录，不会空也不会多页同写。
                     CompositionLocalProvider(LocalPageActive provides (tab == pagerState.currentPage)) {
                         content(tab, tab == activeTab)

@@ -194,7 +194,7 @@ fun DictScaffoldPage(
                     // 不在这里 padding(top)：正文要延伸到顶栏下方，
                     // 玻璃才采得到滚动内容；顶栏高度由页面自己的滚动容器作为 contentPadding 消化。
                     .nestedScroll(scrollBehavior.nestedScrollConnection)
-                    // 正文作为玻璃采样源，顶栏与底栏共用它。
+                    // 正文作为页面级玻璃采样源，供顶栏与轨道使用；底栏另有视口级采样层。
                     .then(pageBackdropRecordModifier()),
             ) {
                 content(padding)
@@ -243,7 +243,7 @@ fun FixedTopScrollPage(
     }
 }
 
-/** 当前页面的正文是否该录进玻璃采样层。 */
+/** 当前页面的正文是否该录进页面级玻璃采样层。 */
 @Composable
 internal fun pageBackdropRecordModifier(): Modifier {
     val backdrop = LocalBarBackdrop.current ?: return Modifier
@@ -558,7 +558,8 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
     }
     val barHeight = 54.dp
     val shape = RoundedCornerShape(barHeight / 2)
-    val backdrop = LocalBarBackdrop.current?.rawBackdrop
+    // 只取底栏的视口级层：页面级层的纹理边界会随 pager 平移，作为回退会在切换页时扫出竖线。
+    val backdrop = LocalBottomBarBackdrop.current?.rawBackdrop
     Box(
         modifier = modifier
             .fillMaxWidth()
