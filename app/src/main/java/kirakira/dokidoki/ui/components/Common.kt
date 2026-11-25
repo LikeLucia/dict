@@ -59,7 +59,6 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.popupClipReveal
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
 import top.yukonga.miuix.kmp.glass.GlassNavigationBarDefaults
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -558,6 +557,7 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
         )
     }
     val barHeight = 54.dp
+    val shape = RoundedCornerShape(barHeight / 2)
     val backdrop = LocalBarBackdrop.current?.rawBackdrop
     Box(
         modifier = modifier
@@ -566,37 +566,44 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
             .height(barHeight),
         contentAlignment = Alignment.Center,
     ) {
+        // 玻璃被系统重建/切换页面时先垫一层很淡的底色，避免某一帧采样层为空导致整条底栏闪白。
+        if (backdrop != null) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(shape)
+                    .background(p.card.copy(alpha = 0.28f)),
+            )
+        }
         // 统一使用 miuix 0.9.5-beta04 的 GlassNavigationBar：
         // 有采样层时走 OS4 玻璃；无采样层（关闭模糊/低版本）时用 surfaceContainer 纯色回退，
         // 但仍保留悬浮投影和选中胶囊的 edgeSpring 回弹。
-        MiuixTheme(colors = MiuixTheme.colorScheme.copy(surfaceContainer = p.card.copy(alpha = 1f))) {
-            GlassNavigationBar(
-                items = items,
-                selectedIndex = selectedIndex,
-                onSelect = onSelect,
-                backdrop = backdrop,
-                material = GlassNavigationBarDefaults.material().copy(blurRadius = 60.dp),
-                stroke = GlassNavigationBarDefaults.stroke(),
-                shadow = GlassShadows.Float,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(barHeight),
-                defaultWindowInsetsPadding = false,
-                height = barHeight,
-                selectedColor = p.text,
-                unselectedColor = p.text,
-                indicatorColor = if (p.isDark) {
-                    Color.White.copy(alpha = 0.12f)
-                } else {
-                    Color.Black.copy(alpha = 0.10f)
-                },
-                indicatorPressedColor = if (p.isDark) {
-                    Color.White.copy(alpha = 0.18f)
-                } else {
-                    Color.Black.copy(alpha = 0.16f)
-                },
-            )
-        }
+        GlassNavigationBar(
+            items = items,
+            selectedIndex = selectedIndex,
+            onSelect = onSelect,
+            backdrop = backdrop,
+            material = GlassNavigationBarDefaults.material(),
+            stroke = GlassNavigationBarDefaults.stroke(),
+            shadow = GlassShadows.Float,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(barHeight),
+            defaultWindowInsetsPadding = false,
+            height = barHeight,
+            selectedColor = p.text,
+            unselectedColor = p.text,
+            indicatorColor = if (p.isDark) {
+                Color.White.copy(alpha = 0.12f)
+            } else {
+                Color.Black.copy(alpha = 0.10f)
+            },
+            indicatorPressedColor = if (p.isDark) {
+                Color.White.copy(alpha = 0.18f)
+            } else {
+                Color.Black.copy(alpha = 0.16f)
+            },
+        )
     }
 }
 

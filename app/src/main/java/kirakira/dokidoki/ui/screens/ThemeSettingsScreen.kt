@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.Modifier
@@ -17,6 +18,8 @@ import kirakira.dokidoki.ui.components.DictTopBar
 import kirakira.dokidoki.ui.components.DropdownAnchor
 import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.FixedTopScrollPage
+import kirakira.dokidoki.ui.components.LocalBarBackdrop
+import kirakira.dokidoki.ui.components.rememberBarBackdrop
 import kirakira.dokidoki.ui.theme.DictTheme
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.ui.unit.sp
@@ -41,7 +44,10 @@ fun ThemeSettingsScreen(
     val p = DictTheme.palette
     val blurSupported = Build.VERSION.SDK_INT >= 33
     val themeAnchor = remember { DropdownAnchor() }
+    // 主题设置是独立详情页，使用自己的采样层，避免底层设置页的内容混进顶栏玻璃。
+    val pageBackdrop = rememberBarBackdrop(state.blurBars)
 
+    CompositionLocalProvider(LocalBarBackdrop provides pageBackdrop) {
     FixedTopScrollPage(
         modifier = modifier,
         topBar = { DictTopBar("主题设置", onBack = onBack) },
@@ -91,5 +97,6 @@ fun ThemeSettingsScreen(
                 modifier = Modifier.padding(horizontal = 34.dp),
             )
         }
+    }
     }
 }
