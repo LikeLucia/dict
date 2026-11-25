@@ -72,6 +72,8 @@ import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.theme.DictTheme
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
@@ -79,7 +81,9 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.icon.basic.Search
+import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.glass.File
+import top.yukonga.miuix.kmp.menu.OverlayIconDropdownMenu
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -95,6 +99,9 @@ fun LibScreen(
     onEnterSelection: (String) -> Unit,
     onToggleSelection: (String) -> Unit,
     onSelectAll: () -> Unit,
+    onBatchExport: () -> Unit,
+    onDeleteSelection: () -> Unit,
+    onClearSelection: () -> Unit,
     onFocusHandled: () -> Unit,
     onSortDescending: (Boolean) -> Unit,
     onOpenSortMenu: (Rect) -> Unit,
@@ -202,7 +209,19 @@ fun LibScreen(
                 badge = if (state.selectionMode) null else "${state.files.size} 个",
                 searchActive = searchVisible,
                 onSearchClick = if (state.selectionMode) null else ({ toggleSearch() }),
-                onSelectAll = if (state.selectionMode) onSelectAll else null,
+                trailingAction = if (state.selectionMode) {
+                    {
+                        SelectionMenu(
+                            selectAllEnabled = state.files.isNotEmpty(),
+                            exportEnabled = state.files.any { it.id in state.selectedFileIds && it.hasOutput },
+                            deleteEnabled = state.selectedFileIds.isNotEmpty(),
+                            onSelectAll = onSelectAll,
+                            onExport = onBatchExport,
+                            onDelete = onDeleteSelection,
+                            onCancel = onClearSelection,
+                        )
+                    }
+                } else null,
                 // 搜索框与分类标签同处顶栏的 bottomContent 槽位：
                 // 展开搜索时搜索框紧贴标题下方，分类标签顺延到它下面，两者位置互换。
                 bottomContent = {
@@ -381,11 +400,14 @@ private val LIBRARY_FILTERS = listOf(
     LibraryFilter("全部") { true },
     LibraryFilter("YAML") { it.name.endsWith(".yaml", true) || it.name.endsWith(".yml", true) },
     LibraryFilter("TXT") { it.name.endsWith(".txt", true) },
+    LibraryFilter("ZIP") { it.name.endsWith(".zip", true) },
     // 处理标记分类。
     LibraryFilter("拼辅") { it.status == FileStatus.PINYIN_AUX_DONE },
     LibraryFilter("拼音") { it.status == FileStatus.PINYIN_DONE },
     LibraryFilter("辅助码") { it.status == FileStatus.AUX_DONE },
     LibraryFilter("多音字") { it.polyphonicHandled },
+    LibraryFilter("删辅") { it.status == FileStatus.AUX_STRIPPED },
+    LibraryFilter("取消") { it.status == FileStatus.CANCELLED },
 )
 
 /** 分类标签轨道：本地移植的 GlassSegmentedTabRow，自绘指示器并保留 miuix 按压动画。 */
@@ -401,6 +423,40 @@ private fun FilterChips(
         onSelected = onSelect,
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+/** 多选模式右上角菜单：全选、导出、删除、取消。 */
+@Composable
+private fun SelectionMenu(
+    selectAllEnabled: Boolean,
+    exportEnabled: Boolean,
+    deleteEnabled: Boolean,
+    onSelectAll: () -> Unit,
+    onExport: () -> Unit,
+    onDelete: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val p = DictTheme.palette
+    val entry = DropdownEntry(
+        items = listOf(
+            DropdownItem(text = "全选", enabled = selectAllEnabled, onClick = onSelectAll),
+            DropdownItem(text = "导出", enabled = exportEnabled, onClick = onExport),
+            DropdownItem(text = "删除", enabled = deleteEnabled, onClick = onDelete),
+            DropdownItem(text = "取消", onClick = onCancel),
+        ),
+    )
+    OverlayIconDropdownMenu(
+        entry = entry,
+        minWidth = 44.dp,
+        minHeight = 44.dp,
+    ) {
+        Icon(
+            MiuixIcons.More,
+            contentDescription = "选择菜单",
+            modifier = Modifier.size(28.dp),
+            tint = p.text2,
+        )
+    }
 }
 
 @Composable

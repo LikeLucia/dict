@@ -266,7 +266,8 @@ fun DictTopBar(
     badge: String? = null,
     searchActive: Boolean = false,
     onSearchClick: (() -> Unit)? = null,
-    onSelectAll: (() -> Unit)? = null,
+    /** 右上角自定义操作（如词库页多选模式的菜单图标）。 */
+    trailingAction: (@Composable () -> Unit)? = null,
     actionSize: Dp = 44.dp,
     actionIconSize: Dp = 28.dp,
     trailingActionOffsetY: Dp = 0.dp,
@@ -335,39 +336,7 @@ fun DictTopBar(
                         )
                     }
                 }
-                if (onSelectAll != null) {
-                    // 按下高亮为矩形：小圆角矩形底色，与圆形图标按钮区分。
-                    val selectAllInteraction = remember { MutableInteractionSource() }
-                    val selectAllPressed = selectAllInteraction.collectIsPressedAsState().value
-                    val selectAllMask by animateColorAsState(
-                        targetValue = if (selectAllPressed) p.text.copy(alpha = 0.10f) else Color.Transparent,
-                        animationSpec = tween(durationMillis = 120),
-                        label = "select-all-mask",
-                    )
-                    Box(
-                        modifier = Modifier
-                            .heightIn(min = 48.dp)
-                            // 灰遮罩圆角 12dp。
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(selectAllMask)
-                            .clickable(
-                                interactionSource = selectAllInteraction,
-                                indication = null,
-                                onClick = onSelectAll,
-                            )
-                            .padding(horizontal = 8.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "全选",
-                            // 与顶栏标题（Miuix Title3 = 20sp）保持一致。
-                            fontSize = 20.sp,
-                            color = p.accent,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
+                trailingAction?.invoke()
             }
         },
         bottomContent = bottomContent,

@@ -11,7 +11,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Indication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -19,8 +18,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -68,6 +65,7 @@ import kirakira.dokidoki.ui.components.FixedTopPage
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -247,9 +245,17 @@ fun AmbiguityDetailScreen(
                         }
                     } else {
                         item(key = "file:${group.fileId}", contentType = "file-header") {
-                            Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                                cornerRadius = 16.dp,
+                                insideMargin = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                                colors = CardDefaults.defaultColors(
+                                    color = MiuixTheme.colorScheme.surfaceContainer,
+                                    contentColor = MiuixTheme.colorScheme.onSurfaceContainer,
+                                ),
+                            ) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Card(
@@ -283,7 +289,6 @@ fun AmbiguityDetailScreen(
                                         color = MiuixTheme.colorScheme.primary,
                                     )
                                 }
-                                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                             }
                         }
                         itemsIndexed(
@@ -428,7 +433,7 @@ private suspend fun syncTopBar(state: TopAppBarState?, collapse: Boolean, animat
     if (!collapse) state.contentOffset = 0f
 }
 
-/** 右下角翻页按钮：上箭头回到顶部，下箭头滚到底部并翻页；背景与尺寸对齐顶栏的圆形动作按钮。 */
+/** 右下角翻页按钮：上箭头回到顶部，下箭头滚到底部并翻页。 */
 @Composable
 private fun DetailJumpButtons(
     notAtTop: Boolean,
@@ -438,7 +443,6 @@ private fun DetailJumpButtons(
     modifier: Modifier = Modifier,
 ) {
     val p = DictTheme.palette
-    val indication = rememberMiuixIndication()
     val buttonSize = 40.dp
     val iconSize = 22.dp
     Column(
@@ -451,14 +455,14 @@ private fun DetailJumpButtons(
             enter = fadeIn(tween(120)) + expandVertically(tween(170)),
             exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
         ) {
-            JumpButton("回到顶部", -90f, buttonSize, iconSize, p.card, p.text2, indication, onJumpTop)
+            JumpButton("回到顶部", -90f, buttonSize, iconSize, p.card, p.text2, onJumpTop)
         }
         AnimatedVisibility(
             visible = notAtBottom,
             enter = fadeIn(tween(120)) + expandVertically(tween(170)),
             exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
         ) {
-            JumpButton("翻到底部", 90f, buttonSize, iconSize, p.card, p.text2, indication, onJumpBottom)
+            JumpButton("翻到底部", 90f, buttonSize, iconSize, p.card, p.text2, onJumpBottom)
         }
     }
 }
@@ -471,16 +475,15 @@ private fun JumpButton(
     iconSize: Dp,
     background: Color,
     tint: Color,
-    indication: Indication,
     onClick: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(background)
-            .clickable(interactionSource = null, indication = indication, onClick = onClick),
-        contentAlignment = Alignment.Center,
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = Modifier.size(size),
+        containerColor = background,
+        shadowElevation = 4.dp,
+        minWidth = size,
+        minHeight = size,
     ) {
         Icon(
             MiuixIcons.Basic.ArrowRight,

@@ -266,9 +266,6 @@ fun DictApp(viewModel: MainViewModel) {
                                                     onSelectTab = viewModel::selectTab,
                                                     onStart = viewModel::startProcessing,
                                                     onCancel = viewModel::cancelProcessing,
-                                                    onBatchExport = doBatchExport,
-                                                    onDelete = { if (state.selectedFileIds.isNotEmpty()) showDeleteConfirm = true },
-                                                    onClearSelection = viewModel::clearSelection,
                                                 )
                                             },
                                         ) { padding ->
@@ -291,6 +288,11 @@ fun DictApp(viewModel: MainViewModel) {
                                                         onEnterSelection = viewModel::enterSelection,
                                                         onToggleSelection = viewModel::toggleSelection,
                                                         onSelectAll = viewModel::selectAllFiles,
+                                                        onBatchExport = doBatchExport,
+                                                        onDeleteSelection = {
+                                                            if (state.selectedFileIds.isNotEmpty()) showDeleteConfirm = true
+                                                        },
+                                                        onClearSelection = viewModel::clearSelection,
                                                         onFocusHandled = viewModel::clearLibraryFocus,
                                                         onSortDescending = viewModel::setSortDescending,
                                                         onOpenSortMenu = { anchor ->
@@ -699,11 +701,7 @@ private fun BottomArea(
     onSelectTab: (Int) -> Unit,
     onStart: () -> Unit,
     onCancel: () -> Unit,
-    onBatchExport: () -> Unit,
-    onDelete: () -> Unit,
-    onClearSelection: () -> Unit,
 ) {
-    val p = DictTheme.palette
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -718,39 +716,6 @@ private fun BottomArea(
                         .padding(horizontal = 24.dp),
                     onClick = onCancel,
                 )
-                Spacer(Modifier.height(16.dp))
-            }
-        } else if (state.selectedTab == 1) {
-            if (state.selectionMode) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    CompactActionButton(
-                        label = "导出",
-                        enabled = state.files.any { it.id in state.selectedFileIds && it.hasOutput },
-                        modifier = Modifier.weight(1f),
-                        onClick = onBatchExport,
-                    )
-                    CompactActionButton(
-                        label = "删除",
-                        enabled = state.selectedFileIds.isNotEmpty(),
-                        modifier = Modifier.weight(1f),
-                        onClick = onDelete,
-                        backgroundColor = if (p.isDark) Color(0xFF48282D) else Color(0xFFFFE8EB),
-                        textColor = if (p.isDark) Color(0xFFFF6B74) else Color(0xFFD9343E),
-                    )
-                    CompactActionButton(
-                        label = "取消",
-                        enabled = true,
-                        modifier = Modifier.weight(1f),
-                        onClick = onClearSelection,
-                        backgroundColor = Color.White,
-                        textColor = Color.Black,
-                    )
-                }
                 Spacer(Modifier.height(16.dp))
             }
         }
