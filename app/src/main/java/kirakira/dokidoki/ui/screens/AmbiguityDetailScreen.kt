@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -282,12 +283,21 @@ fun AmbiguityDetailScreen(
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = group.entryCount.toString() + " 行",
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MiuixTheme.colorScheme.primary,
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MiuixTheme.colorScheme.tertiaryContainer)
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            text = group.entryCount.toString() + " 行",
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MiuixTheme.colorScheme.onTertiaryContainer,
+                                            maxLines = 1,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -299,10 +309,15 @@ fun AmbiguityDetailScreen(
                             DetailEntryRow(
                                 entry,
                                 showDivider = index != shown.lastIndex,
+                                first = index == 0,
+                                last = index == shown.lastIndex,
                                 replaceMode = replaceMode,
                                 onLongPress = { replaceMode = true },
                                 onReplaceReading = onReplaceReading,
-                                modifier = Modifier.padding(horizontal = 24.dp),
+                                modifier = Modifier.padding(
+                                    horizontal = 24.dp,
+                                    top = if (index == 0) 8.dp else 0.dp,
+                                ),
                             )
                         }
                         if (pageIndex > 0 || nextOffset != null) {
@@ -498,6 +513,8 @@ private fun JumpButton(
 private fun DetailEntryRow(
     entry: AmbiguousEntry,
     showDivider: Boolean,
+    first: Boolean,
+    last: Boolean,
     replaceMode: Boolean,
     onLongPress: () -> Unit,
     onReplaceReading: suspend (line: Int, syllableIndex: Int, reading: String) -> Boolean,
@@ -508,6 +525,14 @@ private fun DetailEntryRow(
     val indication = rememberMiuixIndication()
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
+    val shape = remember(first, last) {
+        RoundedCornerShape(
+            topStart = if (first) 16.dp else 0.dp,
+            topEnd = if (first) 16.dp else 0.dp,
+            bottomStart = if (last) 16.dp else 0.dp,
+            bottomEnd = if (last) 16.dp else 0.dp,
+        )
+    }
     // 替换模式下点读音即替换；普通模式保持复制。
     fun handleReading(reading: String, syllableIndex: Int) {
         if (!replaceMode) {
@@ -523,7 +548,7 @@ private fun DetailEntryRow(
             ).show()
         }
     }
-    Column(modifier.fillMaxWidth().combinedClickable(
+    Column(modifier.fillMaxWidth().clip(shape).background(colors.surfaceContainer).combinedClickable(
         interactionSource = interaction,
         indication = indication,
         onClick = {},

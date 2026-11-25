@@ -67,6 +67,7 @@ import kirakira.dokidoki.ui.components.DropdownAnchor
 import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.DictScaffoldPage
 import kirakira.dokidoki.ui.components.GlassScrollableSegmentedTabRow
+import kirakira.dokidoki.ui.components.LocalBarBackdrop
 import kirakira.dokidoki.ui.components.StatusBadge
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.theme.DictTheme
@@ -83,7 +84,12 @@ import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.glass.File
-import top.yukonga.miuix.kmp.menu.OverlayIconDropdownMenu
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.GlassIconDropdownMenu
+import top.yukonga.miuix.kmp.glass.GlassPopupAnchor
+import top.yukonga.miuix.kmp.glass.glassPopupAnchor
+import top.yukonga.miuix.kmp.glass.glassPopupAnchorContent
+import top.yukonga.miuix.kmp.glass.rememberGlassPopupAnchor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -109,6 +115,8 @@ fun LibScreen(
     bottomPadding: Dp = 190.dp,
 ) {
     val p = DictTheme.palette
+    val selectionMenuAnchor = rememberGlassPopupAnchor()
+    var selectionMenuOpen by remember { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var selectedFilter by rememberSaveable { mutableIntStateOf(0) }
     // 标签 = 全部 + 文件格式 + 处理标记；统一在一行里横向滑动。
@@ -156,6 +164,8 @@ fun LibScreen(
             query = ""
             focusManager.clearFocus()
             keyboard?.hide()
+        } else {
+            selectionMenuOpen = false
         }
     }
     val orderedFiles = remember(state.files, state.sortMode) {
@@ -201,8 +211,19 @@ fun LibScreen(
         delay(1600)
         if (highlightedId == focusId) highlightedId = null
     }
+    val selectionMenuEntries = listOf(
+        DropdownEntry(
+            items = listOf(
+                DropdownItem(text = "全选", enabled = state.files.isNotEmpty(), onClick = onSelectAll),
+                DropdownItem(text = "导出", enabled = state.files.any { it.id in state.selectedFileIds && it.hasOutput }, onClick = onBatchExport),
+                DropdownItem(text = "删除", enabled = state.selectedFileIds.isNotEmpty(), onClick = onDeleteSelection),
+                DropdownItem(text = "取消", onClick = onClearSelection),
+            ),
+        ),
+    )
+    Box(modifier = modifier.fillMaxSize()) {
     DictScaffoldPage(
-        modifier = modifier,
+        modifier = Modifier.fillMaxSize(),
         topBar = {
             DictTopBar(
                 title = if (state.selectionMode) "已选 ${state.selectedFileIds.size} 项" else "词库",
@@ -211,14 +232,9 @@ fun LibScreen(
                 onSearchClick = if (state.selectionMode) null else ({ toggleSearch() }),
                 trailingAction = if (state.selectionMode) {
                     {
-                        SelectionMenu(
-                            selectAllEnabled = state.files.isNotEmpty(),
-                            exportEnabled = state.files.any { it.id in state.selectedFileIds && it.hasOutput },
-                            deleteEnabled = state.selectedFileIds.isNotEmpty(),
-                            onSelectAll = onSelectAll,
-                            onExport = onBatchExport,
-                            onDelete = onDeleteSelection,
-                            onCancel = onClearSelection,
+                        SelectionMenuButton(
+                            anchor = selectionMenuAnchor,
+                            onClick = { selectionMenuOpen = !selectionMenuOpen },
                         )
                     }
                 } else null,
@@ -304,6 +320,22 @@ fun LibScreen(
             }
             item(key = "bottom-gap") { Spacer(Modifier.height(12.dp)) }
         }
+    }
+    GlassIconDropdownMenu(
+        show = selectionMenuOpen && state.selectionMode,
+        onDismissRequest = { selectionMenuOpen = false },
+        anchor = selectionMenuAnchor,
+        anchorContent = {
+            Icon(
+                MiuixIcons.More,
+                contentDescription = null,
+                modifier = Modifier.size(28.dp),
+                tint = p.text2,
+            )
+        },
+        entries = selectionMenuEntries,
+        backdrop = LocalBarBackdrop.current?.rawBackdrop,
+    )
     }
 }
 
@@ -427,33 +459,20 @@ private fun FilterChips(
 
 /** 多选模式右上角菜单：全选、导出、删除、取消。 */
 @Composable
-private fun SelectionMenu(
-    selectAllEnabled: Boolean,
-    exportEnabled: Boolean,
-    deleteEnabled: Boolean,
-    onSelectAll: () -> Unit,
-    onExport: () -> Unit,
-    onDelete: () -> Unit,
-    onCancel: () -> Unit,
+private fun SelectionMenuButton(
+    anchor: GlassPopupAnchor,
+    onClick: () -> Unit,
 ) {
     val p = DictTheme.palette
-    val entry = DropdownEntry(
-        items = listOf(
-            DropdownItem(text = "全选", enabled = selectAllEnabled, onClick = onSelectAll),
-            DropdownItem(text = "导出", enabled = exportEnabled, onClick = onExport),
-            DropdownItem(text = "删除", enabled = deleteEnabled, onClick = onDelete),
-            DropdownItem(text = "取消", onClick = onCancel),
-        ),
-    )
-    OverlayIconDropdownMenu(
-        entry = entry,
-        minWidth = 44.dp,
-        minHeight = 44.dp,
+    GlassIconButton(
+        onClick = onClick,
+        modifier = Modifier.glassPopupAnchor(anchor, cornerRadius = 22.dp, floating = true),
+        size = 44.dp,
     ) {
         Icon(
             MiuixIcons.More,
             contentDescription = "选择菜单",
-            modifier = Modifier.size(28.dp),
+            modifier = Modifier.size(28.dp).glassPopupAnchorContent(anchor),
             tint = p.text2,
         )
     }

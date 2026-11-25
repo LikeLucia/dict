@@ -50,7 +50,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.view.WindowCompat
 import kirakira.dokidoki.data.AuxType
@@ -64,7 +63,6 @@ import kirakira.dokidoki.data.ToneMode
 import kirakira.dokidoki.data.MainViewModel
 import kirakira.dokidoki.data.ThemeMode
 import kirakira.dokidoki.ui.components.DictBottomBar
-import kirakira.dokidoki.ui.components.DialogAction
 import kirakira.dokidoki.ui.components.DropdownOverlay
 import kirakira.dokidoki.ui.components.DropdownSpec
 import kirakira.dokidoki.ui.components.LocalBarBackdrop
@@ -82,8 +80,11 @@ import kirakira.dokidoki.ui.screens.ReportScreen
 import kirakira.dokidoki.ui.screens.SettingsMenu
 import kirakira.dokidoki.ui.screens.SettingsScreen
 import kirakira.dokidoki.ui.theme.DictTheme
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.utils.springAnimateToPage
 import kotlin.math.PI
 import kotlin.math.cos
@@ -376,6 +377,15 @@ fun DictApp(viewModel: MainViewModel) {
                                                 }
                                             }
                                         }
+                                        DeleteConfirmDialog(
+                                            show = showDeleteConfirm,
+                                            count = state.selectedFileIds.size,
+                                            onDismiss = { showDeleteConfirm = false },
+                                            onConfirm = {
+                                                showDeleteConfirm = false
+                                                viewModel.deleteSelected()
+                                            },
+                                        )
                                         }
                                         }
                                         },
@@ -423,17 +433,6 @@ fun DictApp(viewModel: MainViewModel) {
                                             )
                                         }
                                     }
-                                },
-                            )
-                        }
-
-                        if (showDeleteConfirm) {
-                            DeleteConfirmDialog(
-                                count = state.selectedFileIds.size,
-                                onDismiss = { showDeleteConfirm = false },
-                                onConfirm = {
-                                    showDeleteConfirm = false
-                                    viewModel.deleteSelected()
                                 },
                             )
                         }
@@ -757,25 +756,33 @@ private fun CompactActionButton(
 }
 
 @Composable
-private fun DeleteConfirmDialog(count: Int, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    val p = DictTheme.palette
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .width(300.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(p.popup)
-                .padding(20.dp),
+private fun DeleteConfirmDialog(
+    show: Boolean,
+    count: Int,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    OverlayDialog(
+        show = show,
+        title = "删除词库",
+        summary = "从词库列表移除所选 $count 个词库及其处理结果？原始文件不会被修改。",
+        onDismissRequest = onDismiss,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("删除词库", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = p.text)
-            Spacer(Modifier.height(10.dp))
-            Text("从词库列表移除所选 $count 个词库及其处理结果？原始文件不会被修改。", fontSize = 12.5.sp, color = p.text2)
-            Spacer(Modifier.height(18.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                DialogAction("取消", p.text2, onClick = onDismiss)
-                Spacer(Modifier.width(12.dp))
-                DialogAction("删除", p.accent, bold = true, onClick = onConfirm)
-            }
+            TextButton(
+                text = "取消",
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                text = "删除",
+                onClick = onConfirm,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+            )
         }
     }
 }
