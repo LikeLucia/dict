@@ -221,7 +221,7 @@ fun AmbiguityDetailScreen(
                 },
             )
         },
-    ) {
+    ) { contentPadding ->
         // 必须在 FixedTopPage 的 content 内读取：ScrollBehavior 由 FixedTopPage 内部的
         // CompositionLocalProvider 提供，在函数开头读只会拿到默认值 null。
         val topBarScrollBehavior = LocalDictTopBarScrollBehavior.current
@@ -242,7 +242,7 @@ fun AmbiguityDetailScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize().clipToBounds(),
-                    contentPadding = PaddingValues(0.dp),
+                    contentPadding = PaddingValues(top = contentPadding.calculateTopPadding()),
                     overscrollEffect = null,
                 ) {
                     item(key = "top-spacing", contentType = "top-spacing") {

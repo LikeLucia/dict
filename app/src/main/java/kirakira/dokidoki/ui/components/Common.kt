@@ -205,17 +205,17 @@ fun DictScaffoldPage(
 fun FixedTopPage(
     modifier: Modifier = Modifier,
     topBar: @Composable () -> Unit,
-    content: @Composable ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.(PaddingValues) -> Unit,
 ) {
     // 与 DictScaffoldPage 同样交给 Scaffold 先量顶栏、再量正文：
-    // 正文从 0 开始录制，顶栏高度通过 content padding 让开，避免自己测高时第一帧位置错误。
+    // 正文保持全屏铺到顶栏下方，页面自己把 padding.top 放进滚动容器的 contentPadding，
+    // 这样列表滚动时能从顶栏后面经过，GlassTopAppBar 才能采到内容。
     DictScaffoldPage(modifier = modifier, topBar = topBar) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = padding.calculateTopPadding()),
-            content = content,
-        )
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            content(padding)
+        }
     }
 }
 
