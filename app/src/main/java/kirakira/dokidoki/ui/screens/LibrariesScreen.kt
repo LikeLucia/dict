@@ -116,19 +116,19 @@ internal val SourceLicenseEntries = listOf(
     SourceLicenseEntry("运行依赖", "Kotlinx Serialization Core", "1.7.3", "AndroidX SavedState 传递依赖", "Apache License 2.0", listOf(
         SourceLicenseLink("项目主页", "https://github.com/Kotlin/kotlinx.serialization"), SourceLicenseLink("许可证原文", "https://github.com/Kotlin/kotlinx.serialization/blob/master/LICENSE.txt"),
     )),
-    SourceLicenseEntry("运行依赖", "Miuix UI", "0.9.5-beta04", "Compose UI 基础组件", "Apache License 2.0", listOf(
+    SourceLicenseEntry("运行依赖", "Miuix UI", "0.9.5-rc01", "Compose UI 基础组件", "Apache License 2.0", listOf(
         SourceLicenseLink("项目主页", MIUIX), SourceLicenseLink("许可证原文", MIUIX_LICENSE),
     )),
-    SourceLicenseEntry("运行依赖", "Miuix Glass", "0.9.5-beta04", "玻璃效果与导航组件", "Apache License 2.0", listOf(
+    SourceLicenseEntry("运行依赖", "Miuix Glass", "0.9.5-rc01", "玻璃效果与导航组件", "Apache License 2.0", listOf(
         SourceLicenseLink("项目主页", MIUIX), SourceLicenseLink("许可证原文", MIUIX_LICENSE),
     )),
-    SourceLicenseEntry("运行依赖", "Miuix Preference", "0.9.5-beta04", "偏好设置组件", "Apache License 2.0", listOf(
+    SourceLicenseEntry("运行依赖", "Miuix Preference", "0.9.5-rc01", "偏好设置组件", "Apache License 2.0", listOf(
         SourceLicenseLink("项目主页", MIUIX), SourceLicenseLink("许可证原文", MIUIX_LICENSE),
     )),
-    SourceLicenseEntry("运行依赖", "Miuix Icons", "0.9.5-beta04", "基础图标组件", "Apache License 2.0", listOf(
+    SourceLicenseEntry("运行依赖", "Miuix Icons", "0.9.5-rc01", "基础图标组件", "Apache License 2.0", listOf(
         SourceLicenseLink("项目主页", MIUIX), SourceLicenseLink("许可证原文", MIUIX_LICENSE),
     )),
-    SourceLicenseEntry("运行依赖", "Miuix Glass Icons", "0.9.5-beta04", "Glass 图标组件", "Apache License 2.0", listOf(
+    SourceLicenseEntry("运行依赖", "Miuix Glass Icons", "0.9.5-rc01", "Glass 图标组件", "Apache License 2.0", listOf(
         SourceLicenseLink("项目主页", MIUIX), SourceLicenseLink("许可证原文", MIUIX_LICENSE),
     )),
     SourceLicenseEntry("移植代码", "c001apk", "8cfc1c0", "模糊栏、顶栏/底栏与分类轨道玻璃实现参考", "GNU Affero General Public License v3.0", listOf(

@@ -67,7 +67,7 @@ private val TrackHeight = 38.dp
 /**
  * 本地移植的 GlassSegmentedTabRow 可滚动轨道。
  *
- * 外观按 miuix 0.9.5-beta04 的 `GlassSegmentedTabRowDefaults`：
+ * 外观按 miuix 0.9.5-rc01 的 `GlassSegmentedTabRowDefaults`：
  * 一条连续悬浮胶囊轨道 + 内缩 [GlassSegmentedTabRowDefaults.TrackPadding] 的指示器，
  * 不再给每个标签画单独的 `squircleBorder`。
  *

@@ -67,7 +67,7 @@ Gradle 通过 `RELEASE_KEYSTORE_PATH`、`RELEASE_STORE_PASSWORD`、`RELEASE_KEY_
 ## 依赖
 
 - Kotlin 2.4.21 / Compose Multiplatform 1.13.0-rc01 / AGP 9.5.1
-- Miuix 0.9.5-beta04（ui、glass、preference、icons、glass-icons）
+- Miuix 0.9.5-rc01（ui、glass、preference、icons、glass-icons）
 - COUI 2.1.0（coui-ui / coui-preference / coui-icons）
 - 界面模糊/玻璃管线参考 c001apk（AGPL-3.0）与 BoxProxy（GPL-3.0），来源与许可见 `app/src/main/assets/THIRD_PARTY_NOTICES.md`
 - AndroidX Activity Compose 1.13.0、Lifecycle ViewModel Compose 2.11.0、DataStore Preferences 1.3.0、Graphics Path 1.1.0

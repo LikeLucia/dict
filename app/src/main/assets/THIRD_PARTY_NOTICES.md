@@ -5,7 +5,7 @@
 
 ## 应用依赖与处理引擎
 - Compose 与 AndroidX 依赖（Compose Activity、Core KTX、Lifecycle、DataStore、Graphics Path）：Apache License 2.0。Graphics Path 使用的本地原生库包含 16 KB RELRO 对齐补丁。
-- Miuix 0.9.5-beta04：Apache License 2.0。
+- Miuix 0.9.5-rc01：Apache License 2.0。
 - COUI 2.1.0（coui-ui / coui-preference / coui-icons）：Apache License 2.0。
 - QuickJS（2021-03-27）：QuickJS 引擎采用 MIT 许可证；app.cash/quickjs-java 包装采用 Apache License 2.0。本应用使用基于 0.9.2 包装重新编译、用于 16 KB 页面兼容的本地 AAR。
 - pinyin-pro 3.27.0：MIT 许可证，Copyright (c) 2022-present zh-lx。
