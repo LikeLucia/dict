@@ -66,7 +66,7 @@ import kirakira.dokidoki.ui.components.DictTopBar
 import kirakira.dokidoki.ui.components.DropdownAnchor
 import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.DictScaffoldPage
-import kirakira.dokidoki.ui.components.FilterTrack
+import kirakira.dokidoki.ui.components.GlassScrollableSegmentedTabRow
 import kirakira.dokidoki.ui.components.StatusBadge
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.theme.DictTheme
@@ -387,14 +387,14 @@ private val LIBRARY_FILTERS = listOf(
     LibraryFilter("多音字") { it.polyphonicHandled },
 )
 
-/** 分类标签轨道：自绘指示器，保留 miuix 指示器的按压动画。 */
+/** 分类标签轨道：本地移植的 GlassSegmentedTabRow，自绘指示器并保留 miuix 按压动画。 */
 @Composable
 private fun FilterChips(
     labels: List<String>,
     selected: Int,
     onSelect: (Int) -> Unit,
 ) {
-    FilterTrack(
+    GlassScrollableSegmentedTabRow(
         labels = labels,
         selectedIndex = selected,
         onSelected = onSelect,

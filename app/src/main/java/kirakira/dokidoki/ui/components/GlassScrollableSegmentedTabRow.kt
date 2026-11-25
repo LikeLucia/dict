@@ -56,11 +56,11 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/** 词库页分类轨道的高度：沿用本页原来的 38dp，换材质不改版面。 */
+/** 轨道高度：沿用 main 原轨道的 38dp，换材质不改版面。 */
 private val TrackHeight = 38.dp
 
 /**
- * 词库页分类标签轨道。
+ * 本地移植的 GlassSegmentedTabRow 可滚动轨道。
  *
  * 外观按 miuix 0.9.5-beta04 的 `GlassSegmentedTabRowDefaults`：
  * 一条连续悬浮胶囊轨道 + 内缩 [GlassSegmentedTabRowDefaults.TrackPadding] 的指示器，
@@ -71,7 +71,7 @@ private val TrackHeight = 38.dp
  * 形成 beta04 的拉伸回弹；滚动时指示器跟着内容移动。
  */
 @Composable
-fun FilterTrack(
+fun GlassScrollableSegmentedTabRow(
     labels: List<String>,
     selectedIndex: Int,
     onSelected: (Int) -> Unit,
