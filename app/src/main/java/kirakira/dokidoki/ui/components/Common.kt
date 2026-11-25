@@ -240,7 +240,7 @@ fun FixedTopScrollPage(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     content()
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(15.dp))
                 }
             }
         }
