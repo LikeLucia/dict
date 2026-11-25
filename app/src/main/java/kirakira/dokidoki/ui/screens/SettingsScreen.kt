@@ -400,7 +400,7 @@ internal fun RadioRow(
                 Text(
                     title,
                     fontSize = 16.sp,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                    fontWeight = FontWeight.Normal,
                     color = p.text,
                 )
             }
