@@ -200,26 +200,26 @@ fun AmbiguityDetailScreen(
                 badge = group.entryCount.toString() + " 行",
                 searchActive = searchVisible,
                 onSearchClick = { toggleSearch() },
-                actionSize = 40.dp,
-                actionIconSize = 22.dp,
+                bottomContent = {
+                    AnimatedVisibility(
+                        visible = replaceMode,
+                        enter = fadeIn(tween(120)) + expandVertically(tween(170)),
+                        exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
+                    ) {
+                        ReplaceModeBar(onExit = { replaceMode = false })
+                    }
+                    AnimatedVisibility(
+                        visible = searchVisible,
+                        enter = fadeIn(tween(120)) + expandVertically(tween(170)),
+                        exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
+                    ) {
+                        Column {
+                            Spacer(Modifier.height(16.dp))
+                            SearchField(query, { query = it }, focusRequester)
+                        }
+                    }
+                },
             )
-            AnimatedVisibility(
-                visible = replaceMode,
-                enter = fadeIn(tween(120)) + expandVertically(tween(170)),
-                exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
-            ) {
-                ReplaceModeBar(onExit = { replaceMode = false })
-            }
-            AnimatedVisibility(
-                visible = searchVisible,
-                enter = fadeIn(tween(120)) + expandVertically(tween(170)),
-                exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
-            ) {
-                Column {
-                    Spacer(Modifier.height(16.dp))
-                    SearchField(query, { query = it }, focusRequester)
-                }
-            }
         },
     ) {
         // 必须在 FixedTopPage 的 content 内读取：ScrollBehavior 由 FixedTopPage 内部的
