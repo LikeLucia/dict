@@ -314,10 +314,9 @@ fun AmbiguityDetailScreen(
                                 replaceMode = replaceMode,
                                 onLongPress = { replaceMode = true },
                                 onReplaceReading = onReplaceReading,
-                                modifier = Modifier.padding(
-                                    horizontal = 24.dp,
-                                    top = if (index == 0) 8.dp else 0.dp,
-                                ),
+                                modifier = Modifier
+                                    .padding(horizontal = 24.dp)
+                                    .padding(top = if (index == 0) 8.dp else 0.dp),
                             )
                         }
                         if (pageIndex > 0 || nextOffset != null) {
