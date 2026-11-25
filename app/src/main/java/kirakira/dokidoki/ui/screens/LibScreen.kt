@@ -119,6 +119,7 @@ fun LibScreen(
     val p = DictTheme.palette
     val selectionMenuAnchor = rememberGlassPopupAnchor()
     var selectionMenuOpen by remember { mutableStateOf(false) }
+    var pendingSelectionExit by remember { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var selectedFilter by rememberSaveable { mutableIntStateOf(0) }
     // 标签 = 全部 + 文件格式 + 处理标记；统一在一行里横向滑动。
@@ -168,6 +169,15 @@ fun LibScreen(
             keyboard?.hide()
         } else {
             selectionMenuOpen = false
+        }
+    }
+    // 菜单弹层关闭时会从锚点收缩；先等退出动画走完再退出多选，
+    // 避免选择菜单按钮立刻消失导致锚点坐标被清空、弹层缩成异常的页面状残影。
+    LaunchedEffect(pendingSelectionExit) {
+        if (pendingSelectionExit) {
+            delay(520)
+            pendingSelectionExit = false
+            onClearSelection()
         }
     }
     val orderedFiles = remember(state.files, state.sortMode) {
@@ -225,7 +235,10 @@ fun LibScreen(
                 ),
                 DropdownItem(text = "导出", enabled = state.files.any { it.id in state.selectedFileIds && it.hasOutput }, onClick = onBatchExport),
                 DropdownItem(text = "删除", enabled = state.selectedFileIds.isNotEmpty(), onClick = onDeleteSelection),
-                DropdownItem(text = "取消", onClick = onClearSelection),
+                DropdownItem(text = "取消", onClick = {
+                    selectionMenuOpen = false
+                    pendingSelectionExit = true
+                }),
             ),
         ),
     )
