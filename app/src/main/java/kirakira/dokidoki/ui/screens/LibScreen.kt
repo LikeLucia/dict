@@ -283,6 +283,7 @@ fun LibScreen(
                     )
                 }
             }
+            item(key = "bottom-gap") { Spacer(Modifier.height(12.dp)) }
         }
     }
 }

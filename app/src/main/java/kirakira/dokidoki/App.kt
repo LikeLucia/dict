@@ -272,7 +272,7 @@ fun DictApp(viewModel: MainViewModel) {
                                                 )
                                             },
                                         ) { padding ->
-                                        val bottomPadding = padding.calculateBottomPadding() + 12.dp
+                                        val bottomPadding = padding.calculateBottomPadding()
                                         MiuixTabHost(selectedTab = state.selectedTab) { tab, isActive ->
                                             FullScreenContentPage {
                                                 when (tab) {
