@@ -223,9 +223,7 @@ fun AmbiguityDetailScreen(
         val topBarScrollBehavior = LocalDictTopBarScrollBehavior.current
         Column(Modifier.weight(1f).fillMaxWidth()) {
             Box(
-                Modifier.weight(1f).fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(bottom = 24.dp),
+                Modifier.weight(1f).fillMaxWidth(),
             ) {
                 LazyColumn(
                     state = listState,
