@@ -278,12 +278,15 @@ fun DictApp(viewModel: MainViewModel) {
                                         Scaffold(
                                             modifier = Modifier.fillMaxSize(),
                                             bottomBar = {
-                                                BottomArea(
-                                                    state = state,
-                                                    onSelectTab = viewModel::selectTab,
-                                                    onStart = viewModel::startProcessing,
-                                                    onCancel = viewModel::cancelProcessing,
-                                                )
+                                                // 词库页长按进入多选后隐藏整条底栏，把空间让给文件列表。
+                                                if (state.selectedTab != 1 || !state.selectionMode) {
+                                                    BottomArea(
+                                                        state = state,
+                                                        onSelectTab = viewModel::selectTab,
+                                                        onStart = viewModel::startProcessing,
+                                                        onCancel = viewModel::cancelProcessing,
+                                                    )
+                                                }
                                             },
                                         ) { padding ->
                                         val bottomPadding = padding.calculateBottomPadding()
@@ -310,6 +313,7 @@ fun DictApp(viewModel: MainViewModel) {
                                                             if (state.selectedFileIds.isNotEmpty()) showDeleteConfirm = true
                                                         },
                                                         onClearSelection = viewModel::clearSelection,
+                                                        onClearFileSelection = viewModel::clearFileSelection,
                                                         onFocusHandled = viewModel::clearLibraryFocus,
                                                         onSortDescending = viewModel::setSortDescending,
                                                         onOpenSortMenu = { anchor ->

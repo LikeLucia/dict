@@ -109,6 +109,7 @@ fun LibScreen(
     onBatchExport: () -> Unit,
     onDeleteSelection: () -> Unit,
     onClearSelection: () -> Unit,
+    onClearFileSelection: () -> Unit,
     onFocusHandled: () -> Unit,
     onSortDescending: (Boolean) -> Unit,
     onOpenSortMenu: (Rect) -> Unit,
@@ -212,10 +213,16 @@ fun LibScreen(
         delay(1600)
         if (highlightedId == focusId) highlightedId = null
     }
+    val selectableIds = state.files.mapNotNull { it.id }
+    val allSelected = selectableIds.isNotEmpty() && state.selectedFileIds.containsAll(selectableIds)
     val selectionMenuEntries = listOf(
         DropdownEntry(
             items = listOf(
-                DropdownItem(text = "全选", enabled = state.files.isNotEmpty(), onClick = onSelectAll),
+                DropdownItem(
+                    text = if (allSelected) "取消全选" else "全选",
+                    enabled = state.files.isNotEmpty(),
+                    onClick = if (allSelected) onClearFileSelection else onSelectAll,
+                ),
                 DropdownItem(text = "导出", enabled = state.files.any { it.id in state.selectedFileIds && it.hasOutput }, onClick = onBatchExport),
                 DropdownItem(text = "删除", enabled = state.selectedFileIds.isNotEmpty(), onClick = onDeleteSelection),
                 DropdownItem(text = "取消", onClick = onClearSelection),
@@ -458,7 +465,7 @@ private fun FilterChips(
     )
 }
 
-/** 多选模式右上角菜单：全选、导出、删除、取消。 */
+/** 多选模式右上角菜单：全选/取消全选、导出、删除、取消。 */
 @Composable
 private fun SelectionMenuButton(
     anchor: GlassPopupAnchor,

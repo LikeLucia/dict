@@ -1026,6 +1026,11 @@ class MainViewModel(
 
     fun clearSelection() = _state.update { it.copy(selectionMode = false, selectedFileIds = emptySet()) }
 
+    /** 取消多选中的全部文件，但保留多选状态。 */
+    fun clearFileSelection() = _state.update { current ->
+        if (!current.selectionMode) current else current.copy(selectedFileIds = emptySet())
+    }
+
     private fun collectDetailArtifacts(result: ProcessResult?, target: MutableList<File>) {
         result?.ambiguousFiles?.forEach { summary ->
             target.add(File(summary.dataPath))
