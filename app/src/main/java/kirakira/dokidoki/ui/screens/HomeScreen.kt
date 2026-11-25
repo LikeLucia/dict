@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kirakira.dokidoki.data.DictFile
@@ -68,9 +69,10 @@ fun HomeScreen(
     onImport: () -> Unit,
     onOpenFile: (String) -> Unit,
     modifier: Modifier = Modifier,
+    bottomPadding: Dp = 190.dp,
 ) {
     var showAllQueue by rememberSaveable { mutableStateOf(false) }
-    FixedTopScrollPage(modifier = modifier, bottomPadding = 190.dp, topBar = { HomeHeader() }) {
+    FixedTopScrollPage(modifier = modifier, bottomPadding = bottomPadding, topBar = { HomeHeader() }) {
         Spacer(Modifier.height(12.dp))
         HomeStats(state)
         Spacer(Modifier.height(14.dp))

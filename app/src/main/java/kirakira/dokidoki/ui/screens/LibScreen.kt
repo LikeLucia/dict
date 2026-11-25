@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.unit.sp
@@ -103,6 +104,7 @@ fun LibScreen(
     onSortDescending: (Boolean) -> Unit,
     onOpenSortMenu: (Rect) -> Unit,
     modifier: Modifier = Modifier,
+    bottomPadding: Dp = 190.dp,
 ) {
     val p = DictTheme.palette
     var query by rememberSaveable { mutableStateOf("") }
@@ -245,7 +247,7 @@ fun LibScreen(
             // 正文延伸到顶栏下方：顶栏高度用内容内边距让开，滚动内容仍从玻璃下面经过。
             contentPadding = PaddingValues(
                 top = padding.calculateTopPadding(),
-                bottom = 190.dp,
+                bottom = bottomPadding,
             ),
         ) {
             item(key = "controls") {

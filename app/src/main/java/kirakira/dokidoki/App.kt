@@ -82,6 +82,7 @@ import kirakira.dokidoki.ui.screens.ReportScreen
 import kirakira.dokidoki.ui.screens.SettingsMenu
 import kirakira.dokidoki.ui.screens.SettingsScreen
 import kirakira.dokidoki.ui.theme.DictTheme
+import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.utils.springAnimateToPage
 import kotlin.math.PI
@@ -257,6 +258,21 @@ fun DictApp(viewModel: MainViewModel) {
                                         dismissImmediately = state.selectedTab != 3,
                                         base = {
                                         Box(Modifier.fillMaxSize()) {
+                                        Scaffold(
+                                            modifier = Modifier.fillMaxSize(),
+                                            bottomBar = {
+                                                BottomArea(
+                                                    state = state,
+                                                    onSelectTab = viewModel::selectTab,
+                                                    onStart = viewModel::startProcessing,
+                                                    onCancel = viewModel::cancelProcessing,
+                                                    onBatchExport = doBatchExport,
+                                                    onDelete = { if (state.selectedFileIds.isNotEmpty()) showDeleteConfirm = true },
+                                                    onClearSelection = viewModel::clearSelection,
+                                                )
+                                            },
+                                        ) { padding ->
+                                        val bottomPadding = padding.calculateBottomPadding()
                                         MiuixTabHost(selectedTab = state.selectedTab) { tab, isActive ->
                                             FullScreenContentPage {
                                                 when (tab) {
@@ -266,6 +282,7 @@ fun DictApp(viewModel: MainViewModel) {
                                                         onStart = { viewModel.startProcessing() },
                                                         onImport = { openLauncher.launch(arrayOf("*/*")) },
                                                         onOpenFile = viewModel::openLibraryFile,
+                                                        bottomPadding = bottomPadding,
                                                     )
 
                                                     1 -> LibScreen(
@@ -291,6 +308,7 @@ fun DictApp(viewModel: MainViewModel) {
                                                                 key = "SORT",
                                                             )
                                                         },
+                                                        bottomPadding = bottomPadding,
                                                     )
 
                                                     2 -> ReportScreen(
@@ -312,6 +330,7 @@ fun DictApp(viewModel: MainViewModel) {
                                                                 key = "REPORT_SORT",
                                                             )
                                                         },
+                                                        bottomPadding = bottomPadding,
                                                     )
 
                                                     else -> SettingsScreen(
@@ -350,20 +369,12 @@ fun DictApp(viewModel: MainViewModel) {
                                                         },
                                                         onAbout = { aboutOpen = true },
                                                         onOpenThemeSettings = { themeSettingsOpen = true },
+                                                        bottomPadding = bottomPadding,
                                                     )
                                                 }
                                             }
                                         }
-
-                                        BottomArea(
-                                            state = state,
-                                            onSelectTab = viewModel::selectTab,
-                                            onStart = viewModel::startProcessing,
-                                            onCancel = viewModel::cancelProcessing,
-                                            onBatchExport = doBatchExport,
-                                            onDelete = { if (state.selectedFileIds.isNotEmpty()) showDeleteConfirm = true },
-                                            onClearSelection = viewModel::clearSelection,
-                                        )
+                                        }
                                         }
                                         },
                                         detail = {
@@ -693,11 +704,8 @@ private fun BottomArea(
     onClearSelection: () -> Unit,
 ) {
     val p = DictTheme.palette
-    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val gapBelowNav = if (navBottom > 12.dp) navBottom + 10.dp else 26.dp
     Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Bottom,
+        modifier = Modifier.fillMaxWidth(),
     ) {
         if (state.selectedTab == 0) {
             // 仅排队处理时显示取消按钮，高度与悬浮底栏一致（54dp）。
@@ -747,7 +755,6 @@ private fun BottomArea(
             }
         }
         DictBottomBar(selectedIndex = state.selectedTab, onSelect = onSelectTab)
-        Spacer(Modifier.height(gapBelowNav))
     }
 }
 

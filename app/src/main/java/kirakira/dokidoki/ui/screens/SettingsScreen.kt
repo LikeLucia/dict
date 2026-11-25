@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -71,6 +72,7 @@ fun SettingsScreen(
     onAbout: () -> Unit,
     onOpenThemeSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    bottomPadding: Dp = 150.dp,
 ) {
     val p = DictTheme.palette
     val auxAnchor = remember { DropdownAnchor() }
@@ -81,7 +83,7 @@ fun SettingsScreen(
     var columnsDialog by remember { mutableStateOf(false) }
     var weightDialog by remember { mutableStateOf(false) }
 
-    FixedTopScrollPage(modifier = modifier, topBar = { DictTopBar("处理设置") }) {
+    FixedTopScrollPage(modifier = modifier, bottomPadding = bottomPadding, topBar = { DictTopBar("处理设置") }) {
         Spacer(Modifier.height(16.dp))
 
         // 「主题设置」入口：右侧不显示当前值，点击进入二级页。

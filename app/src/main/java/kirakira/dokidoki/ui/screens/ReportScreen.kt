@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kirakira.dokidoki.data.AmbiguousFileGroup
@@ -75,8 +76,9 @@ fun ReportScreen(
     onOpenFile: (AmbiguousFileGroup) -> Unit,
     onOpenSortMenu: (Rect) -> Unit,
     modifier: Modifier = Modifier,
+    bottomPadding: Dp = 150.dp,
 ) {
-    FixedTopScrollPage(modifier = modifier, topBar = { DictTopBar("处理报告") }) {
+    FixedTopScrollPage(modifier = modifier, bottomPadding = bottomPadding, topBar = { DictTopBar("处理报告") }) {
         SmallTitle("统计", modifier = Modifier.padding(start = 4.dp))
         StatsGrid(result)
         SmallTitle("报告详情", modifier = Modifier.padding(start = 4.dp))

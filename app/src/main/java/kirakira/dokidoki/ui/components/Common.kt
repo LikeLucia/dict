@@ -58,9 +58,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.popupClipReveal
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
-import top.yukonga.miuix.kmp.glass.GlassNavigationBarDefaults
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
-import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.basic.Check
@@ -547,7 +545,6 @@ fun StatusBadge(text: String, highlighted: Boolean, modifier: Modifier = Modifie
 
 @Composable
 fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
-    val p = DictTheme.palette
     val items = remember {
         listOf(
             GlassNavigationItem(MiuixIcons.Glass.HomeOutline, "首页"),
@@ -556,56 +553,17 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
             GlassNavigationItem(MiuixIcons.Glass.SettingsOutline, "设置"),
         )
     }
-    val barHeight = 54.dp
-    val shape = RoundedCornerShape(barHeight / 2)
-    // 只取底栏的视口级层：页面级层的纹理边界会随 pager 平移，作为回退会在切换页时扫出竖线。
-    val backdrop = LocalBottomBarBackdrop.current?.rawBackdrop
-    Box(
+    // 按 Mishka 的 Glass 底栏参数：只传采样层和 24dp 横向留白，
+    // 高度、底部 inset、选中指示器等全部交给 GlassNavigationBar 默认逻辑，不自行绘制。
+    GlassNavigationBar(
+        items = items,
+        selectedIndex = selectedIndex,
+        onSelect = onSelect,
+        backdrop = LocalBottomBarBackdrop.current?.rawBackdrop,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 28.dp)
-            .height(barHeight),
-        contentAlignment = Alignment.Center,
-    ) {
-        // 玻璃被系统重建/切换页面时先垫一层很淡的底色，避免某一帧采样层为空导致整条底栏闪白。
-        if (backdrop != null) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clip(shape)
-                    .background(p.card.copy(alpha = 0.28f)),
-            )
-        }
-        // 统一使用 miuix 0.9.5-beta04 的 GlassNavigationBar：
-        // 有采样层时走 OS4 玻璃；无采样层（关闭模糊/低版本）时用 surfaceContainer 纯色回退，
-        // 但仍保留悬浮投影和选中胶囊的 edgeSpring 回弹。
-        GlassNavigationBar(
-            items = items,
-            selectedIndex = selectedIndex,
-            onSelect = onSelect,
-            backdrop = backdrop,
-            material = GlassNavigationBarDefaults.material().copy(blurRadius = 60.dp),
-            stroke = GlassNavigationBarDefaults.stroke(),
-            shadow = GlassShadows.Float,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(barHeight),
-            defaultWindowInsetsPadding = false,
-            height = barHeight,
-            selectedColor = p.text,
-            unselectedColor = p.text,
-            indicatorColor = if (p.isDark) {
-                Color.White.copy(alpha = 0.12f)
-            } else {
-                Color.Black.copy(alpha = 0.10f)
-            },
-            indicatorPressedColor = if (p.isDark) {
-                Color.White.copy(alpha = 0.18f)
-            } else {
-                Color.Black.copy(alpha = 0.16f)
-            },
-        )
-    }
+            .padding(horizontal = 24.dp),
+    )
 }
 
 /** Keep live layout coordinates; compute clipped root bounds only when opening the menu. */
