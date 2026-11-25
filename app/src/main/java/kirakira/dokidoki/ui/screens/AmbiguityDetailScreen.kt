@@ -388,7 +388,8 @@ fun AmbiguityDetailScreen(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         // 贴右侧、位于分页行上方；按反馈累计左移 30dp、下移 10dp。
-                        .padding(end = 38.dp, bottom = 62.dp),
+                        // 额外 6dp 是 FAB 阴影绘制边距，抵消后保持圆形按钮的视觉位置不变。
+                        .padding(end = 32.dp, bottom = 56.dp),
                 )
             }
         }
@@ -466,21 +467,27 @@ private fun DetailJumpButtons(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         AnimatedVisibility(
             visible = notAtTop,
             enter = fadeIn(tween(120)),
             exit = fadeOut(tween(90)),
         ) {
-            JumpButton("回到顶部", -90f, iconSize, p.text2, p.card, onJumpTop)
+            // AnimatedVisibility 的淡入淡出会生成临时 alpha 图层；给 FAB 外包 6dp 透明边距，
+            // 让 4dp 阴影在 alpha 图层内有足够绘制空间，避免过渡时被裁成方形。
+            Box(Modifier.padding(6.dp)) {
+                JumpButton("回到顶部", -90f, iconSize, p.text2, p.card, onJumpTop)
+            }
         }
         AnimatedVisibility(
             visible = notAtBottom,
             enter = fadeIn(tween(120)),
             exit = fadeOut(tween(90)),
         ) {
-            JumpButton("翻到底部", 90f, iconSize, p.text2, p.card, onJumpBottom)
+            Box(Modifier.padding(6.dp)) {
+                JumpButton("翻到底部", 90f, iconSize, p.text2, p.card, onJumpBottom)
+            }
         }
     }
 }
