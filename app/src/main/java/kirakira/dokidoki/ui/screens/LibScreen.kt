@@ -208,8 +208,6 @@ fun LibScreen(
                 searchActive = searchVisible,
                 onSearchClick = if (state.selectionMode) null else ({ toggleSearch() }),
                 onSelectAll = if (state.selectionMode) onSelectAll else null,
-                actionSize = 40.dp,
-                actionIconSize = 22.dp,
                 // 搜索框与分类标签同处顶栏的 bottomContent 槽位：
                 // 展开搜索时搜索框紧贴标题下方，分类标签顺延到它下面，两者位置互换。
                 bottomContent = {

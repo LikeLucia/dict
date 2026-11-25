@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Rect
@@ -49,22 +48,22 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.PopupLayoutPosition
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.popupClipReveal
+import top.yukonga.miuix.kmp.glass.GlassIconButton
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.icon.basic.Search
 import kirakira.dokidoki.ui.theme.DictTheme
 import top.yukonga.miuix.kmp.icon.glass.BookOutline
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.icon.glass.DigitalStatistics
 import top.yukonga.miuix.kmp.icon.glass.HomeOutline
 import top.yukonga.miuix.kmp.icon.glass.Report
@@ -255,53 +254,36 @@ internal val LocalDictTopBarScrollBehavior = staticCompositionLocalOf<ScrollBeha
 fun DictTopBar(
     title: String,
     modifier: Modifier = Modifier,
+    subtitle: String = "",
     onBack: (() -> Unit)? = null,
     badge: String? = null,
     searchActive: Boolean = false,
     onSearchClick: (() -> Unit)? = null,
     onSelectAll: (() -> Unit)? = null,
-    actionSize: Dp = 48.dp,
+    actionSize: Dp = 44.dp,
     actionIconSize: Dp = 28.dp,
     trailingActionOffsetY: Dp = 0.dp,
     /** 标题栏下方的固定内容（如分类标签）：随顶栏一起固定，不参与正文滚动。 */
     bottomContent: @Composable () -> Unit = {},
 ) {
     val p = DictTheme.palette
-    // 顶栏玻璃：与 c001apk 的 MiuixScaffold 同一思路——判空决定材质。
-    // 有 backdrop 时顶栏底色透明，背后垫一层模糊；否则保持原来的纯色 p.bg。
-    val backdrop = LocalBarBackdrop.current
-    val barSurface: Modifier = if (backdrop == null) Modifier else Modifier.progressiveBarBlur(backdrop)
-    Box(Modifier.fillMaxWidth()) {
-        // 模糊层铺满顶栏（含 bottomContent 的分类轨道区域），
-        // 它只在 backdrop 非空时生效，其余情况是空 Modifier。
-        Box(Modifier.matchParentSize().then(barSurface))
-    TopAppBar(
+    val backdrop = LocalBarBackdrop.current?.rawBackdrop
+    // 与 Mishka 的 AdaptiveTopAppBar/GlassTopAppBar 一致：顶栏材质、渐变带和滚动
+    // 状态全部由 GlassTopAppBar 处理，这里只组织标题、操作和页面 bottomContent。
+    GlassTopAppBar(
         title = title,
+        subtitle = subtitle,
         modifier = modifier.fillMaxWidth(),
-        // 有玻璃时用透明底，让下面的模糊层透出来。
-        color = if (backdrop != null) Color.Transparent else p.bg,
-        titleColor = p.text,
-        largeTitleColor = p.text,
-        defaultWindowInsetsPadding = false,
-        titlePadding = 24.dp,
-        navigationIconPadding = 24.dp,
-        actionIconPadding = 16.dp,
-        bottomContent = bottomContent,
+        progressiveBlur = backdrop != null,
+        backdrop = backdrop,
         scrollBehavior = LocalDictTopBarScrollBehavior.current,
         navigationIcon = {
             if (onBack != null) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.size(actionSize),
-                    backgroundColor = p.card,
-                    cornerRadius = actionSize / 2,
-                    minHeight = actionSize,
-                    minWidth = actionSize,
-                ) {
+                GlassIconButton(onClick = onBack, size = actionSize) {
                     Icon(
-                        MiuixIcons.Basic.ArrowRight,
+                        MiuixIcons.Glass.ChevronBackward,
                         contentDescription = "返回",
-                        modifier = Modifier.size(actionIconSize).rotate(180f),
+                        modifier = Modifier.size(actionIconSize),
                         tint = p.text,
                     )
                 }
@@ -333,13 +315,10 @@ fun DictTopBar(
                     }
                 }
                 if (onSearchClick != null) {
-                    IconButton(
+                    GlassIconButton(
                         onClick = onSearchClick,
-                        modifier = Modifier.offset(y = trailingActionOffsetY).size(actionSize),
-                        backgroundColor = if (searchActive) p.tint else p.card,
-                        cornerRadius = actionSize / 2,
-                        minHeight = actionSize,
-                        minWidth = actionSize,
+                        modifier = Modifier.offset(y = trailingActionOffsetY),
+                        size = actionSize,
                     ) {
                         Icon(
                             MiuixIcons.Basic.Search,
@@ -384,8 +363,8 @@ fun DictTopBar(
                 }
             }
         },
+        bottomContent = bottomContent,
     )
-    }
 }
 
 @Composable

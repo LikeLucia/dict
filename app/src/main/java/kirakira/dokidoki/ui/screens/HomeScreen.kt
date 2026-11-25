@@ -36,10 +36,8 @@ import kirakira.dokidoki.data.ProcessMode
 import kirakira.dokidoki.data.ProcessResult
 import kirakira.dokidoki.data.QueueFile
 import kirakira.dokidoki.ui.components.DictCard
+import kirakira.dokidoki.ui.components.DictTopBar
 import kirakira.dokidoki.ui.components.FixedTopScrollPage
-import kirakira.dokidoki.ui.components.LocalDictTopBarScrollBehavior
-import kirakira.dokidoki.ui.components.LocalBarBackdrop
-import kirakira.dokidoki.ui.components.progressiveBarBlur
 import kirakira.dokidoki.ui.components.SectionHeader
 import kirakira.dokidoki.ui.components.SegmentSlider
 import kirakira.dokidoki.ui.components.StatusBadge
@@ -49,7 +47,6 @@ import kirakira.dokidoki.ui.theme.DictTheme
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
@@ -122,25 +119,10 @@ fun HomeScreen(
 
 @Composable
 private fun HomeHeader() {
-    val p = DictTheme.palette
-    val backdrop = LocalBarBackdrop.current
-    val barSurface = if (backdrop == null) Modifier else Modifier.progressiveBarBlur(backdrop)
-    Box(Modifier.fillMaxWidth()) {
-        Box(Modifier.matchParentSize().then(barSurface))
-        TopAppBar(
-            title = "kirakira",
-            subtitle = "词库离线处理",
-            modifier = Modifier.fillMaxWidth(),
-            color = if (backdrop != null) Color.Transparent else p.bg,
-            titleColor = p.text,
-            largeTitleColor = p.text,
-            subtitleColor = p.text2,
-            defaultWindowInsetsPadding = false,
-            titlePadding = 24.dp,
-            actionIconPadding = 24.dp,
-            scrollBehavior = LocalDictTopBarScrollBehavior.current,
-        )
-    }
+    DictTopBar(
+        title = "kirakira",
+        subtitle = "词库离线处理",
+    )
 }
 
 @Composable
