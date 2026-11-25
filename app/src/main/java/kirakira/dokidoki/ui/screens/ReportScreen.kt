@@ -188,7 +188,7 @@ private fun PolyphonicCard(
     LaunchedEffect(searchVisible) {
         if (searchVisible) {
             // 等卡片内搜索行展开后再请求焦点，确保输入法自动弹出。
-            delay(170)
+            delay(155)
             searchFocusRequester.requestFocus()
             keyboard?.show()
         }

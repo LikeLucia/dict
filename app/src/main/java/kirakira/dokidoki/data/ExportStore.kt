@@ -56,7 +56,9 @@ class ExportStore(private val context: Context) {
     ): ExportWriteResult {
         val name = ExportNaming.safeName(payload.name)
         val safePayload = if (name == payload.name) payload else payload.copy(name = name)
-        return if (directoryUri != null) {
+        return if (safePayload.extract) {
+            saveExtracted(safePayload, directoryUri, directoryName, conflictMode)
+        } else if (directoryUri != null) {
             saveToTree(Uri.parse(directoryUri), safePayload, directoryName, conflictMode)
         } else {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
@@ -71,6 +73,7 @@ class ExportStore(private val context: Context) {
      * caller never has to build a potentially huge archive on the UI thread.
      */
     fun writePayload(payload: ExportPayload, output: OutputStream) {
+        if (payload.extract) error("解压导出需要选择保存目录")
         if (payload.entries.size == 1) {
             FileInputStream(payload.entries[0].file).use { input ->
                 input.copyTo(output, 64 * 1024)
@@ -102,6 +105,34 @@ class ExportStore(private val context: Context) {
         } finally {
             runCatching { zip.close() }
         }
+    }
+
+    private fun saveExtracted(
+        payload: ExportPayload,
+        directoryUri: String?,
+        directoryName: String,
+        conflictMode: ExportConflictMode,
+    ): ExportWriteResult {
+        val results = payload.entries.map { entry ->
+            save(
+                payload.copy(
+                    name = entry.name,
+                    entries = listOf(entry),
+                    fileId = null,
+                    extract = false,
+                ),
+                directoryUri,
+                directoryName,
+                conflictMode,
+            )
+        }
+        if (results.size == 1) return results.first()
+        val warnings = results.mapNotNull { it.cleanupWarning }
+        return ExportWriteResult(
+            fileName = "${results.size} 个文件",
+            locationLabel = results.firstOrNull()?.locationLabel ?: directoryName.ifBlank { "Download" },
+            cleanupWarning = warnings.takeIf { it.isNotEmpty() }?.joinToString("；"),
+        )
     }
 
     private fun saveToTree(

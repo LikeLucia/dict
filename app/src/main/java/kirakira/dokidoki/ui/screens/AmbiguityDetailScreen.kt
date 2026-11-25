@@ -496,8 +496,10 @@ private fun JumpButton(
 ) {
     FloatingActionButton(
         onClick = onClick,
+        minWidth = 44.dp,
+        minHeight = 44.dp,
         containerColor = containerColor,
-        shadowElevation = 4.dp,
+        shadowElevation = 0.dp,
     ) {
         Icon(
             MiuixIcons.Basic.ArrowRight,
