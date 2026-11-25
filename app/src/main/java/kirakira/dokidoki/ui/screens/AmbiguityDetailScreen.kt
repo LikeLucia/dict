@@ -69,6 +69,7 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
@@ -227,7 +228,10 @@ fun AmbiguityDetailScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize().clipToBounds(),
-                    contentPadding = PaddingValues(top = contentPadding.calculateTopPadding()),
+                    contentPadding = PaddingValues(
+                        top = contentPadding.calculateTopPadding(),
+                        bottom = 24.dp,
+                    ),
                     overscrollEffect = null,
                 ) {
                     item(key = "top-spacing", contentType = "top-spacing") {
@@ -246,58 +250,62 @@ fun AmbiguityDetailScreen(
                         }
                     } else {
                         item(key = "file:${group.fileId}", contentType = "file-header") {
-                            Card(
+                            Surface(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                                cornerRadius = 16.dp,
-                                insideMargin = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                                colors = CardDefaults.defaultColors(
-                                    color = MiuixTheme.colorScheme.surfaceContainer,
-                                    contentColor = MiuixTheme.colorScheme.onSurfaceContainer,
-                                ),
+                                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
+                                color = MiuixTheme.colorScheme.surfaceContainer,
+                                contentColor = MiuixTheme.colorScheme.onSurfaceContainer,
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Card(
-                                        modifier = Modifier.size(30.dp),
-                                        cornerRadius = 9.dp,
-                                        insideMargin = PaddingValues(0.dp),
-                                        colors = CardDefaults.defaultColors(
-                                            color = MiuixTheme.colorScheme.tertiaryContainer,
-                                            contentColor = MiuixTheme.colorScheme.onTertiaryContainer,
-                                        ),
+                                Column {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                            Icon(MiuixIcons.Glass.File, null, Modifier.size(16.dp), tint = MiuixTheme.colorScheme.onTertiaryContainer)
+                                        Card(
+                                            modifier = Modifier.size(30.dp),
+                                            cornerRadius = 9.dp,
+                                            insideMargin = PaddingValues(0.dp),
+                                            colors = CardDefaults.defaultColors(
+                                                color = MiuixTheme.colorScheme.tertiaryContainer,
+                                                contentColor = MiuixTheme.colorScheme.onTertiaryContainer,
+                                            ),
+                                        ) {
+                                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                Icon(MiuixIcons.Glass.File, null, Modifier.size(16.dp), tint = MiuixTheme.colorScheme.onTertiaryContainer)
+                                            }
+                                        }
+                                        Spacer(Modifier.width(10.dp))
+                                        Text(
+                                            text = group.fileName,
+                                            modifier = Modifier.weight(1f),
+                                            fontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MiuixTheme.colorScheme.onBackground,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(MiuixTheme.colorScheme.tertiaryContainer)
+                                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text(
+                                                text = group.entryCount.toString() + " 行",
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MiuixTheme.colorScheme.onTertiaryContainer,
+                                                maxLines = 1,
+                                            )
                                         }
                                     }
-                                    Spacer(Modifier.width(10.dp))
-                                    Text(
-                                        text = group.fileName,
-                                        modifier = Modifier.weight(1f),
-                                        fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MiuixTheme.colorScheme.onBackground,
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        thickness = 0.7.dp,
+                                        color = MiuixTheme.colorScheme.dividerLine,
                                     )
-                                    Spacer(Modifier.width(8.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MiuixTheme.colorScheme.tertiaryContainer)
-                                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Text(
-                                            text = group.entryCount.toString() + " 行",
-                                            fontSize = 11.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MiuixTheme.colorScheme.onTertiaryContainer,
-                                            maxLines = 1,
-                                        )
-                                    }
                                 }
                             }
                         }
@@ -309,14 +317,11 @@ fun AmbiguityDetailScreen(
                             DetailEntryRow(
                                 entry,
                                 showDivider = index != shown.lastIndex,
-                                first = index == 0,
                                 last = index == shown.lastIndex,
                                 replaceMode = replaceMode,
                                 onLongPress = { replaceMode = true },
                                 onReplaceReading = onReplaceReading,
-                                modifier = Modifier
-                                    .padding(horizontal = 24.dp)
-                                    .padding(top = if (index == 0) 8.dp else 0.dp),
+                                modifier = Modifier.padding(horizontal = 24.dp),
                             )
                         }
                         if (pageIndex > 0 || nextOffset != null) {
@@ -466,15 +471,15 @@ private fun DetailJumpButtons(
     ) {
         AnimatedVisibility(
             visible = notAtTop,
-            enter = fadeIn(tween(120)) + expandVertically(tween(170)),
-            exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
+            enter = fadeIn(tween(120)),
+            exit = fadeOut(tween(90)),
         ) {
             JumpButton("回到顶部", -90f, buttonSize, iconSize, p.card, p.text2, onJumpTop)
         }
         AnimatedVisibility(
             visible = notAtBottom,
-            enter = fadeIn(tween(120)) + expandVertically(tween(170)),
-            exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
+            enter = fadeIn(tween(120)),
+            exit = fadeOut(tween(90)),
         ) {
             JumpButton("翻到底部", 90f, buttonSize, iconSize, p.card, p.text2, onJumpBottom)
         }
@@ -512,7 +517,6 @@ private fun JumpButton(
 private fun DetailEntryRow(
     entry: AmbiguousEntry,
     showDivider: Boolean,
-    first: Boolean,
     last: Boolean,
     replaceMode: Boolean,
     onLongPress: () -> Unit,
@@ -524,10 +528,10 @@ private fun DetailEntryRow(
     val indication = rememberMiuixIndication()
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
-    val shape = remember(first, last) {
+    val shape = remember(last) {
         RoundedCornerShape(
-            topStart = if (first) 16.dp else 0.dp,
-            topEnd = if (first) 16.dp else 0.dp,
+            topStart = 0.dp,
+            topEnd = 0.dp,
             bottomStart = if (last) 16.dp else 0.dp,
             bottomEnd = if (last) 16.dp else 0.dp,
         )
