@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -194,22 +195,24 @@ fun AmbiguityDetailScreen(
                 searchActive = searchVisible,
                 onSearchClick = { toggleSearch() },
                 bottomContent = {
-                    AnimatedVisibility(
-                        visible = searchVisible,
-                        enter = fadeIn(tween(120)) + expandVertically(tween(170)),
-                        exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
-                    ) {
-                        Column {
-                            Spacer(Modifier.height(16.dp))
-                            SearchField(query, { query = it }, focusRequester)
+                    Column {
+                        AnimatedVisibility(
+                            visible = searchVisible,
+                            enter = fadeIn(tween(120)) + expandVertically(tween(170)),
+                            exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
+                        ) {
+                            Column {
+                                Spacer(Modifier.height(16.dp))
+                                SearchField(query, { query = it }, focusRequester)
+                            }
                         }
-                    }
-                    AnimatedVisibility(
-                        visible = replaceMode,
-                        enter = fadeIn(tween(120)) + expandVertically(tween(170)),
-                        exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
-                    ) {
-                        ReplaceModeBar(onExit = { replaceMode = false })
+                        AnimatedVisibility(
+                            visible = replaceMode,
+                            enter = fadeIn(tween(120)) + expandVertically(tween(170)),
+                            exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
+                        ) {
+                            ReplaceModeBar(onExit = { replaceMode = false })
+                        }
                     }
                 },
             )
@@ -362,11 +365,12 @@ fun AmbiguityDetailScreen(
                     notAtBottom = notAtBottom,
                     onJumpTop = {
                         scope.launch {
-                            // 滚动全程每帧把顶栏压到展开位：程序化滚动期间顶栏状态会被自身
-                            // 的测量与回弹改写，只在开始或结束时设一次都留不住。
-                            holdTopBar(topBarScrollBehavior?.state, collapse = false) {
+                            // 上滚期间保持顶栏折叠，避免标题跟着程序化滚动提前展开；
+                            // 滚到顶部（上箭头消失的位置）后再恢复展开标题。
+                            holdTopBar(topBarScrollBehavior?.state, collapse = true) {
                                 listState.animateScrollToItem(0)
                             }
+                            syncTopBar(topBarScrollBehavior?.state, collapse = false)
                         }
                     },
                     onJumpBottom = {
@@ -499,7 +503,10 @@ private fun JumpButton(
     tint: Color,
     onClick: () -> Unit,
 ) {
-    IconButton(onClick = onClick) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(40.dp).clip(CircleShape),
+    ) {
         Icon(
             MiuixIcons.Basic.ArrowRight,
             contentDescription = description,
@@ -521,6 +528,7 @@ private fun DetailEntryRow(
 ) {
     val context = LocalContext.current
     val interaction = remember { MutableInteractionSource() }
+    val badgeInteraction = remember { MutableInteractionSource() }
     val indication = rememberMiuixIndication()
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
@@ -561,7 +569,7 @@ private fun DetailEntryRow(
             Card(
                 // 行号徽章：圆角 8dp。
                 modifier = Modifier.widthIn(min = 58.dp).wrapContentWidth(unbounded = true).heightIn(min = 32.dp)
-                    .clickable(interactionSource = interaction, indication = indication) {
+                    .clickable(interactionSource = badgeInteraction, indication = null) {
                         copyDetailText(context, entry.line.toString())
                     },
                 cornerRadius = 8.dp,
