@@ -2,7 +2,9 @@ package kirakira.dokidoki.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -22,9 +24,11 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +37,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -52,6 +57,7 @@ import top.yukonga.miuix.kmp.glass.glassShadow
 import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.material.edgeStroke
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -84,6 +90,10 @@ fun GlassScrollableSegmentedTabRow(
     val selected = selectedIndex.coerceIn(0, labels.lastIndex)
     val interactionSources = remember(labels) { List(labels.size) { MutableInteractionSource() } }
     var pressedIndex by remember { mutableIntStateOf(-1) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragIndex by remember { mutableIntStateOf(-1) }
+    var dragCenterX by remember { mutableFloatStateOf(0f) }
+    val scope = rememberCoroutineScope()
     val backdrop = LocalBarBackdrop.current
     val trackShape = GlassSegmentedTabRowDefaults.shape(TrackHeight)
     val trackColor = GlassSegmentedTabRowDefaults.restingTrackColor()
@@ -173,7 +183,8 @@ fun GlassScrollableSegmentedTabRow(
         val indicatorLeft = remember { Animatable(starts[selected]) }
         val indicatorRight = remember { Animatable(starts[selected] + widths[selected]) }
         var indicatorInitialized by remember { mutableStateOf(false) }
-        LaunchedEffect(pressedIndex, selected, widths) {
+        LaunchedEffect(pressedIndex, selected, widths, dragging) {
+            if (dragging) return@LaunchedEffect
             val targetIndex = if (pressedIndex >= 0) pressedIndex else selected
             val targetLeft = starts[targetIndex]
             val targetRight = targetLeft + widths[targetIndex]
@@ -266,10 +277,70 @@ fun GlassScrollableSegmentedTabRow(
                     )
                 }
             }
+
+            // 透明拖动层：只覆盖当前指示器，避免和轨道其他区域的横滑抢手势。
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .layout { measurable, constraints ->
+                        val bounds = navigationIndicatorBounds(
+                            left = indicatorLeft.value,
+                            right = indicatorRight.value,
+                            containerWidth = contentWidth,
+                            inset = 0f,
+                        )
+                        val start = (bounds.x - scrollState.value).roundToInt()
+                        val end = (bounds.y - scrollState.value).roundToInt()
+                        val width = (end - start).coerceAtLeast(0)
+                        val placeable = measurable.measure(
+                            constraints.copy(minWidth = width, maxWidth = width),
+                        )
+                        layout(constraints.maxWidth, placeable.height) {
+                            placeable.placeRelative(start, 0)
+                        }
+                    }
+                    .pointerInput(tabs.size, widths, contentWidth, selected) {
+                        detectDragGestures(
+                            onDragStart = {
+                                dragging = true
+                                dragIndex = selected
+                                dragCenterX = starts[selected] + widths[selected] / 2f
+                                pressedIndex = selected
+                            },
+                            onDragEnd = {
+                                val target = indexAtContentX(dragCenterX, starts, widths)
+                                dragging = false
+                                dragIndex = -1
+                                pressedIndex = -1
+                                onSelectState(target)
+                            },
+                            onDragCancel = {
+                                dragging = false
+                                dragIndex = -1
+                                pressedIndex = -1
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                dragCenterX = (dragCenterX + dragAmount.x).coerceIn(0f, contentWidth)
+                                val next = indexAtContentX(dragCenterX, starts, widths)
+                                val target = navigationDragTarget(
+                                    left = starts[next],
+                                    width = widths[next],
+                                    minLeft = 0f,
+                                    maxRight = contentWidth,
+                                    delta = dragAmount.x,
+                                    changedItem = next != dragIndex,
+                                )
+                                scope.launch { indicatorLeft.animateTo(target.left, target.leftSpring) }
+                                scope.launch { indicatorRight.animateTo(target.right, target.rightSpring) }
+                                dragIndex = next
+                            },
+                        )
+                    },
+            )
         }
     }
 }
-
 
 @Composable
 private fun FilterTabItem(
@@ -315,6 +386,46 @@ private fun FilterTabItem(
             overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+private fun indexAtContentX(
+    x: Float,
+    starts: FloatArray,
+    widths: List<Float>,
+): Int {
+    if (starts.isEmpty()) return 0
+    var result = 0
+    for (index in starts.indices) {
+        if (x >= starts[index]) result = index
+    }
+    return result.coerceIn(0, starts.lastIndex)
+}
+
+private data class NavigationDragTarget(
+    val left: Float,
+    val right: Float,
+    val leftSpring: SpringSpec<Float>,
+    val rightSpring: SpringSpec<Float>,
+)
+
+private fun navigationDragTarget(
+    left: Float,
+    width: Float,
+    minLeft: Float,
+    maxRight: Float,
+    delta: Float,
+    changedItem: Boolean,
+): NavigationDragTarget {
+    val start = left.coerceIn(minLeft, (maxRight - width).coerceAtLeast(minLeft))
+    val end = start + width
+    val trail = if (changedItem) 0f else (abs(delta) * 4f).coerceAtMost(60f)
+    val movingRight = delta > 0f
+    return NavigationDragTarget(
+        left = if (delta > 0f && end < maxRight) start - trail else start,
+        right = if (delta < 0f && start > minLeft) end + trail else end,
+        leftSpring = if (!changedItem) GlassMotion.navDragFollow() else GlassMotion.edgeSpring(!movingRight),
+        rightSpring = if (!changedItem) GlassMotion.navDragFollow() else GlassMotion.edgeSpring(movingRight),
+    )
 }
 
 private fun navigationIndicatorBounds(
