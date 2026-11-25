@@ -812,13 +812,13 @@ private fun ExportZipDialog(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             TextButton(
-                text = "普通文件",
-                onClick = onExportFiles,
+                text = "ZIP",
+                onClick = onExportZip,
                 modifier = Modifier.weight(1f),
             )
             TextButton(
-                text = "ZIP 压缩包",
-                onClick = onExportZip,
+                text = "普通文件",
+                onClick = onExportFiles,
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
             )
