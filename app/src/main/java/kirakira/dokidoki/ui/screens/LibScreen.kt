@@ -224,22 +224,8 @@ fun LibScreen(
                     enabled = state.files.isNotEmpty(),
                     onClick = if (allSelected) onClearFileSelection else onSelectAll,
                 ),
-                DropdownItem(
-                    text = "导出",
-                    enabled = state.files.any { it.id in state.selectedFileIds && it.hasOutput },
-                    onClick = {
-                        selectionMenuOpen = false
-                        onBatchExport()
-                    },
-                ),
-                DropdownItem(
-                    text = "删除",
-                    enabled = state.selectedFileIds.isNotEmpty(),
-                    onClick = {
-                        selectionMenuOpen = false
-                        onDeleteSelection()
-                    },
-                ),
+                DropdownItem(text = "导出", enabled = state.files.any { it.id in state.selectedFileIds && it.hasOutput }, onClick = onBatchExport),
+                DropdownItem(text = "删除", enabled = state.selectedFileIds.isNotEmpty(), onClick = onDeleteSelection),
             ),
         ),
     )
@@ -362,9 +348,6 @@ fun LibScreen(
             )
         },
         entries = selectionMenuEntries,
-        // 全选/取消全选后保持菜单展开，让菜单项文字和操作立即切换；
-        // 导出和删除由各自回调主动关闭菜单。
-        collapseOnSelection = false,
         backdrop = LocalBarBackdrop.current?.rawBackdrop,
     )
     }
