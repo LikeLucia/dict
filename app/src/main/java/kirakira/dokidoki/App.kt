@@ -372,6 +372,7 @@ fun DictApp(viewModel: MainViewModel) {
                                             onBatchExport = doBatchExport,
                                             onDelete = { if (state.selectedFileIds.isNotEmpty()) showDeleteConfirm = true },
                                             onClearSelection = viewModel::clearSelection,
+                                            pagerSwitching = pagerSwitching,
                                         )
                                         }
                                         },
@@ -627,7 +628,15 @@ private fun MiuixTabHost(
     val initialPage = selectedTab.coerceIn(0, pageCount - 1)
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { pageCount })
     val saveableStateHolder = rememberSaveableStateHolder()
-    val pagerScrolling = pagerState.isScrollInProgress
+    // 除了 isScrollInProgress，还把「当前页尚未对齐 selectedTab」和偏移一起算作切换中：
+    // springAnimateToPage 自定义滚动时 isScrollInProgress 不一定在每一帧都为 true。
+    val pagerScrolling by remember(pagerState, selectedTab) {
+        derivedStateOf {
+            pagerState.isScrollInProgress ||
+                pagerState.currentPage != selectedTab ||
+                pagerState.currentPageOffsetFraction != 0f
+        }
+    }
     LaunchedEffect(pagerScrolling) { onScrollingChanged(pagerScrolling) }
     // Pager 会提前组合相邻页；只有选中且滚动结束后才把页面视为前台。
     val activeTab = if (!pagerState.isScrollInProgress && pagerState.currentPage == selectedTab) selectedTab else -1
@@ -696,6 +705,7 @@ private fun BottomArea(
     onBatchExport: () -> Unit,
     onDelete: () -> Unit,
     onClearSelection: () -> Unit,
+    pagerSwitching: Boolean,
 ) {
     val p = DictTheme.palette
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -751,7 +761,11 @@ private fun BottomArea(
                 Spacer(Modifier.height(16.dp))
             }
         }
-        DictBottomBar(selectedIndex = state.selectedTab, onSelect = onSelectTab)
+        DictBottomBar(
+            selectedIndex = state.selectedTab,
+            onSelect = onSelectTab,
+            blurEnabled = !pagerSwitching,
+        )
         Spacer(Modifier.height(gapBelowNav))
     }
 }

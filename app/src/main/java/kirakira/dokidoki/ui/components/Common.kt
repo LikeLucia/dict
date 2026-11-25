@@ -546,7 +546,12 @@ fun StatusBadge(text: String, highlighted: Boolean, modifier: Modifier = Modifie
 }
 
 @Composable
-fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun DictBottomBar(
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    blurEnabled: Boolean = true,
+) {
     val p = DictTheme.palette
     val items = remember {
         listOf(
@@ -558,7 +563,7 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
     }
     val barHeight = 54.dp
     val shape = RoundedCornerShape(barHeight / 2)
-    val backdrop = LocalBarBackdrop.current?.rawBackdrop
+    val backdrop = if (blurEnabled) LocalBarBackdrop.current?.rawBackdrop else null
     Box(
         modifier = modifier
             .fillMaxWidth()
