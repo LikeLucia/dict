@@ -505,7 +505,7 @@ private fun JumpButton(
 ) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier.size(40.dp).clip(CircleShape),
+        modifier = Modifier.size(44.dp).clip(CircleShape),
     ) {
         Icon(
             MiuixIcons.Basic.ArrowRight,

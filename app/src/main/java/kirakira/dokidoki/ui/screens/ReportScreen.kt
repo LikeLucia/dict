@@ -23,8 +23,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +46,7 @@ import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.FixedTopScrollPage
 import kirakira.dokidoki.ui.components.IconBubble
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
+import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -149,6 +153,8 @@ private fun PolyphonicCard(
     onOpenSortMenu: (Rect) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val searchFocusRequester = remember { FocusRequester() }
     var searchVisible by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     val sortAnchor = remember { DropdownAnchor() }
@@ -176,6 +182,15 @@ private fun PolyphonicCard(
             searchVisible = false
             query = ""
             focusManager.clearFocus()
+            keyboard?.hide()
+        }
+    }
+    LaunchedEffect(searchVisible) {
+        if (searchVisible) {
+            // 等卡片内搜索行展开后再请求焦点，确保输入法自动弹出。
+            delay(220)
+            searchFocusRequester.requestFocus()
+            keyboard?.show()
         }
     }
 
@@ -250,7 +265,7 @@ private fun PolyphonicCard(
                     TextField(
                         value = query,
                         onValueChange = { query = it },
-                        modifier = Modifier.weight(1f).height(52.dp),
+                        modifier = Modifier.weight(1f).height(52.dp).focusRequester(searchFocusRequester),
                         colors = TextFieldDefaults.textFieldColors(
                             backgroundColor = colors.surfaceContainerHigh,
                             labelColor = colors.onBackgroundVariant,
@@ -283,6 +298,7 @@ private fun PolyphonicCard(
                                 searchVisible = false
                                 query = ""
                                 focusManager.clearFocus()
+                                keyboard?.hide()
                             }
                             .padding(horizontal = 4.dp, vertical = 6.dp),
                     )
