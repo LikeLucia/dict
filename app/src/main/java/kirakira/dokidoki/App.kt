@@ -167,6 +167,7 @@ fun DictApp(viewModel: MainViewModel) {
         var aboutOpen by remember { mutableStateOf(false) }
         var themeSettingsOpen by remember { mutableStateOf(false) }
         var sourceLicensesOpen by remember { mutableStateOf(false) }
+        var pagerSwitching by remember { mutableStateOf(false) }
         val openLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             viewModel.importFiles(context.contentResolver, uris)
         }
@@ -252,7 +253,10 @@ fun DictApp(viewModel: MainViewModel) {
                                         dismissImmediately = state.selectedTab != 3,
                                         base = {
                                         Box(Modifier.fillMaxSize()) {
-                                        MiuixTabHost(selectedTab = state.selectedTab) { tab, isActive ->
+                                        MiuixTabHost(
+                                            selectedTab = state.selectedTab,
+                                            onScrollingChanged = { pagerSwitching = it },
+                                        ) { tab, isActive ->
                                             FullScreenContentPage {
                                                 when (tab) {
                                                     0 -> HomeScreen(
@@ -348,6 +352,16 @@ fun DictApp(viewModel: MainViewModel) {
                                                     )
                                                 }
                                             }
+                                        }
+
+                                        // 分页切换时页面内容会横向滑动；用纯背景覆盖采样层，
+                                        // 避免滑动中的白色页边/卡片进入底栏玻璃形成竖线。
+                                        if (pagerSwitching && barBackdrop != null) {
+                                            Box(
+                                                Modifier
+                                                    .fillMaxSize()
+                                                    .then(barBackdrop.recordModifier()),
+                                            )
                                         }
 
                                         BottomArea(
@@ -605,6 +619,7 @@ private fun MiuixDetailHost(
 @Composable
 private fun MiuixTabHost(
     selectedTab: Int,
+    onScrollingChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
     content: @Composable (Int, Boolean) -> Unit,
 ) {
@@ -612,6 +627,8 @@ private fun MiuixTabHost(
     val initialPage = selectedTab.coerceIn(0, pageCount - 1)
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { pageCount })
     val saveableStateHolder = rememberSaveableStateHolder()
+    val pagerScrolling = pagerState.isScrollInProgress
+    LaunchedEffect(pagerScrolling) { onScrollingChanged(pagerScrolling) }
     // Pager 会提前组合相邻页；只有选中且滚动结束后才把页面视为前台。
     val activeTab = if (!pagerState.isScrollInProgress && pagerState.currentPage == selectedTab) selectedTab else -1
 
