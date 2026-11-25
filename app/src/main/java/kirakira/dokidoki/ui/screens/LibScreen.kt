@@ -66,11 +66,8 @@ import kirakira.dokidoki.ui.components.DictTopBar
 import kirakira.dokidoki.ui.components.DropdownAnchor
 import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.DictScaffoldPage
-import kirakira.dokidoki.ui.components.GlassScrollableSegmentedTabRow
+import kirakira.dokidoki.ui.components.FilterTrack
 import kirakira.dokidoki.ui.components.StatusBadge
-import kirakira.dokidoki.ui.components.LocalBarBackdrop
-import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
-import top.yukonga.miuix.kmp.material.GlassShadows
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.theme.DictTheme
 import kotlinx.coroutines.delay
@@ -390,33 +387,18 @@ private val LIBRARY_FILTERS = listOf(
     LibraryFilter("多音字") { it.polyphonicHandled },
 )
 
-/** 轨道高度：沿用本页原来的 38dp，换材质不改版面。 */
-private val FilterTrackHeight = 38.dp
-
-/**
- * 分类标签轨道：调用本地移植的 [GlassScrollableSegmentedTabRow]。
- * 指示器绘制和 edgeSpring 动画由组件内部完成，App 侧不写自绘代码。
- */
+/** 分类标签轨道：自绘指示器，保留 miuix 指示器的按压动画。 */
 @Composable
 private fun FilterChips(
     labels: List<String>,
     selected: Int,
     onSelect: (Int) -> Unit,
 ) {
-    val p = DictTheme.palette
-    val backdrop = LocalBarBackdrop.current
-    GlassScrollableSegmentedTabRow(
-        tabs = labels,
+    FilterTrack(
+        labels = labels,
         selectedIndex = selected,
-        onSelect = onSelect,
-        backdrop = backdrop?.rawBackdrop,
+        onSelected = onSelect,
         modifier = Modifier.fillMaxWidth(),
-        height = FilterTrackHeight,
-        material = GlassSegmentedTabRowDefaults.material().copy(blurRadius = 60.dp),
-        stroke = GlassSegmentedTabRowDefaults.stroke(),
-        shadow = GlassShadows.Float,
-        selectedContentColor = if (p.isDark) p.text else Color.Black,
-        contentColor = if (p.isDark) p.text else Color.Black,
     )
 }
 
