@@ -55,7 +55,7 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
             shape = shape,
             blurRadius = 25f,
             colors = BlurDefaults.blurColors(
-                blendColors = listOf(BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.8f))),
+                blendColors = listOf(BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.15f))),
             ),
         )
 

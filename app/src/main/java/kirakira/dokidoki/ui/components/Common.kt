@@ -295,7 +295,7 @@ fun DictTopBar(
     // 顶栏玻璃：与 c001apk 的 MiuixScaffold 同一思路——判空决定材质。
     // 有 backdrop 时顶栏底色透明，背后垫一层模糊；否则保持原来的纯色 p.bg。
     val backdrop = LocalBarBackdrop.current
-    val barSurface: Modifier = if (backdrop == null) Modifier else Modifier.barBlur(backdrop)
+    val barSurface: Modifier = if (backdrop == null) Modifier else Modifier.progressiveBarBlur(backdrop)
     Box(Modifier.fillMaxWidth()) {
         // 模糊层铺满顶栏（含 bottomContent 的分类轨道区域），
         // 它只在 backdrop 非空时生效，其余情况是空 Modifier。

@@ -23,6 +23,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,8 @@ import kirakira.dokidoki.data.QueueFile
 import kirakira.dokidoki.ui.components.DictCard
 import kirakira.dokidoki.ui.components.FixedTopScrollPage
 import kirakira.dokidoki.ui.components.LocalDictTopBarScrollBehavior
+import kirakira.dokidoki.ui.components.LocalBarBackdrop
+import kirakira.dokidoki.ui.components.progressiveBarBlur
 import kirakira.dokidoki.ui.components.SectionHeader
 import kirakira.dokidoki.ui.components.SegmentSlider
 import kirakira.dokidoki.ui.components.StatusBadge
@@ -118,19 +121,24 @@ fun HomeScreen(
 @Composable
 private fun HomeHeader() {
     val p = DictTheme.palette
-    TopAppBar(
-        title = "kirakira",
-        subtitle = "词库离线处理",
-        modifier = Modifier.fillMaxWidth(),
-        color = p.bg,
-        titleColor = p.text,
-        largeTitleColor = p.text,
-        subtitleColor = p.text2,
-        defaultWindowInsetsPadding = false,
-        titlePadding = 24.dp,
-        actionIconPadding = 24.dp,
-        scrollBehavior = LocalDictTopBarScrollBehavior.current,
-    )
+    val backdrop = LocalBarBackdrop.current
+    val barSurface = if (backdrop == null) Modifier else Modifier.progressiveBarBlur(backdrop)
+    Box(Modifier.fillMaxWidth()) {
+        Box(Modifier.matchParentSize().then(barSurface))
+        TopAppBar(
+            title = "kirakira",
+            subtitle = "词库离线处理",
+            modifier = Modifier.fillMaxWidth(),
+            color = if (backdrop != null) Color.Transparent else p.bg,
+            titleColor = p.text,
+            largeTitleColor = p.text,
+            subtitleColor = p.text2,
+            defaultWindowInsetsPadding = false,
+            titlePadding = 24.dp,
+            actionIconPadding = 24.dp,
+            scrollBehavior = LocalDictTopBarScrollBehavior.current,
+        )
+    }
 }
 
 @Composable
