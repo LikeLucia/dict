@@ -219,6 +219,9 @@ fun FixedTopPage(
     }
 }
 
+/** 主 Tab 页最后一个内容与悬浮底栏之间的统一间距。 */
+val PageBottomSpacing: Dp = 15.dp
+
 /** Mishka 式固定顶栏滚动页：正文由 LazyColumn 承载，顶栏和底栏高度统一走 contentPadding。 */
 @Composable
 fun FixedTopScrollPage(
@@ -240,7 +243,7 @@ fun FixedTopScrollPage(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     content()
-                    Spacer(Modifier.height(15.dp))
+                    Spacer(Modifier.height(PageBottomSpacing))
                 }
             }
         }

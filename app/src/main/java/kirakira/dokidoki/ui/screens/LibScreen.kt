@@ -67,6 +67,7 @@ import kirakira.dokidoki.ui.components.DropdownAnchor
 import kirakira.dokidoki.ui.components.captureDropdownAnchor
 import kirakira.dokidoki.ui.components.DictScaffoldPage
 import kirakira.dokidoki.ui.components.GlassScrollableSegmentedTabRow
+import kirakira.dokidoki.ui.components.PageBottomSpacing
 import kirakira.dokidoki.ui.components.LocalBarBackdrop
 import kirakira.dokidoki.ui.components.StatusBadge
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
@@ -318,7 +319,7 @@ fun LibScreen(
                     )
                 }
             }
-            item(key = "bottom-gap") { Spacer(Modifier.height(12.dp)) }
+            item(key = "bottom-gap") { Spacer(Modifier.height(PageBottomSpacing)) }
         }
     }
     GlassIconDropdownMenu(
