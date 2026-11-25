@@ -440,7 +440,7 @@ private fun FilterChips(
         backdrop = backdrop?.rawBackdrop,
         cornerRadius = FilterTrackHeight / 2,
         outSidePadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-        material = GlassSegmentedTabRowDefaults.material().copy(blurRadius = 40.dp),
+        material = GlassSegmentedTabRowDefaults.material().copy(blurRadius = 60.dp),
         // 无 backdrop 时的回退底色。
         fill = p.card,
         stroke = GlassSegmentedTabRowDefaults.stroke(),

@@ -17,7 +17,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -41,7 +40,6 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onPlaced
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -50,6 +48,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
@@ -213,36 +213,15 @@ fun FixedTopPage(
     topBar: @Composable () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val scrollBehavior = MiuixScrollBehavior()
-    val density = LocalDensity.current
-    val topBarHeight = remember { mutableIntStateOf(0) }
-    CompositionLocalProvider(LocalDictTopBarScrollBehavior provides scrollBehavior) {
-        Box(
-            modifier
+    // 与 DictScaffoldPage 同样交给 Scaffold 先量顶栏、再量正文：
+    // 正文从 0 开始录制，顶栏高度通过 content padding 让开，避免自己测高时第一帧位置错误。
+    DictScaffoldPage(modifier = modifier, topBar = topBar) { padding ->
+        Column(
+            modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-        ) {
-            // 整页铺一层采样源（不包含顶栏本身），顶栏与底栏才能采到当前页内容。
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(pageBackdropRecordModifier()),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = with(density) { topBarHeight.intValue.toDp() } + 4.dp),
-                    content = content,
-                )
-            }
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .onSizeChanged { topBarHeight.intValue = it.height },
-            ) {
-                topBar()
-            }
-        }
+                .padding(top = padding.calculateTopPadding()),
+            content = content,
+        )
     }
 }
 
@@ -253,43 +232,17 @@ fun FixedTopScrollPage(
     topBar: @Composable () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val scrollBehavior = MiuixScrollBehavior()
-    val density = LocalDensity.current
-    val topBarHeight = remember { mutableIntStateOf(0) }
-    CompositionLocalProvider(LocalDictTopBarScrollBehavior provides scrollBehavior) {
-        Box(
-            modifier
+    DictScaffoldPage(modifier = modifier, topBar = topBar) { padding ->
+        Column(
+            modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-        ) {
-            // 采样层必须覆盖整个视口：如果只录滚动内容，内容短于屏幕时底栏会采不到像素，
-            // 顶栏上方也会落在采样层外，开模糊后两处就只剩透明。
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(pageBackdropRecordModifier()),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        // 顶栏是叠加层，正文用内边距避开它；滚动内容仍然从顶栏下方经过，
-                        // 玻璃才能采到真实内容而不是固定底色。
-                        .padding(
-                            top = with(density) { topBarHeight.intValue.toDp() } + 4.dp,
-                            bottom = bottomPadding,
-                        ),
-                    content = content,
-                )
-            }
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .onSizeChanged { topBarHeight.intValue = it.height },
-            ) {
-                topBar()
-            }
-        }
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    top = padding.calculateTopPadding(),
+                    bottom = bottomPadding,
+                ),
+            content = content,
+        )
     }
 }
 
@@ -598,14 +551,15 @@ fun StatusBadge(text: String, highlighted: Boolean, modifier: Modifier = Modifie
 @Composable
 fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val p = DictTheme.palette
-    val items = remember {
+    val tabs = remember {
         listOf(
-            GlassNavigationItem(MiuixIcons.Glass.HomeOutline, "首页"),
-            GlassNavigationItem(MiuixIcons.Glass.BookOutline, "词库"),
-            GlassNavigationItem(MiuixIcons.Glass.DigitalStatistics, "报告"),
-            GlassNavigationItem(MiuixIcons.Glass.SettingsOutline, "设置"),
+            MiuixIcons.Glass.HomeOutline to "首页",
+            MiuixIcons.Glass.BookOutline to "词库",
+            MiuixIcons.Glass.DigitalStatistics to "报告",
+            MiuixIcons.Glass.SettingsOutline to "设置",
         )
     }
+    val glassItems = remember(tabs) { tabs.map { (icon, label) -> GlassNavigationItem(icon, label) } }
     val barHeight = 54.dp
     val backdrop = LocalBarBackdrop.current?.rawBackdrop
     Box(
@@ -613,37 +567,54 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
             .fillMaxWidth()
             .padding(horizontal = 28.dp)
             .height(barHeight),
+        contentAlignment = Alignment.Center,
     ) {
-        // 与 c001apk 的 OS4 底栏一致：有采样层时由 GlassNavigationBar 自己画玻璃和悬浮投影，
-        // 不再在外面套一层只有模糊、没有投影的平面 Box。
-        // 没有采样层（关模糊或系统 < Android 13）时回退到 surfaceContainer 纯色。
-        MiuixTheme(colors = MiuixTheme.colorScheme.copy(surfaceContainer = p.card.copy(alpha = 1f))) {
-            GlassNavigationBar(
-                items = items,
-                selectedIndex = selectedIndex,
-                onSelect = onSelect,
-                backdrop = backdrop,
-                material = GlassNavigationBarDefaults.material().copy(blurRadius = 40.dp),
-                stroke = if (backdrop != null) GlassNavigationBarDefaults.stroke() else null,
-                shadow = if (backdrop != null) GlassShadows.Float else null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(barHeight),
+        if (backdrop == null) {
+            // 关模糊/低版本：用 miuix 原生 FloatingNavigationBar，保留悬浮圆角与投影，
+            // 不再退回 GlassNavigationBar 的纯色平面回退。
+            FloatingNavigationBar(
+                color = p.card,
                 defaultWindowInsetsPadding = false,
-                height = barHeight,
-                selectedColor = p.text,
-                unselectedColor = p.text,
-                indicatorColor = if (p.isDark) {
-                    Color.White.copy(alpha = 0.12f)
-                } else {
-                    Color.Black.copy(alpha = 0.10f)
-                },
-                indicatorPressedColor = if (p.isDark) {
-                    Color.White.copy(alpha = 0.18f)
-                } else {
-                    Color.Black.copy(alpha = 0.16f)
-                },
-            )
+            ) {
+                tabs.forEachIndexed { index, (icon, label) ->
+                    FloatingNavigationBarItem(
+                        selected = selectedIndex == index,
+                        onClick = { onSelect(index) },
+                        icon = icon,
+                        label = label,
+                    )
+                }
+            }
+        } else {
+            // 开模糊：c001apk OS4 底栏，GlassNavigationBar 自己画玻璃与悬浮投影。
+            MiuixTheme(colors = MiuixTheme.colorScheme.copy(surfaceContainer = p.card.copy(alpha = 1f))) {
+                GlassNavigationBar(
+                    items = glassItems,
+                    selectedIndex = selectedIndex,
+                    onSelect = onSelect,
+                    backdrop = backdrop,
+                    material = GlassNavigationBarDefaults.material().copy(blurRadius = 60.dp),
+                    stroke = GlassNavigationBarDefaults.stroke(),
+                    shadow = GlassShadows.Float,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(barHeight),
+                    defaultWindowInsetsPadding = false,
+                    height = barHeight,
+                    selectedColor = p.text,
+                    unselectedColor = p.text,
+                    indicatorColor = if (p.isDark) {
+                        Color.White.copy(alpha = 0.12f)
+                    } else {
+                        Color.Black.copy(alpha = 0.10f)
+                    },
+                    indicatorPressedColor = if (p.isDark) {
+                        Color.White.copy(alpha = 0.18f)
+                    } else {
+                        Color.Black.copy(alpha = 0.16f)
+                    },
+                )
+            }
         }
     }
 }
