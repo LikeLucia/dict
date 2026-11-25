@@ -17,7 +17,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.background
@@ -44,14 +43,12 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -189,7 +186,6 @@ fun AmbiguityDetailScreen(
             last.index < info.totalItemsCount - 1 || last.offset + last.size > viewportHeight - 1
         }
     }
-    val lastRowKey = "line:${group.fileId}:${shown.lastOrNull()?.line ?: 0}"
 
     FixedTopPage(
         modifier = modifier,
@@ -221,6 +217,7 @@ fun AmbiguityDetailScreen(
                 },
             )
         },
+        containerColor = DictTheme.palette.card,
     ) { contentPadding ->
         // 必须在 FixedTopPage 的 content 内读取：ScrollBehavior 由 FixedTopPage 内部的
         // CompositionLocalProvider 提供，在函数开头读只会拿到默认值 null。
@@ -231,14 +228,6 @@ fun AmbiguityDetailScreen(
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(bottom = 24.dp),
             ) {
-                if (shown.isNotEmpty()) {
-                    FileCardsBackdrop(
-                        listState = listState,
-                        fileId = group.fileId,
-                        lastRowKey = lastRowKey,
-                        modifier = Modifier.matchParentSize(),
-                    )
-                }
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize().clipToBounds(),
@@ -440,40 +429,6 @@ private suspend fun syncTopBar(state: TopAppBarState?, collapse: Boolean, animat
         }
     }
     if (!collapse) state.contentOffset = 0f
-}
-
-@Composable
-private fun FileCardsBackdrop(
-    listState: LazyListState,
-    fileId: String,
-    lastRowKey: String,
-    modifier: Modifier = Modifier,
-) {
-    SubcomposeLayout(modifier.clipToBounds()) { constraints ->
-        val info = listState.layoutInfo
-        val viewportOffset = -info.viewportStartOffset
-        val outset = 48.dp.roundToPx()
-        val visibleItems = info.visibleItemsInfo.filter { item ->
-            val key = item.key as? String ?: return@filter false
-            key == "file:$fileId" || key.startsWith("line:$fileId:")
-        }
-        val top = visibleItems.firstOrNull { it.key == "file:$fileId" }?.let {
-            it.offset + viewportOffset
-        } ?: -outset
-        val bottom = visibleItems.firstOrNull { it.key == lastRowKey }?.let {
-            it.offset + it.size + viewportOffset
-        } ?: (constraints.maxHeight + outset)
-        val cardHeight = (bottom - top).coerceAtLeast(1)
-        val card = subcompose(fileId) {
-            Card(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
-                insideMargin = PaddingValues(0.dp),
-            ) { }
-        }.single().measure(Constraints.fixed(constraints.maxWidth, cardHeight))
-        layout(constraints.maxWidth, constraints.maxHeight) {
-            card.placeRelative(0, top)
-        }
-    }
 }
 
 /** 右下角翻页按钮：上箭头回到顶部，下箭头滚到底部并翻页；背景与尺寸对齐顶栏的圆形动作按钮。 */

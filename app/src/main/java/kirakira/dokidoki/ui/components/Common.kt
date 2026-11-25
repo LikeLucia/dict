@@ -172,6 +172,7 @@ fun SectionHeader(
 fun DictScaffoldPage(
     modifier: Modifier = Modifier,
     topBar: @Composable () -> Unit,
+    containerColor: Color = DictTheme.palette.bg,
     content: @Composable ColumnScope.(PaddingValues) -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
@@ -181,7 +182,7 @@ fun DictScaffoldPage(
             // Scaffold 的 topBar 槽位内部是 Box：直接展开多个子项会叠在同一原点，
             // 搜索框因此压住大标题和状态栏。这里统一包一层 Column，标题在上、搜索框排在下方。
             topBar = { Column(Modifier.fillMaxWidth()) { topBar() } },
-            containerColor = DictTheme.palette.bg,
+            containerColor = containerColor,
         ) { padding ->
             Column(
                 modifier = Modifier
@@ -203,12 +204,13 @@ fun DictScaffoldPage(
 fun FixedTopPage(
     modifier: Modifier = Modifier,
     topBar: @Composable () -> Unit,
+    containerColor: Color = DictTheme.palette.bg,
     content: @Composable ColumnScope.(PaddingValues) -> Unit,
 ) {
     // 与 DictScaffoldPage 同样交给 Scaffold 先量顶栏、再量正文：
     // 正文保持全屏铺到顶栏下方，页面自己把 padding.top 放进滚动容器的 contentPadding，
     // 这样列表滚动时能从顶栏后面经过，GlassTopAppBar 才能采到内容。
-    DictScaffoldPage(modifier = modifier, topBar = topBar) { padding ->
+    DictScaffoldPage(modifier = modifier, topBar = topBar, containerColor = containerColor) { padding ->
         Column(
             modifier = Modifier.fillMaxSize(),
         ) {
