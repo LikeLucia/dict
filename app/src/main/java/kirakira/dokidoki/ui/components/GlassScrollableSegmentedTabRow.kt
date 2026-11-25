@@ -299,7 +299,7 @@ fun GlassScrollableSegmentedTabRow(
                             placeable.placeRelative(start, 0)
                         }
                     }
-                    .pointerInput(tabs.size, widths, contentWidth, selected) {
+                    .pointerInput(labels.size, widths, contentWidth, selected) {
                         detectDragGestures(
                             onDragStart = {
                                 dragging = true
@@ -312,7 +312,7 @@ fun GlassScrollableSegmentedTabRow(
                                 dragging = false
                                 dragIndex = -1
                                 pressedIndex = -1
-                                onSelectState(target)
+                                onSelected(target)
                             },
                             onDragCancel = {
                                 dragging = false
