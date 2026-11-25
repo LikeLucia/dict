@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -66,10 +65,9 @@ import kirakira.dokidoki.ui.components.FixedTopPage
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.FloatingToolbar
+import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
@@ -453,7 +451,7 @@ private suspend fun syncTopBar(state: TopAppBarState?, collapse: Boolean, animat
     if (!collapse) state.contentOffset = 0f
 }
 
-/** 右下角翻页工具栏：上箭头回到顶部，下箭头滚到底部并翻页。 */
+/** 右下角翻页按钮：上箭头回到顶部，下箭头滚到底部并翻页。 */
 @Composable
 private fun DetailJumpButtons(
     notAtTop: Boolean,
@@ -465,32 +463,24 @@ private fun DetailJumpButtons(
     if (!notAtTop && !notAtBottom) return
     val p = DictTheme.palette
     val iconSize = 22.dp
-    FloatingToolbar(
+    Column(
         modifier = modifier,
-        color = p.card,
-        cornerRadius = 22.dp,
-        outSidePadding = PaddingValues(0.dp),
-        shadowElevation = 4.dp,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(vertical = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+        AnimatedVisibility(
+            visible = notAtTop,
+            enter = fadeIn(tween(120)),
+            exit = fadeOut(tween(90)),
         ) {
-            AnimatedVisibility(
-                visible = notAtTop,
-                enter = fadeIn(tween(120)),
-                exit = fadeOut(tween(90)),
-            ) {
-                JumpButton("回到顶部", -90f, iconSize, p.text2, onJumpTop)
-            }
-            AnimatedVisibility(
-                visible = notAtBottom,
-                enter = fadeIn(tween(120)),
-                exit = fadeOut(tween(90)),
-            ) {
-                JumpButton("翻到底部", 90f, iconSize, p.text2, onJumpBottom)
-            }
+            JumpButton("回到顶部", -90f, iconSize, p.text2, p.card, onJumpTop)
+        }
+        AnimatedVisibility(
+            visible = notAtBottom,
+            enter = fadeIn(tween(120)),
+            exit = fadeOut(tween(90)),
+        ) {
+            JumpButton("翻到底部", 90f, iconSize, p.text2, p.card, onJumpBottom)
         }
     }
 }
@@ -501,11 +491,13 @@ private fun JumpButton(
     rotation: Float,
     iconSize: Dp,
     tint: Color,
+    containerColor: Color,
     onClick: () -> Unit,
 ) {
-    IconButton(
+    FloatingActionButton(
         onClick = onClick,
-        modifier = Modifier.size(44.dp).clip(CircleShape),
+        containerColor = containerColor,
+        shadowElevation = 4.dp,
     ) {
         Icon(
             MiuixIcons.Basic.ArrowRight,

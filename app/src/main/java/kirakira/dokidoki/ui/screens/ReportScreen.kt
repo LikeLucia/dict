@@ -188,7 +188,7 @@ private fun PolyphonicCard(
     LaunchedEffect(searchVisible) {
         if (searchVisible) {
             // 等卡片内搜索行展开后再请求焦点，确保输入法自动弹出。
-            delay(220)
+            delay(170)
             searchFocusRequester.requestFocus()
             keyboard?.show()
         }
@@ -199,11 +199,11 @@ private fun PolyphonicCard(
         AnimatedContent(
             targetState = searchVisible && groups.isNotEmpty(),
             transitionSpec = {
-                val entering = fadeIn(tween(200)) + expandVertically(
+                val entering = fadeIn(tween(150)) + expandVertically(
                     animationSpec = spring(dampingRatio = 0.82f, stiffness = 362.5f),
                     expandFrom = Alignment.Top,
                 )
-                val leaving = fadeOut(tween(150)) + shrinkVertically(
+                val leaving = fadeOut(tween(120)) + shrinkVertically(
                     animationSpec = spring(dampingRatio = 0.82f, stiffness = 362.5f),
                     shrinkTowards = Alignment.Top,
                 )
