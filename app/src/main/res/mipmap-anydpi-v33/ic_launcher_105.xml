@@ -1,1 +1,1 @@
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/cimu_blue" /><foreground android:drawable="@drawable/cimu_foreground" /><monochrome android:drawable="@drawable/cimu_foreground" /></adaptive-icon>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/cimu_icon_background" /><foreground android:drawable="@drawable/ic_launcher_105_foreground" /><monochrome android:drawable="@drawable/cimu_foreground" /></adaptive-icon>

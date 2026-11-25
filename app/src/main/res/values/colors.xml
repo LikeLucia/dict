@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="cimu_blue">#FF3582FF</color>
+    <color name="cimu_icon_background">#FF16261B</color>
 </resources>
