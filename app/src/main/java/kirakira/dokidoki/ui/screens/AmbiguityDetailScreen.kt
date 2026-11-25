@@ -32,7 +32,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,9 +65,10 @@ import kirakira.dokidoki.ui.components.FixedTopPage
 import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.FloatingActionButton
+import top.yukonga.miuix.kmp.basic.FloatingToolbar
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
@@ -96,9 +96,7 @@ fun AmbiguityDetailScreen(
     var replaceMode by remember(group.fileId) { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var searchVisible by remember { mutableStateOf(false) }
-    var searchFocusRequest by remember { mutableIntStateOf(0) }
     var wasActive by remember { mutableStateOf(isActive) }
-    val activeState = rememberUpdatedState(isActive)
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -110,13 +108,12 @@ fun AmbiguityDetailScreen(
             keyboard?.hide()
         } else {
             searchVisible = true
-            searchFocusRequest += 1
         }
     }
-    LaunchedEffect(searchFocusRequest) {
-        if (searchFocusRequest == 0) return@LaunchedEffect
-        delay(40)
-        if (activeState.value && searchVisible) {
+    LaunchedEffect(searchVisible, isActive) {
+        if (searchVisible && isActive) {
+            // 等搜索框的展开动画完成后再请求焦点，确保输入法能自动弹出。
+            delay(220)
             focusRequester.requestFocus()
             keyboard?.show()
         }
@@ -198,13 +195,6 @@ fun AmbiguityDetailScreen(
                 onSearchClick = { toggleSearch() },
                 bottomContent = {
                     AnimatedVisibility(
-                        visible = replaceMode,
-                        enter = fadeIn(tween(120)) + expandVertically(tween(170)),
-                        exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
-                    ) {
-                        ReplaceModeBar(onExit = { replaceMode = false })
-                    }
-                    AnimatedVisibility(
                         visible = searchVisible,
                         enter = fadeIn(tween(120)) + expandVertically(tween(170)),
                         exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
@@ -213,6 +203,13 @@ fun AmbiguityDetailScreen(
                             Spacer(Modifier.height(16.dp))
                             SearchField(query, { query = it }, focusRequester)
                         }
+                    }
+                    AnimatedVisibility(
+                        visible = replaceMode,
+                        enter = fadeIn(tween(120)) + expandVertically(tween(170)),
+                        exit = fadeOut(tween(90)) + shrinkVertically(tween(130)),
+                    ) {
+                        ReplaceModeBar(onExit = { replaceMode = false })
                     }
                 },
             )
@@ -452,7 +449,7 @@ private suspend fun syncTopBar(state: TopAppBarState?, collapse: Boolean, animat
     if (!collapse) state.contentOffset = 0f
 }
 
-/** 右下角翻页按钮：上箭头回到顶部，下箭头滚到底部并翻页。 */
+/** 右下角翻页工具栏：上箭头回到顶部，下箭头滚到底部并翻页。 */
 @Composable
 private fun DetailJumpButtons(
     notAtTop: Boolean,
@@ -461,27 +458,35 @@ private fun DetailJumpButtons(
     onJumpBottom: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (!notAtTop && !notAtBottom) return
     val p = DictTheme.palette
-    val buttonSize = 40.dp
     val iconSize = 22.dp
-    Column(
+    FloatingToolbar(
         modifier = modifier,
-        horizontalAlignment = Alignment.End,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        color = p.card,
+        cornerRadius = 22.dp,
+        outSidePadding = PaddingValues(0.dp),
+        shadowElevation = 4.dp,
     ) {
-        AnimatedVisibility(
-            visible = notAtTop,
-            enter = fadeIn(tween(120)),
-            exit = fadeOut(tween(90)),
+        Column(
+            modifier = Modifier.padding(vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            JumpButton("回到顶部", -90f, buttonSize, iconSize, p.card, p.text2, onJumpTop)
-        }
-        AnimatedVisibility(
-            visible = notAtBottom,
-            enter = fadeIn(tween(120)),
-            exit = fadeOut(tween(90)),
-        ) {
-            JumpButton("翻到底部", 90f, buttonSize, iconSize, p.card, p.text2, onJumpBottom)
+            AnimatedVisibility(
+                visible = notAtTop,
+                enter = fadeIn(tween(120)),
+                exit = fadeOut(tween(90)),
+            ) {
+                JumpButton("回到顶部", -90f, iconSize, p.text2, onJumpTop)
+            }
+            AnimatedVisibility(
+                visible = notAtBottom,
+                enter = fadeIn(tween(120)),
+                exit = fadeOut(tween(90)),
+            ) {
+                JumpButton("翻到底部", 90f, iconSize, p.text2, onJumpBottom)
+            }
         }
     }
 }
@@ -490,20 +495,11 @@ private fun DetailJumpButtons(
 private fun JumpButton(
     description: String,
     rotation: Float,
-    size: Dp,
     iconSize: Dp,
-    background: Color,
     tint: Color,
     onClick: () -> Unit,
 ) {
-    FloatingActionButton(
-        onClick = onClick,
-        modifier = Modifier.size(size),
-        containerColor = background,
-        shadowElevation = 4.dp,
-        minWidth = size,
-        minHeight = size,
-    ) {
+    IconButton(onClick = onClick) {
         Icon(
             MiuixIcons.Basic.ArrowRight,
             contentDescription = description,

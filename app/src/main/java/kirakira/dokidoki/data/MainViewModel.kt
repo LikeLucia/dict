@@ -772,8 +772,6 @@ class MainViewModel(
         val processedIds = mutableListOf<String>()
         val failures = linkedMapOf<String, String>()
         var automaticExportId: String? = null
-        var successfulFiles = 0
-        val totalFiles = processingQueue.size.coerceAtLeast(1)
 
         _state.update {
             it.copy(
@@ -793,15 +791,13 @@ class MainViewModel(
                 val snapshot = _state.value
                 val file = snapshot.files.firstOrNull { it.id == item.fileId } ?: continue
                 val input = inputFiles[item.fileId] ?: continue
-                val completedBefore = successfulFiles + failures.size
                 activeFileId = item.fileId
-                // 预估只针对当前文件：记录该文件开始时刻，进度归零。
+                // 进度与预计用时都只针对当前文件：每个文件单独从 0 开始。
                 val itemStartedAt = SystemClock.elapsedRealtime()
                 _state.update {
-                    val current = (completedBefore.toFloat() / totalFiles).coerceIn(0f, 1f)
                     it.copy(
                         processingFile = file.name,
-                        progress = current,
+                        progress = 0f,
                         estimatedSeconds = 0,
                     )
                 }
@@ -816,11 +812,10 @@ class MainViewModel(
                         val outcome = engine.process(input, options) { fraction ->
                             if (itemJob.isActive) {
                                 val itemFraction = fraction.coerceIn(0f, 1f)
-                                val progress = ((completedBefore + itemFraction) / totalFiles).coerceIn(0f, 1f)
                                 _state.update {
                                     it.copy(
-                                        progress = progress,
-                                        // 只按当前文件已用时间与完成比例估算，不再按整体进度。
+                                        progress = itemFraction,
+                                        // 只按当前文件已用时间与完成比例估算。
                                         estimatedSeconds = estimateItemSeconds(itemStartedAt, itemFraction),
                                     )
                                 }
@@ -883,7 +878,6 @@ class MainViewModel(
                     }
                     committedOutput = true
                     processedIds.add(item.fileId)
-                    successfulFiles++
                     if (item.autoCandidate && durableOutputs.size == 1 && result.ambiguousCount == 0) {
                         automaticExportId = item.fileId
                     }
@@ -923,8 +917,7 @@ class MainViewModel(
                     activeFileId = null
                     syncQueueState()
                 }
-                val finished = successfulFiles + failures.size
-                _state.update { it.copy(progress = (finished.toFloat() / totalFiles).coerceIn(0f, 1f)) }
+                _state.update { it.copy(progress = 1f) }
             }
             if (cancelRequested) {
                 return

@@ -276,7 +276,7 @@ private fun HomeStatusCard(state: DictUiState) {
             ) {
                 Text(
                     if (active) {
-                        if (state.estimatedSeconds > 0) "预计用时 ${formatEstimatedDuration(state.estimatedSeconds)}" else "预计用时计算中…"
+                        if (state.estimatedSeconds > 0) "当前文件预计用时 ${formatEstimatedDuration(state.estimatedSeconds)}" else "当前文件预计用时计算中…"
                     } else "导入词库后自动排队处理",
                     fontSize = 10.5.sp,
                     color = p.text2,
