@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -31,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
@@ -41,7 +41,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kirakira.dokidoki.ui.theme.DictTheme
 import kotlinx.coroutines.launch
@@ -206,22 +205,24 @@ fun GlassScrollableSegmentedTabRow(
             // 指示器在标签下面，单独一层；宽度和位置都在 layout 阶段读取动画值。
             Box(
                 modifier = Modifier
-                    .offset {
-                        IntOffset(
-                            x = (indicatorLeft.value - scrollState.value).roundToInt(),
-                            y = 0,
-                        )
-                    }
                     .fillMaxHeight()
                     .layout { measurable, constraints ->
-                        val width = (indicatorRight.value - indicatorLeft.value)
-                            .roundToInt()
-                            .coerceAtLeast(0)
+                        // 移植 miuix 的 navigationIndicatorBounds：
+                        // 每帧先把左右边缘夹在轨道内，再减去横滑偏移。
+                        val bounds = navigationIndicatorBounds(
+                            left = indicatorLeft.value,
+                            right = indicatorRight.value,
+                            containerWidth = contentWidth,
+                            inset = 0f,
+                        )
+                        val start = (bounds.x - scrollState.value).roundToInt()
+                        val end = (bounds.y - scrollState.value).roundToInt()
+                        val width = (end - start).coerceAtLeast(0)
                         val placeable = measurable.measure(
                             constraints.copy(minWidth = width, maxWidth = width),
                         )
                         layout(constraints.maxWidth, placeable.height) {
-                            placeable.placeRelative(0, 0)
+                            placeable.placeRelative(start, 0)
                         }
                     }
                     .graphicsLayer {
@@ -314,6 +315,18 @@ private fun FilterTabItem(
             overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+private fun navigationIndicatorBounds(
+    left: Float,
+    right: Float,
+    containerWidth: Float,
+    inset: Float,
+): Offset {
+    val min = inset.coerceIn(0f, containerWidth.coerceAtLeast(0f) / 2f)
+    val max = (containerWidth - inset).coerceAtLeast(min)
+    val start = left.coerceIn(min, max)
+    return Offset(start, right.coerceIn(start, max))
 }
 
 private fun centeredScroll(

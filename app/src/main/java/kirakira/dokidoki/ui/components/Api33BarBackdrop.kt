@@ -75,7 +75,7 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
         Modifier.glass(
             backdrop = layer,
             shape = shape,
-            material = GlassSegmentedTabRowDefaults.material().copy(blurRadius = 60.dp),
+            material = GlassSegmentedTabRowDefaults.material().copy(blurRadius = 20.dp),
             stroke = GlassSegmentedTabRowDefaults.stroke(),
             shading = false,
         )
