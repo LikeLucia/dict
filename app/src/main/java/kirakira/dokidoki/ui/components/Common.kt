@@ -10,9 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -182,7 +181,6 @@ fun DictScaffoldPage(
             // Scaffold 的 topBar 槽位内部是 Box：直接展开多个子项会叠在同一原点，
             // 搜索框因此压住大标题和状态栏。这里统一包一层 Column，标题在上、搜索框排在下方。
             topBar = { Column(Modifier.fillMaxWidth()) { topBar() } },
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             containerColor = DictTheme.palette.bg,
         ) { padding ->
             Column(
@@ -219,6 +217,7 @@ fun FixedTopPage(
     }
 }
 
+/** Mishka 式固定顶栏滚动页：正文由 LazyColumn 承载，顶栏和底栏高度统一走 contentPadding。 */
 @Composable
 fun FixedTopScrollPage(
     modifier: Modifier = Modifier,
@@ -227,16 +226,20 @@ fun FixedTopScrollPage(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     DictScaffoldPage(modifier = modifier, topBar = topBar) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(
-                    top = padding.calculateTopPadding(),
-                    bottom = bottomPadding,
-                ),
-            content = content,
-        )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = padding.calculateTopPadding(),
+                bottom = bottomPadding,
+            ),
+        ) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    content = content,
+                )
+            }
+        }
     }
 }
 
