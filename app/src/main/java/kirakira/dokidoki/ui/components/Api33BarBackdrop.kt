@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurDefaults
@@ -15,7 +16,6 @@ import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.glass.glass
 import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -49,7 +49,7 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
         Modifier.textureBlur(
             backdrop = layer,
             shape = shape,
-            blurRadius = 25f,
+            blurRadius = 40f,
             colors = BlurDefaults.blurColors(
                 blendColors = listOf(BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.8f))),
             ),
@@ -61,8 +61,10 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
         Modifier.progressiveTextureBlur(
             backdrop = layer,
             shape = shape,
-            blurRadius = GlassTopAppBarDefaults.ProgressiveBlurRadius.value,
-            gradient = ProgressiveBlur.Top.copy(curve = 0.5f),
+            blurRadius = 100f,
+            // 0.25 与 miuix GlassTopAppBar 的顶栏渐进渐变一致：顶部保持满强度，
+            // 到栏底迅速收敛，避免把下方卡片文字拖成顶栏里的斑点。
+            gradient = ProgressiveBlur.Top.copy(curve = 0.25f),
             colors = BlurDefaults.blurColors(
                 blendColors = listOf(BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.3f))),
             ),
@@ -73,7 +75,7 @@ private class Api33BarBackdrop(private val layer: LayerBackdrop) : BarBackdrop {
         Modifier.glass(
             backdrop = layer,
             shape = shape,
-            material = GlassSegmentedTabRowDefaults.material(),
+            material = GlassSegmentedTabRowDefaults.material().copy(blurRadius = 40.dp),
             stroke = GlassSegmentedTabRowDefaults.stroke(),
             shading = false,
         )

@@ -385,15 +385,11 @@ private val LIBRARY_FILTERS = listOf(
     LibraryFilter("全部") { true },
     LibraryFilter("YAML") { it.name.endsWith(".yaml", true) || it.name.endsWith(".yml", true) },
     LibraryFilter("TXT") { it.name.endsWith(".txt", true) },
-    LibraryFilter("TSV") { it.name.endsWith(".tsv", true) },
-    LibraryFilter("ZIP") { it.name.endsWith(".zip", true) },
     // 处理标记分类。
-    LibraryFilter("拼和辅") { it.status == FileStatus.PINYIN_AUX_DONE },
+    LibraryFilter("拼辅") { it.status == FileStatus.PINYIN_AUX_DONE },
     LibraryFilter("拼音") { it.status == FileStatus.PINYIN_DONE },
     LibraryFilter("辅助码") { it.status == FileStatus.AUX_DONE },
-    LibraryFilter("删辅") { it.status == FileStatus.AUX_STRIPPED },
     LibraryFilter("多音字") { it.polyphonicHandled },
-    LibraryFilter("取消") { it.status == FileStatus.CANCELLED },
 )
 
 /** 轨道高度：沿用本页原来的 38dp，换材质不改版面。 */
@@ -444,7 +440,7 @@ private fun FilterChips(
         backdrop = backdrop?.rawBackdrop,
         cornerRadius = FilterTrackHeight / 2,
         outSidePadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-        material = GlassSegmentedTabRowDefaults.material(),
+        material = GlassSegmentedTabRowDefaults.material().copy(blurRadius = 40.dp),
         // 无 backdrop 时的回退底色。
         fill = p.card,
         stroke = GlassSegmentedTabRowDefaults.stroke(),

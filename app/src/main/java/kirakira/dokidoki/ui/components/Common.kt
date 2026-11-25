@@ -623,7 +623,7 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
                 selectedIndex = selectedIndex,
                 onSelect = onSelect,
                 backdrop = backdrop,
-                material = GlassNavigationBarDefaults.material(),
+                material = GlassNavigationBarDefaults.material().copy(blurRadius = 40.dp),
                 stroke = if (backdrop != null) GlassNavigationBarDefaults.stroke() else null,
                 shadow = if (backdrop != null) GlassShadows.Float else null,
                 modifier = Modifier
