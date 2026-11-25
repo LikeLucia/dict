@@ -9,6 +9,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -76,6 +78,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.basic.Search
+import top.yukonga.miuix.kmp.glass.GlassMotion
 import top.yukonga.miuix.kmp.icon.glass.File
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -471,8 +474,14 @@ private fun DetailJumpButtons(
     ) {
         AnimatedVisibility(
             visible = notAtTop,
-            enter = fadeIn(tween(120)),
-            exit = fadeOut(tween(90)),
+            enter = fadeIn(tween(120)) + scaleIn(
+                animationSpec = GlassMotion.scaleIn<Float>(),
+                initialScale = 1.12f,
+            ),
+            exit = fadeOut(tween(120)) + scaleOut(
+                animationSpec = GlassMotion.scaleOut<Float>(),
+                targetScale = 1.12f,
+            ),
         ) {
             // AnimatedVisibility 的淡入淡出会生成临时 alpha 图层；给 FAB 外包 6dp 透明边距，
             // 让 4dp 阴影在 alpha 图层内有足够绘制空间，避免过渡时被裁成方形。
@@ -482,8 +491,14 @@ private fun DetailJumpButtons(
         }
         AnimatedVisibility(
             visible = notAtBottom,
-            enter = fadeIn(tween(120)),
-            exit = fadeOut(tween(90)),
+            enter = fadeIn(tween(120)) + scaleIn(
+                animationSpec = GlassMotion.scaleIn<Float>(),
+                initialScale = 1.12f,
+            ),
+            exit = fadeOut(tween(120)) + scaleOut(
+                animationSpec = GlassMotion.scaleOut<Float>(),
+                targetScale = 1.12f,
+            ),
         ) {
             Box(Modifier.padding(6.dp)) {
                 JumpButton("翻到底部", 90f, iconSize, p.text2, p.card, onJumpBottom)
