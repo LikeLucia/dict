@@ -494,12 +494,14 @@ private fun JumpButton(
     containerColor: Color,
     onClick: () -> Unit,
 ) {
+    // 每个上下箭头作为独立的圆形 FAB 绘制阴影；AnimatedVisibility 只做整体淡入淡出，
+    // 阴影随按钮自身的 graphicsLayer 一起出现，不会在外层容器上留下静态阴影。
     FloatingActionButton(
         onClick = onClick,
         minWidth = 44.dp,
         minHeight = 44.dp,
         containerColor = containerColor,
-        shadowElevation = 0.dp,
+        shadowElevation = 4.dp,
     ) {
         Icon(
             MiuixIcons.Basic.ArrowRight,
