@@ -2,7 +2,7 @@
 
 #纯AI产物
 
-离线词库处理工具的原生 Android 实现，基于 Kotlin + Compose + Miuix + COUI。支持导入 Rime YAML / TXT / TSV / ZIP 词库，在本机完成拼音与辅助码处理并导出结果，词库数据不会上传。
+离线词库处理工具的原生 Android 实现，基于 Kotlin + Compose + Miuix + COUI。支持导入 Rime YAML / TXT / ZIP 词库，在本机完成拼音与辅助码处理并导出结果，词库数据不会上传。
 
 ## 功能
 
@@ -40,7 +40,7 @@ app/src/main/java/kirakira/dokidoki/
 处理资源位于 `app/src/main/assets/`：
 
 - `pinyin-pro.js`：pinyin-pro 3.27.0（MIT）
-- `dict_engine.js`：离线词库处理脚本，包含 CRC / ZIP、Rime columns、TXT / TSV 与权重处理
+- `dict_engine.js`：离线词库处理脚本，包含 CRC / ZIP、Rime columns、TXT 与权重处理
 - `aux_tables.tsv.deflate`：墨奇 / 自然码 / 小鹤 / 渊默码 / kirakira 五套主码表
 - `zi_weights.json.deflate`：多音字读音权重表
 - `THIRD_PARTY_NOTICES.md`：第三方来源与许可证索引

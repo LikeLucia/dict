@@ -93,7 +93,7 @@ Zip.prototype.finish = function(){
 
 'use strict';
 const $=id=>document.getElementById(id);let tables=new Map(),busy=false;
-const supported=n=>/\.(yaml|yml|txt|tsv)$/i.test(n);
+const supported=n=>/\.(yaml|yml|txt)$/i.test(n);
 function mapOf(obj){return new Map(Object.entries(obj));}
 async function init(){const raw=Uint8Array.from(atob($('auxTables').textContent.trim()),c=>c.charCodeAt(0));const text=await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();const data=JSON.parse(text);for(const [id,obj] of Object.entries(data))tables.set(id,mapOf(obj));}
 const ready=Promise.resolve();
@@ -447,7 +447,7 @@ function save(blob,name){let a=document.createElement('a'),u=URL.createObjectURL
 function say(x,c=''){ $('msg').textContent=x;$('msg').className='msg '+c}
 async function run(files){if(busy)return;busy=true;files=Array.from(files);let reports=[];try{const opt=getOpt();if(opt.mode!=='autoOnly'){await ready;opt.table=tables.get(opt.auxType);if(!opt.table)throw Error('未知辅助码类型：'+opt.auxType);}let outputs=[];$('bar').className='bar';for(const f of files){say('处理中：'+f.name);let entries=/\.zip$/i.test(f.name)?await readZipEntries(f):[{name:f.name,blob:f,open:false}];if(!/\.zip$/i.test(f.name)&&!supported(f.name))throw Error('不支持文件：'+f.name);const isZip=/\.zip$/i.test(f.name);let directBlob=null;let z=isZip?new Zip():null;for(let i=0;i<entries.length;i++){const e=entries[i];$('fill').style.width=((i+1)/entries.length*100)+'%';if(!supported(e.name)){// 非词库条目连同目录保留，不丢资源。
  const rd=checkedStream(e).getReader();try{while(!(await rd.read()).done){}}finally{rd.releaseLock()}z.add(e.name,[new Uint8Array(await e.blob.arrayBuffer())],e.crc,e.size,e.csize,e.method);reports.push(e.name+'：非词库原样保留');continue}
- let r;try{r=await buildEntry(e.open?checkedStream(e):e.blob.stream(),opt)}catch(err){throw Error(e.name+'：'+err.message)}reports.push(e.name+'：'+r.st.no+' 行，已处理 '+r.st.coded+' 行\n'+JSON.stringify(r.st.counts)+'\n'+r.st.samples.join('\n')+(r.st.missing.size?'\n缺码字：'+[...r.st.missing].join(''):''));if(isZip){z.add(e.name,r.parts,r.crc,r.rawSize,r.comp,r.method)}else{if(r.method!==0)throw Error('直接导出需要未压缩文本');directBlob=new Blob(r.parts,{type:/\.ya?ml$/i.test(f.name)?'application/yaml;charset=utf-8':/\.tsv$/i.test(f.name)?'text/tab-separated-values;charset=utf-8':'text/plain;charset=utf-8'})}}outputs.push({name:f.name,blob:isZip?z.finish():directBlob})}
+ let r;try{r=await buildEntry(e.open?checkedStream(e):e.blob.stream(),opt)}catch(err){throw Error(e.name+'：'+err.message)}reports.push(e.name+'：'+r.st.no+' 行，已处理 '+r.st.coded+' 行\n'+JSON.stringify(r.st.counts)+'\n'+r.st.samples.join('\n')+(r.st.missing.size?'\n缺码字：'+[...r.st.missing].join(''):''));if(isZip){z.add(e.name,r.parts,r.crc,r.rawSize,r.comp,r.method)}else{if(r.method!==0)throw Error('直接导出需要未压缩文本');directBlob=new Blob(r.parts,{type:/\.ya?ml$/i.test(f.name)?'application/yaml;charset=utf-8':'text/plain;charset=utf-8'})}}outputs.push({name:f.name,blob:isZip?z.finish():directBlob})}
  // 普通文件直接按原名导出；ZIP 输入仍分别输出 ZIP。
  for(const o of outputs){const name=o.name;const a=document.createElement('a');a.textContent='再次下载：'+name;a.href=URL.createObjectURL(o.blob);a.download=name;a.style.display='block';$('downloads').appendChild(a);save(o.blob,name)}say('完成：'+outputs.length+' 个输出文件；普通文件直接导出，ZIP 仍为 ZIP；词库输出 UTF-8，文件名和 ZIP 相对路径保持原样。','ok')
  }catch(e){say('转换失败：'+e.message,'err');reports.push('错误：'+e.message)}finally{busy=false;$('bar').className='bar hide';$('report').textContent=reports.join('\n\n');$('detail').className=''}}

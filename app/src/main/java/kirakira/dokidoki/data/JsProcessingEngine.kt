@@ -193,6 +193,9 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
         options: ProcessOptions,
         onProgress: (Float) -> Unit,
     ): ProcessOutcome {
+        if (file.name.endsWith(".tsv", ignoreCase = true)) {
+            throw ProcessingException("暂不支持 TSV 文件")
+        }
         var completedOutcome: ProcessOutcome? = null
         try {
             return withContext(quickJsDispatcher) {
@@ -445,7 +448,7 @@ class JsProcessingEngine(context: Context) : ProcessingEngine {
                         continue
                     }
                     val isDictionary = name.endsWith(".yaml", true) || name.endsWith(".yml", true) ||
-                        name.endsWith(".txt", true) || name.endsWith(".tsv", true)
+                        name.endsWith(".txt", true)
                     if (!isDictionary) {
                         activeZipOut.putNextEntry(ZipEntry(name))
                         copyStream(boundedEntry, activeZipOut, checkActive)

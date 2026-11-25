@@ -551,6 +551,9 @@ class MainViewModel(
                     uris.mapNotNull { uri ->
                         try {
                             val name = queryName(resolver, uri)
+                            if (name.endsWith(".tsv", ignoreCase = true)) {
+                                throw IllegalArgumentException("暂不支持 TSV 文件")
+                            }
                             val id = UUID.randomUUID().toString()
                             val target = File(sessionInputDirectory, "$id.bin")
                             val temporary = File(sessionInputDirectory, "$id.tmp")
