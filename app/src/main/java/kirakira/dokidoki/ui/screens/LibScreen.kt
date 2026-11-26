@@ -120,7 +120,6 @@ fun LibScreen(
     val p = DictTheme.palette
     val selectionMenuAnchor = rememberGlassPopupAnchor()
     var selectionMenuOpen by remember { mutableStateOf(false) }
-    var pendingMenuClose by remember { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var selectedFilter by rememberSaveable { mutableIntStateOf(0) }
     // 标签 = 全部 + 文件格式 + 处理标记；统一在一行里横向滑动。
@@ -169,15 +168,6 @@ fun LibScreen(
             focusManager.clearFocus()
             keyboard?.hide()
         } else {
-            selectionMenuOpen = false
-        }
-    }
-    // 先让菜单内容随全选状态完成重组，再开始 Miuix 的收起动画，
-    // 这样收起过程中显示的已经是“取消全选/全选”而不是旧文案。
-    LaunchedEffect(pendingMenuClose) {
-        if (pendingMenuClose) {
-            delay(80)
-            pendingMenuClose = false
             selectionMenuOpen = false
         }
     }
@@ -232,27 +222,10 @@ fun LibScreen(
                 DropdownItem(
                     text = if (allSelected) "取消全选" else "全选",
                     enabled = state.files.isNotEmpty(),
-                    onClick = {
-                        if (allSelected) onClearFileSelection() else onSelectAll()
-                        pendingMenuClose = true
-                    },
+                    onClick = if (allSelected) onClearFileSelection else onSelectAll,
                 ),
-                DropdownItem(
-                    text = "导出",
-                    enabled = state.files.any { it.id in state.selectedFileIds && it.hasOutput },
-                    onClick = {
-                        selectionMenuOpen = false
-                        onBatchExport()
-                    },
-                ),
-                DropdownItem(
-                    text = "删除",
-                    enabled = state.selectedFileIds.isNotEmpty(),
-                    onClick = {
-                        selectionMenuOpen = false
-                        onDeleteSelection()
-                    },
-                ),
+                DropdownItem(text = "导出", enabled = state.files.any { it.id in state.selectedFileIds && it.hasOutput }, onClick = onBatchExport),
+                DropdownItem(text = "删除", enabled = state.selectedFileIds.isNotEmpty(), onClick = onDeleteSelection),
             ),
         ),
     )
@@ -375,9 +348,6 @@ fun LibScreen(
             )
         },
         entries = selectionMenuEntries,
-        // 全选/取消全选先更新文案，再由 pendingMenuClose 触发自动收起；
-        // 导出和删除由各自回调立即关闭菜单。
-        collapseOnSelection = false,
         backdrop = LocalBarBackdrop.current?.rawBackdrop,
     )
     }
