@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,6 +20,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -362,6 +364,7 @@ fun AmbiguityDetailScreen(
                     }
                 }
                 DetailJumpButtons(
+                    listState = listState,
                     notAtTop = notAtTop,
                     notAtBottom = notAtBottom,
                     onJumpTop = {
@@ -455,25 +458,29 @@ private suspend fun syncTopBar(state: TopAppBarState?, collapse: Boolean, animat
     if (!collapse) state.contentOffset = 0f
 }
 
-/** 右下角翻页按钮：上箭头回到顶部，下箭头滚到底部并翻页。 */
+/** 右下角单个悬浮按钮：按最近滚动方向指向顶部或底部，点击跳到对应一端。 */
 @Composable
 private fun DetailJumpButtons(
+    listState: LazyListState,
     notAtTop: Boolean,
     notAtBottom: Boolean,
     onJumpTop: () -> Unit,
     onJumpBottom: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (!notAtTop && !notAtBottom) return
     val p = DictTheme.palette
     val iconSize = 22.dp
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(0.dp),
-    ) {
+    // 最近一次滚动的方向：向下（向列表尾部）滚动时为 true。页面中段时据此切换单按钮箭头。
+    val lastScrolledDown = listState.lastScrolledForward
+    // 页面中段按最近一次滚动方向决定指向；到顶/到底后强制指向仍可前往的一端。
+    val jumpToTop = when {
+        !notAtTop -> false
+        !notAtBottom -> true
+        else -> !lastScrolledDown
+    }
+    Box(modifier = modifier) {
         AnimatedVisibility(
-            visible = notAtTop,
+            visible = notAtTop || notAtBottom,
             enter = fadeIn(tween(120)) + scaleIn(
                 animationSpec = GlassMotion.scaleIn<Float>(),
                 initialScale = 1.12f,
@@ -486,22 +493,14 @@ private fun DetailJumpButtons(
             // AnimatedVisibility 的淡入淡出会生成临时 alpha 图层；给 FAB 外包 6dp 透明边距，
             // 让 4dp 阴影在 alpha 图层内有足够绘制空间，避免过渡时被裁成方形。
             Box(Modifier.padding(6.dp)) {
-                JumpButton("回到顶部", -90f, iconSize, p.text2, p.card, onJumpTop)
-            }
-        }
-        AnimatedVisibility(
-            visible = notAtBottom,
-            enter = fadeIn(tween(120)) + scaleIn(
-                animationSpec = GlassMotion.scaleIn<Float>(),
-                initialScale = 1.12f,
-            ),
-            exit = fadeOut(tween(120)) + scaleOut(
-                animationSpec = GlassMotion.scaleOut<Float>(),
-                targetScale = 1.12f,
-            ),
-        ) {
-            Box(Modifier.padding(6.dp)) {
-                JumpButton("翻到底部", 90f, iconSize, p.text2, p.card, onJumpBottom)
+                JumpButton(
+                    description = if (jumpToTop) "回到顶部" else "翻到底部",
+                    rotation = if (jumpToTop) -90f else 90f,
+                    iconSize = iconSize,
+                    tint = p.text2,
+                    containerColor = p.card,
+                    onClick = if (jumpToTop) onJumpTop else onJumpBottom,
+                )
             }
         }
     }
@@ -516,8 +515,12 @@ private fun JumpButton(
     containerColor: Color,
     onClick: () -> Unit,
 ) {
-    // 每个上下箭头作为独立的圆形 FAB 绘制阴影；AnimatedVisibility 只做整体淡入淡出，
-    // 阴影随按钮自身的 graphicsLayer 一起出现，不会在外层容器上留下静态阴影。
+    // 单个圆形 FAB 自己绘制阴影；旋转角度随滚动方向在上下箭头之间平滑切换。
+    val animatedRotation by animateFloatAsState(
+        targetValue = rotation,
+        animationSpec = GlassMotion.default<Float>(),
+        label = "jumpArrowRotation",
+    )
     FloatingActionButton(
         onClick = onClick,
         minWidth = 44.dp,
@@ -528,7 +531,7 @@ private fun JumpButton(
         Icon(
             MiuixIcons.Basic.ArrowRight,
             contentDescription = description,
-            modifier = Modifier.size(iconSize).rotate(rotation),
+            modifier = Modifier.size(iconSize).rotate(animatedRotation),
             tint = tint,
         )
     }
