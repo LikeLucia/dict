@@ -395,9 +395,9 @@ fun AmbiguityDetailScreen(
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        // 贴右侧、位于分页行上方；按反馈累计左移 30dp、下移 10dp。
+                        // 贴右侧、位于分页行上方；按反馈再左移 10dp、上移 5dp。
                         // 额外 6dp 是 FAB 阴影绘制边距，抵消后保持圆形按钮的视觉位置不变。
-                        .padding(end = 32.dp, bottom = 56.dp),
+                        .padding(end = 42.dp, bottom = 61.dp),
                 )
             }
         }
