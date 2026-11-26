@@ -507,7 +507,7 @@ fun DictBottomBar(selectedIndex: Int, onSelect: (Int) -> Unit, modifier: Modifie
         listOf(
             GlassNavigationItem(MiuixIcons.Glass.HomeOutline, "首页"),
             GlassNavigationItem(MiuixIcons.Glass.BookOutline, "词库"),
-            GlassNavigationItem(MiuixIcons.Glass.DigitalStatistics, "报告"),
+            GlassNavigationItem(MiuixIcons.Glass.DigitalStatistics, "详情"),
             GlassNavigationItem(MiuixIcons.Glass.SettingsOutline, "设置"),
         )
     }

@@ -390,16 +390,6 @@ private fun QueueRow(name: String, position: Int, processing: Boolean, last: Boo
                 Text(if (processing) "处理中" else "排队中", fontSize = 10.5.sp, color = p.text2)
             }
         }
-        if (!last) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 48.dp, end = 18.dp)
-                    .fillMaxWidth()
-                    .height(0.7.dp)
-                    .background(p.divider),
-            )
-        }
     }
 }
 
@@ -502,16 +492,6 @@ private fun RecentRow(
                 contentDescription = null,
                 modifier = Modifier.size(width = 9.dp, height = 15.dp),
                 tint = p.text3,
-            )
-        }
-        if (!last) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 54.dp, end = 41.dp)
-                    .fillMaxWidth()
-                    .height(0.7.dp)
-                    .background(p.divider),
             )
         }
     }

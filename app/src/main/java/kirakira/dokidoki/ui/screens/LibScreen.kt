@@ -640,16 +640,6 @@ private fun LibRow(
                 }
             }
         }
-        if (!last && !selected) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 54.dp)
-                    .fillMaxWidth(0.78f)
-                    .height(0.7.dp)
-                    .background(p.divider),
-            )
-        }
     }
 }
 /** 已手动替换过多音字拼音的标记。 */

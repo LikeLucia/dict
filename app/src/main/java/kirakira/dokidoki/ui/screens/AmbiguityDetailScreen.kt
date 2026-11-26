@@ -72,7 +72,6 @@ import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
@@ -306,11 +305,6 @@ fun AmbiguityDetailScreen(
                                             )
                                         }
                                     }
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 16.dp),
-                                        thickness = 0.7.dp,
-                                        color = MiuixTheme.colorScheme.dividerLine,
-                                    )
                                 }
                             }
                         }
@@ -321,7 +315,6 @@ fun AmbiguityDetailScreen(
                         ) { index, entry ->
                             DetailEntryRow(
                                 entry,
-                                showDivider = index != shown.lastIndex,
                                 last = index == shown.lastIndex,
                                 replaceMode = replaceMode,
                                 onLongPress = { replaceMode = true },
@@ -560,7 +553,6 @@ private fun JumpButton(
 @Composable
 private fun DetailEntryRow(
     entry: AmbiguousEntry,
-    showDivider: Boolean,
     last: Boolean,
     replaceMode: Boolean,
     onLongPress: () -> Unit,
@@ -683,9 +675,6 @@ private fun DetailEntryRow(
                     )
                 }
             }
-        }
-        if (showDivider) {
-            HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.7.dp, color = colors.dividerLine)
         }
     }
 }

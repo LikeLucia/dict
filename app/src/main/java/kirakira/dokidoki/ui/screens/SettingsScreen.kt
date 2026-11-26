@@ -348,16 +348,6 @@ internal fun SettingsRow(
                 }
             }
         }
-        if (!last) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 10.dp, end = 24.dp)
-                    .fillMaxWidth()
-                    .height(0.7.dp)
-                    .background(p.divider),
-            )
-        }
     }
 }
 
@@ -423,16 +413,6 @@ internal fun RadioRow(
                         .background(p.accent),
                 )
             }
-        }
-        if (!last) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 10.dp, end = 34.dp)
-                    .fillMaxWidth()
-                    .height(0.7.dp)
-                    .background(p.divider),
-            )
         }
     }
 }

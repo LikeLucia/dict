@@ -50,7 +50,6 @@ import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
@@ -82,7 +81,7 @@ fun ReportScreen(
     modifier: Modifier = Modifier,
     bottomPadding: Dp = 150.dp,
 ) {
-    FixedTopScrollPage(modifier = modifier, bottomPadding = bottomPadding, topBar = { DictTopBar("处理报告") }) {
+    FixedTopScrollPage(modifier = modifier, bottomPadding = bottomPadding, topBar = { DictTopBar("处理详情") }) {
         SmallTitle("统计", modifier = Modifier.padding(start = 4.dp))
         StatsGrid(result)
         SmallTitle("报告详情", modifier = Modifier.padding(start = 4.dp))
@@ -305,7 +304,6 @@ private fun PolyphonicCard(
                 }
             }
         }
-        HorizontalDivider(Modifier.padding(horizontal = 2.dp))
         if (groups.isEmpty()) {
             BasicComponent(title = "本次处理未发现多音字行", titleColor = BasicComponentDefaults.summaryColor())
             return@Card
@@ -325,7 +323,6 @@ private fun PolyphonicCard(
                     Icon(MiuixIcons.Basic.ArrowRight, null, Modifier.padding(start = 8.dp).size(13.dp), tint = colors.onSurfaceContainerHigh)
                 },
             )
-            if (index != shown.lastIndex) HorizontalDivider(Modifier.padding(start = 46.dp))
         }
         when {
             q.isNotEmpty() && shown.isEmpty() -> Text("没有匹配的文件", fontSize = 10.sp, color = colors.onBackgroundVariant, modifier = Modifier.padding(start = 18.dp, top = 10.dp, bottom = 12.dp))
