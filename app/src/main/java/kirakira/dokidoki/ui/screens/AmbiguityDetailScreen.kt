@@ -37,6 +37,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kirakira.dokidoki.data.AmbiguousEntry
@@ -470,8 +472,24 @@ private fun DetailJumpButtons(
 ) {
     val p = DictTheme.palette
     val iconSize = 22.dp
-    // 最近一次滚动的方向：向下（向列表尾部）滚动时为 true。页面中段时据此切换单按钮箭头。
-    val lastScrolledDown = listState.lastScrolledForward
+    // 只根据首项索引/偏移的实际变化判断方向，避免 LazyListState 的瞬时方向标记
+    // 在滑动过程中反复跳变，导致箭头重复旋转。
+    var lastScrolledDown by remember { mutableStateOf(true) }
+    LaunchedEffect(listState) {
+        var previousIndex = listState.firstVisibleItemIndex
+        var previousOffset = listState.firstVisibleItemScrollOffset
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .collect { (index, offset) ->
+                val movedDown = index > previousIndex ||
+                    (index == previousIndex && offset > previousOffset)
+                val movedUp = index < previousIndex ||
+                    (index == previousIndex && offset < previousOffset)
+                if (movedDown) lastScrolledDown = true
+                else if (movedUp) lastScrolledDown = false
+                previousIndex = index
+                previousOffset = offset
+            }
+    }
     // 页面中段按最近一次滚动方向决定指向；到顶/到底后强制指向仍可前往的一端。
     val jumpToTop = when {
         !notAtTop -> false
@@ -516,9 +534,11 @@ private fun JumpButton(
     onClick: () -> Unit,
 ) {
     // 单个圆形 FAB 自己绘制阴影；旋转角度随滚动方向在上下箭头之间平滑切换。
+    // 固定动画 spec，避免滚动重组时每次新建 spec 导致动画重复启动。
+    val rotationSpec = remember { GlassMotion.default<Float>() }
     val animatedRotation by animateFloatAsState(
         targetValue = rotation,
-        animationSpec = GlassMotion.default<Float>(),
+        animationSpec = rotationSpec,
         label = "jumpArrowRotation",
     )
     FloatingActionButton(
