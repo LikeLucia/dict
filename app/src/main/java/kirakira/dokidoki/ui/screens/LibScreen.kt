@@ -120,6 +120,9 @@ fun LibScreen(
     val p = DictTheme.palette
     val selectionMenuAnchor = rememberGlassPopupAnchor()
     var selectionMenuOpen by remember { mutableStateOf(false) }
+    // 菜单条目只在展开时生成一次：全选/取消全选触发状态变化后，收起动画继续绘制旧文案，
+    // 下次重新展开时才按最新选择状态刷新。
+    var selectionMenuEntries by remember { mutableStateOf(emptyList<DropdownEntry>()) }
     var query by rememberSaveable { mutableStateOf("") }
     var selectedFilter by rememberSaveable { mutableIntStateOf(0) }
     // 标签 = 全部 + 文件格式 + 处理标记；统一在一行里横向滑动。
@@ -216,7 +219,7 @@ fun LibScreen(
     }
     val selectableIds = state.files.mapNotNull { it.id }
     val allSelected = selectableIds.isNotEmpty() && state.selectedFileIds.containsAll(selectableIds)
-    val selectionMenuEntries = listOf(
+    fun buildSelectionMenuEntries(): List<DropdownEntry> = listOf(
         DropdownEntry(
             items = listOf(
                 DropdownItem(
@@ -247,7 +250,12 @@ fun LibScreen(
                             SelectionCancelButton(onClick = onClearSelection)
                             SelectionMenuButton(
                                 anchor = selectionMenuAnchor,
-                                onClick = { selectionMenuOpen = !selectionMenuOpen },
+                                onClick = {
+                                    if (!selectionMenuOpen) {
+                                        selectionMenuEntries = buildSelectionMenuEntries()
+                                    }
+                                    selectionMenuOpen = !selectionMenuOpen
+                                },
                             )
                         }
                     }
