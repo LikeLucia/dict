@@ -2,7 +2,7 @@
 
 #纯AI产物
 
-离线词库处理工具的原生 Android 实现，基于 Kotlin + Compose + Miuix + COUI。支持导入 Rime YAML / TXT / ZIP 词库，在本机完成拼音与辅助码处理并导出结果，词库数据不会上传。
+离线词库处理工具的原生 Android 实现，基于 Kotlin + Compose + Miuix。支持导入 Rime YAML / TXT / ZIP 词库，在本机完成拼音与辅助码处理并导出结果，词库数据不会上传。
 
 ## 功能
 
@@ -34,7 +34,8 @@ app/src/main/java/kirakira/dokidoki/
 └── ui/
     ├── theme/DictTheme.kt   # 双主题与 MiuixTheme 映射
     ├── components/Common.kt # 通用组件
-    └── screens/             # Home / Lib / Settings / Report / AmbiguityDetail
+    ├── components/FlowLightBackground.kt # 关于页流光渐变背景（移植自 c001apk）
+    └── screens/             # Home / Lib / Settings / Report / AmbiguityDetail / About / SourceLicense
 ```
 
 处理资源位于 `app/src/main/assets/`：
@@ -68,8 +69,7 @@ Gradle 通过 `RELEASE_KEYSTORE_PATH`、`RELEASE_STORE_PASSWORD`、`RELEASE_KEY_
 
 - Kotlin 2.4.21 / Compose Multiplatform 1.13.0-rc01 / AGP 9.5.1
 - Miuix 0.9.5-rc01（ui、glass、preference、icons、glass-icons）
-- COUI 2.1.0（coui-ui / coui-preference / coui-icons）
-- 界面模糊/玻璃管线参考 c001apk（AGPL-3.0）与 BoxProxy（GPL-3.0），来源与许可见 `app/src/main/assets/THIRD_PARTY_NOTICES.md`
+- 界面模糊/玻璃管线、关于页布局与渐变背景参考 c001apk（AGPL-3.0），渐进模糊参考 BoxProxy（GPL-3.0）；来源与许可见 `app/src/main/assets/THIRD_PARTY_NOTICES.md`
 - AndroidX Activity Compose 1.13.0、Lifecycle ViewModel Compose 2.11.0、DataStore Preferences 1.3.0、Graphics Path 1.1.0
 - `app/libs/quickjs-android-0.9.2-16kb.aar`：基于 app.cash.quickjs 0.9.2 重新编译的 arm64 库（Apache-2.0；内嵌 QuickJS 2021-03-27，MIT）
 

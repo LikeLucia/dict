@@ -75,9 +75,9 @@ import kirakira.dokidoki.ui.components.rememberMiuixIndication
 import kirakira.dokidoki.ui.screens.AboutScreen
 import kirakira.dokidoki.ui.screens.AmbiguityDetailScreen
 import kirakira.dokidoki.ui.screens.HomeScreen
-import kirakira.dokidoki.ui.screens.LibrariesScreen
 import kirakira.dokidoki.ui.screens.LibScreen
 import kirakira.dokidoki.ui.screens.ReportScreen
+import kirakira.dokidoki.ui.screens.SourceLicenseScreen
 import kirakira.dokidoki.ui.screens.SettingsMenu
 import kirakira.dokidoki.ui.screens.SettingsScreen
 import kirakira.dokidoki.ui.theme.DictTheme
@@ -527,12 +527,11 @@ fun DictApp(viewModel: MainViewModel) {
                                     onOpenSourceLicenses = { sourceLicensesOpen = true },
                                     versionName = versionName,
                                     versionCode = versionCode,
-                                    isDark = dark,
                                 )
                             },
                             detail = {
                                 FullScreenContentPage {
-                                    LibrariesScreen(onBack = { sourceLicensesOpen = false })
+                                    SourceLicenseScreen(onBack = { sourceLicensesOpen = false })
                                 }
                             },
                         )

@@ -1,13 +1,12 @@
-# 构建已签名的 Release APK；main 与 ci 平时只构建，只有手动 Release 才发版。
+# 构建已签名的 Release APK；main 推送只构建，只有手动 Release 才发版。
 #
 # 版本号规则：
-#   推送 main / ci：只构建，versionName 不变，versionCode +1，产物上传 workflow artifact
+#   推送 main：只构建，versionName 不变，versionCode +1，产物上传 workflow artifact
 #   手动 Release（Actions → Android APK → Run workflow，publish_release=true）：
 #     versionName 末段 +1（到 9 进位中段，2.3.9 -> 2.4.0），versionCode +1，并发布 GitHub Release
-#   ci 分支的 versionName 始终跟随 origin/main，且 ci 永不发版（tag 归 main 的正式发布）
 #
 # 触发方式：
-#   - push 到 main 或 ci：自动构建，只上传 artifact
+#   - push 到 main：自动构建，只上传 artifact
 #   - workflow_dispatch：publish_release=true 时按发布处理（仅 main 有效），false 时等同一次普通构建
 # 版本号回写提交会推回触发本次运行的分支。
 #
@@ -37,7 +36,7 @@ on:
         default: ksm
         type: string
   push:
-    branches: [main, ci]
+    branches: [main]
     # 版本号回写只改 version.properties，不触发新的构建，避免自我循环。
     paths-ignore:
       - version.properties
@@ -53,7 +52,7 @@ jobs:
   build-signed:
     if: >-
       github.actor != 'github-actions[bot]' &&
-      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci')
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -65,18 +64,12 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BRANCH_NAME: ${{ github.ref_name }}
           INPUT_PUBLISH: ${{ github.event.inputs.publish_release }}
           INPUT_DRAFT: ${{ github.event.inputs.draft }}
           INPUT_KEY_ALIAS: ${{ github.event.inputs.key_alias }}
         run: |
           set -euo pipefail
-          if [ "$BRANCH_NAME" = "ci" ]; then
-            # ci 永远只构建：它的 versionName 跟随 main，tag 不能重复占用。
-            PUBLISH=false
-            DRAFT=false
-            echo "ci branch: build only, no GitHub Release"
-          elif [ "$EVENT_NAME" = "push" ]; then
+          if [ "$EVENT_NAME" = "push" ]; then
             # main 的普通推送也只构建，发版必须手动触发。
             PUBLISH=false
             DRAFT=false
@@ -124,7 +117,6 @@ jobs:
         shell: bash
         env:
           PUBLISH_RELEASE: ${{ steps.mode.outputs.publish }}
-          BRANCH_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           # versionCode 始终以本分支的 version.properties 为基数递增。
@@ -133,15 +125,7 @@ jobs:
           LOCAL_NAME="$(grep ^versionName= version.properties | cut -d= -f2)"
           test -n "$LOCAL_NAME"
 
-          if [ "$BRANCH_NAME" = "ci" ]; then
-            # ci 的 versionName 只跟随 main：从远端 main 读取，忽略 ci 自己文件里的值。
-            git fetch --depth=1 origin main
-            BASE_NAME="$(git show origin/main:version.properties | grep ^versionName= | cut -d= -f2)"
-            test -n "$BASE_NAME"
-            echo "ci branch: versionName from origin/main = $BASE_NAME (ci file had $LOCAL_NAME)"
-          else
-            BASE_NAME="$LOCAL_NAME"
-          fi
+          BASE_NAME="$LOCAL_NAME"
 
           # versionName 统一为三段式 MAJOR.MINOR.PATCH；两段式按 .0 补齐，如 2.1 -> 2.1.0。
           if ! printf '%s' "$BASE_NAME" | grep -qE '^[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
@@ -153,7 +137,7 @@ jobs:
           MINOR="${REST%%.*}"
           if [ "$REST" = "$MINOR" ]; then PATCH=0; else PATCH="${REST#*.}"; fi
 
-          # 只有手动发布才递增 versionName；普通推送与 ci 构建都保持原样。
+          # 只有手动发布才递增 versionName；普通推送保持原样。
           if [ "$PUBLISH_RELEASE" = "true" ]; then
             if [ "$PATCH" -ge 9 ]; then
               MINOR=$((MINOR + 1))
@@ -172,7 +156,7 @@ jobs:
           echo "name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
           echo "code=$RELEASE_CODE" >> "$GITHUB_OUTPUT"
           echo "mode=$VERSION_MODE" >> "$GITHUB_OUTPUT"
-          echo "${VERSION_MODE}: source=${BASE_NAME}/${CURRENT_CODE} -> ${RELEASE_NAME}/${RELEASE_CODE} (branch=${BRANCH_NAME})"
+          echo "${VERSION_MODE}: source=${BASE_NAME}/${CURRENT_CODE} -> ${RELEASE_NAME}/${RELEASE_CODE}"
 
       - name: Refuse to reuse a released version
         if: ${{ steps.mode.outputs.publish == 'true' }}
