@@ -4,7 +4,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -24,7 +25,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
@@ -92,7 +93,6 @@ fun GlassScrollableSegmentedTabRow(
     var pressedIndex by remember { mutableIntStateOf(-1) }
     var dragging by remember { mutableStateOf(false) }
     var dragIndex by remember { mutableIntStateOf(-1) }
-    var dragCenterX by remember { mutableFloatStateOf(0f) }
     val scope = rememberCoroutineScope()
     val backdrop = LocalBarBackdrop.current
     val trackShape = GlassSegmentedTabRowDefaults.shape(TrackHeight)
@@ -300,42 +300,56 @@ fun GlassScrollableSegmentedTabRow(
                         }
                     }
                     .pointerInput(labels.size, widths, contentWidth, selected) {
-                        detectDragGestures(
-                            onDragStart = {
-                                dragging = true
-                                dragIndex = selected
-                                dragCenterX = starts[selected] + widths[selected] / 2f
-                                pressedIndex = selected
-                            },
-                            onDragEnd = {
-                                val target = indexAtContentX(dragCenterX, starts, widths)
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            pressedIndex = selected
+                            var dragStarted = false
+                            var lastX = down.position.x
+                            var selectionX = starts[selected] + widths[selected] / 2f
+                            var currentIndex = selected
+                            try {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (change.isConsumed) break
+                                    if (!change.pressed) {
+                                        if (change.changedToUp() && dragStarted) {
+                                            change.consume()
+                                            onSelected(indexAtContentX(selectionX, starts, widths))
+                                        }
+                                        break
+                                    }
+                                    val delta = change.position.x - lastX
+                                    lastX = change.position.x
+                                    selectionX += delta
+                                    if (!dragStarted && abs(change.position.x - down.position.x) > viewConfiguration.touchSlop) {
+                                        dragStarted = true
+                                        dragging = true
+                                        dragIndex = currentIndex
+                                    }
+                                    if (dragStarted) {
+                                        change.consume()
+                                        val next = indexAtContentX(selectionX, starts, widths)
+                                        val target = navigationDragTarget(
+                                            left = starts[next],
+                                            width = widths[next],
+                                            minLeft = 0f,
+                                            maxRight = contentWidth,
+                                            delta = delta,
+                                            changedItem = next != dragIndex,
+                                        )
+                                        scope.launch { indicatorLeft.animateTo(target.left, target.leftSpring) }
+                                        scope.launch { indicatorRight.animateTo(target.right, target.rightSpring) }
+                                        dragIndex = next
+                                        currentIndex = next
+                                    }
+                                }
+                            } finally {
+                                pressedIndex = -1
                                 dragging = false
                                 dragIndex = -1
-                                pressedIndex = -1
-                                onSelected(target)
-                            },
-                            onDragCancel = {
-                                dragging = false
-                                dragIndex = -1
-                                pressedIndex = -1
-                            },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                dragCenterX = (dragCenterX + dragAmount.x).coerceIn(0f, contentWidth)
-                                val next = indexAtContentX(dragCenterX, starts, widths)
-                                val target = navigationDragTarget(
-                                    left = starts[next],
-                                    width = widths[next],
-                                    minLeft = 0f,
-                                    maxRight = contentWidth,
-                                    delta = dragAmount.x,
-                                    changedItem = next != dragIndex,
-                                )
-                                scope.launch { indicatorLeft.animateTo(target.left, target.leftSpring) }
-                                scope.launch { indicatorRight.animateTo(target.right, target.rightSpring) }
-                                dragIndex = next
-                            },
-                        )
+                            }
+                        }
                     },
             )
         }
