@@ -11,7 +11,7 @@
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](#下载)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-607D8B?style=flat-square)](LICENSE)
 
-[下载](https://github.com/LikeLucia/dict/releases/latest) · [问题反馈](https://github.com/LikeLucia/dict/issues) · [构建说明](#构建) · [开放源代码许可](app/src/main/assets/THIRD_PARTY_NOTICES.md)
+[下载](https://github.com/LikeLucia/dict/releases/latest) · [构建说明](#构建) · [开放源代码许可](app/src/main/assets/THIRD_PARTY_NOTICES.md)
 
 </div>
 
@@ -109,9 +109,7 @@ app/src/main/java/kirakira/dokidoki/
 
 ## 参与贡献
 
-欢迎提交 [Issue](https://github.com/LikeLucia/dict/issues) 或 Pull Request。报告问题前请先搜索已有 Issue，并提供应用版本、设备型号、Android 版本和复现步骤；附图或日志中的账号凭据、Cookie 和设备标识请先移除。
-
-每个 PR 尽量只处理一个问题，说明改动目的和测试方式。移植上游代码时请注明来源与提交，保留原有版权和许可声明。
+欢迎提交 Pull Request。每个 PR 尽量只处理一个问题，说明改动目的和测试方式。移植上游代码时请注明来源与提交，保留原有版权和许可声明。
 
 ## 文档
 
