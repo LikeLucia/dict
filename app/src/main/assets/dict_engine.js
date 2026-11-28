@@ -98,7 +98,7 @@ function mapOf(obj){return new Map(Object.entries(obj));}
 async function init(){const raw=Uint8Array.from(atob($('auxTables').textContent.trim()),c=>c.charCodeAt(0));const text=await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();const data=JSON.parse(text);for(const [id,obj] of Object.entries(data))tables.set(id,mapOf(obj));}
 const ready=Promise.resolve();
 function getOpt(){const w=$('wordCol').value,p=$('pyCol').value,s=$('auxSep').value;if(!/^[1-9]\d*$/.test(w)||!/^[1-9]\d*$/.test(p)||!Number.isSafeInteger(+w)||!Number.isSafeInteger(+p)||w===p)throw Error('列号须为不同的正整数');if(!s||/[\s'’a-zA-Z0-9ü\u0300-\u036f]/u.test(s))throw Error('辅助码分隔符请使用非字母数字、非空白、非撇号符号');const auxType=$('auxType').value;return{mode:$('mode').value,toneType:$('toneType').value,w:+w-1,p:+p-1,sep:$('sep').value,encoding:$('enc').value,replace:$('replace').checked,aux:s,auxType,table:tables.get(auxType)}}
-function state(opt){return{opt:{...opt},phase:'start',header:[],no:0,coded:0,counts:{},samples:[],missing:new Set(),polyphonic:0,polyphonicSamples:[],polyphonicDetails:[],auxStripped:0}}
+function state(opt){return{opt:{...opt},phase:'start',header:[],no:0,coded:0,counts:{},samples:[],missing:new Set(),polyphonic:0,polyphonicSamples:[],polyphonicDetails:[],auxStripped:0,sortOriginal:false}}
 function note(st,why,raw){st.counts[why]=(st.counts[why]||0)+1;if(st.samples.length<60)st.samples.push('第 '+st.no+' 行 '+why+'：'+raw.slice(0,180));return raw}
 function headerColumns(st){const h=st.header;let found=false,a=null;
  for(let i=0;i<h.length;i++){const m=h[i].match(/^columns\s*:\s*(.*?)\s*$/);if(!m)continue;if(found)throw Error('重复 columns 声明');found=true;let v=m[1].replace(/\s+#.*$/,'').trim();if(v.startsWith('[')&&v.endsWith(']'))a=v.slice(1,-1).split(',').map(x=>x.trim());else if(!v){a=[];let j=i+1;for(;j<h.length;j++){if(/^\s*(#.*)?$/.test(h[j]))continue;let b=h[j].match(/^\s*-\s+([^#]*?)(?:\s+#.*)?$/);if(b){a.push(b[1].trim());continue}break}}else throw Error('未知 columns 声明');a=a.map(x=>x.replace(/^(['"])(.*?)\1$/,'$2'));if(a.some(x=>!/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(x))||new Set(a).size!==a.length)throw Error('无效或重复 columns：'+a.join(', '));if(!a.includes('text')||!a.includes('code'))throw Error('columns 缺少 text 或 code');st.opt.w=a.indexOf('text');st.opt.p=a.indexOf('code');}
@@ -128,9 +128,15 @@ function __matchesStandardSyllable(base){
 function validAux(code){return typeof code==='string'&&/^[a-z]{2}(?:,[a-z]{2})*$/i.test(code)}
 // 自动识别只接受完整音节，避免把 extra、note 等备注当作拼音列。
 function matchesCode(code,word,opt){
- const chars=Array.from(word),tokens=code.trim().split(/[\s'’]+/).filter(Boolean);
- if(!chars.length||!chars.every(c=>isHan(c))||tokens.length!==chars.length)return false;
- return tokens.every(token=>__matchesStandardSyllable(token.split(opt.aux)[0]));
+ const chars=Array.from(word),text=code.trim();
+ if(!chars.length)return false;
+ if(chars.every(c=>isHan(c))){
+  const tokens=text.split(/[\s'’]+/).filter(Boolean);
+  return tokens.length===chars.length&&tokens.every(token=>__matchesStandardSyllable(token.split(opt.aux)[0]));
+ }
+ // 中英混排词条：只有汉字部分需要是完整音节，英文/数字段按字面保留。
+ if(!isValidWord(word))return false;
+ return !!analyzeMixedCode(word,text,opt);
 }
 function parseRow(raw,opt,w,codeColumns){
  let spans=[];
@@ -175,7 +181,16 @@ function plainLayout(fields,opt){
 }
 function legacyConvertLine(raw,st,parsed=null){st.no++;const t=raw.replace(/^\uFEFF/,'').trim();if(st.phase==='start'){if(!t||t.startsWith('#'))return raw;if(t==='---'||/^%YAML\b/.test(t)){st.phase='header';return raw}st.phase='body'}if(st.phase==='header'){if(/^\.\.\.(?:\s+#.*)?$/.test(t)){headerColumns(st);st.phase='body';st.header=[]}else{st.header.push(raw);if(st.header.length>100000)throw Error('header 超过 100000 行且未闭合')}return raw}if(!t||t.startsWith('#'))return raw;
  const o=st.opt,row=parsed||parseRow(raw,o,o.w,[o.p]);if(row.ambiguous)return note(st,'拼音列有歧义，请改用 Tab 分列',raw);const spans=row.spans;
- const field=i=>spans[i]?raw.slice(...spans[i]):'';const word=field(o.w).replace(/^\uFEFF/,'');if(!word)return note(st,'缺少词语列',raw);if(!Array.from(word).every(c=>isHan(c)))return note(st,'混合非汉字',raw);const py=field(o.p);if(!py.trim())return note(st,'无 code',raw);
+ const field=i=>spans[i]?raw.slice(...spans[i]):'';const word=field(o.w).replace(/^\uFEFF/,'');if(!word)return note(st,'缺少词语列',raw);const py=field(o.p);if(!py.trim())return note(st,'无 code',raw);
+ if(!Array.from(word).every(c=>isHan(c))){
+  if(!isValidWord(word)&&!isDigitWord(word,py,o))return note(st,'混合非汉字',raw);
+  const mixed=analyzeMixedCode(word,py,o);if(!mixed)return note(st,'混合非汉字',raw);
+  const cells=[];for(let j=0;j<mixed.tokenToUnit.length;j++){const u=mixed.tokenToUnit[j];if(u>=0)cells.push(mixed.units[u].text)}
+  const missing=cells.filter(c=>!st.opt.table.has(c)||!validAux(st.opt.table.get(c)));if(missing.length){missing.forEach(c=>st.missing.add(c));return note(st,'缺辅助码',raw)}
+  if(!o.replace&&mixed.tokens.some((tk,j)=>mixed.tokenToUnit[j]>=0&&tk.text.includes(o.aux)))return note(st,'已有辅助码',raw);
+  let k=0;const out=py.replace(/[^\s'’]+/g,tk=>{const u=mixed.tokenToUnit[k++];return u<0?tk.toLowerCase():tk.split(o.aux)[0]+o.aux+st.opt.table.get(mixed.units[u].text)});
+  st.coded++;st.auxAdded=(st.auxAdded||0)+1;const [a,b]=spans[o.p];return raw.slice(0,a)+out+raw.slice(b)
+ }
  const tokens=py.match(/[^\s'’]+/g)||[],bases=tokens.map(x=>x.split(o.aux)[0]);if(!tokens.length||bases.some(x=>!validSyllable(x)))return note(st,'拼音列不合法',raw);const chars=Array.from(word);if(chars.length!==tokens.length)return note(st,'字音数量不匹配',raw);let missing=chars.filter(c=>!st.opt.table.has(c)||!validAux(st.opt.table.get(c)));if(missing.length){missing.forEach(c=>st.missing.add(c));return note(st,'缺辅助码',raw)}if(!o.replace&&tokens.some(x=>x.includes(o.aux)))return note(st,'已有辅助码',raw);let i=0;const out=py.replace(/[^\s'’]+/g,()=>bases[i]+o.aux+st.opt.table.get(chars[i++]));st.coded++;st.auxAdded=(st.auxAdded||0)+1;const [a,b]=spans[o.p];return raw.slice(0,a)+out+raw.slice(b)
 }
 function stripAuxFromRow(raw,st,row,p){
@@ -188,8 +203,17 @@ function stripAuxFromRow(raw,st,row,p){
  return raw.slice(0,a)+out+raw.slice(b);
 }
 function autoMode(st){return st.opt.mode==='autoAux'||st.opt.mode==='autoOnly'}
+function headerSortOriginal(h){
+ for(let i=0;i<h.length;i++){
+  const m=h[i].match(/^sort\s*:\s*(.*?)\s*$/);if(!m)continue;
+  let v=m[1].replace(/\s+#.*$/,'').trim().replace(/^(['"])(.*?)\1$/,'$2');
+  return v.toLowerCase()==='original';
+ }
+ return false;
+}
 function autoHeader(st){
  const h=st.autoLines.map(x=>x.raw),hits=[];
+ st.sortOriginal=headerSortOriginal(h);
  for(let i=0;i<h.length;i++)if(/^columns\s*:/.test(h[i]))hits.push(i);
  if(h.some(x=>/^\s+columns\s*:/.test(x)))throw Error('不支持嵌套 columns 声明');
  if(hits.length>1)throw Error('重复 columns 声明');
@@ -202,7 +226,7 @@ function autoHeader(st){
   a=a.map(x=>x.replace(/^(['"])(.*?)\1$/,'$2'));
   if(!a.length||a.some(x=>!/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(x))||new Set(a).size!==a.length||!a.includes('text'))throw Error('columns 含无效、重复列或缺少 text');
   const input=a.slice(),has=a.includes('code');
-  if(!has)a.push('code');if(!a.includes('weight'))a.push('weight');
+  if(!has)a.push('code');if(!a.includes('weight')&&!st.sortOriginal)a.push('weight');
   st.layout={input,output:a,w:input.indexOf('text'),p:has?input.indexOf('code'):input.length,has};
   const added=a.slice(input.length);
   if(added.length){
@@ -268,10 +292,54 @@ function generateSyllables(word,st){
  if(syll.length!==Array.from(word).length||syll.some(x=>!validSyllable(x)))return null;
  return applyZiReadings(word,syll,toneType);
 }
+function generateMixedCode(word,st,addAux){
+ const o=st.opt,units=segmentWord(word),parts=[];
+ for(let i=0;i<units.length;i++){
+  const u=units[i];
+  if(u.han){
+   const one=generateSyllables(u.text,st);if(!one||!one[0])return null;
+   let part=one[0];
+   if(addAux){if(!o.table.has(u.text)||!validAux(o.table.get(u.text))){st.missing.add(u.text);return null}part+=o.aux+o.table.get(u.text)}
+   parts.push(part);
+  }else{
+   const literal=u.text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+   if(literal)literal.split(' ').forEach(function(x){if(x)parts.push(x)});
+  }
+ }
+ return parts.join("'");
+}
+function replaceMixedPinyinInRow(raw,st,row,w,p,addAux,replaceAux){
+ const o=st.opt,spans=row.spans,word=(row.fields[w]||'').replace(/^\uFEFF/,'');
+ const [a,b]=spans[p],py=raw.slice(a,b),mixed=analyzeMixedCode(word,py,o);
+ if(!mixed)return note(st,'字音数量不匹配',raw);
+ const readings=[];
+ for(let ui=0;ui<mixed.units.length;ui++){
+  const u=mixed.units[ui];if(!u.han)continue;
+  const one=generateSyllables(u.text,st);if(!one||!one[0])return note(st,'未识别读音',raw);
+  readings[ui]=one[0];
+ }
+ if(addAux){
+  const missing=mixed.units.filter(u=>u.han&&(!o.table.has(u.text)||!validAux(o.table.get(u.text))));
+  if(missing.length){missing.forEach(u=>st.missing.add(u.text));return note(st,'缺辅助码',raw)}
+ }
+ let k=0;
+ const out=py.replace(/[^\s'’]+/g,token=>{
+  const ui=mixed.tokenToUnit[k++];if(ui<0)return token.toLowerCase();
+  const base=token.split(o.aux)[0],suffix=token.slice(base.length);
+  let tail=suffix;
+  if(suffix){if(replaceAux)tail=o.aux+o.table.get(mixed.units[ui].text);}
+  else if(addAux)tail=o.aux+o.table.get(mixed.units[ui].text);
+  return readings[ui]+tail;
+ });
+ st.coded++;st.pyReplaced=(st.pyReplaced||0)+1;st.pyAdded=(st.pyAdded||0)+1;if(addAux)st.auxAdded=(st.auxAdded||0)+1;
+ return raw.slice(0,a)+out+raw.slice(b);
+}
 function replacePinyinInRow(raw,st,row,w,p,addAux,replaceAux){
  const o=st.opt,spans=row.spans;if(!spans||!spans[p])return raw;
  const word=(row.fields[w]||'').replace(/^\uFEFF/,'');
- const chars=Array.from(word),syll=generateSyllables(word,st);
+ const chars=Array.from(word);
+ if(!chars.every(c=>isHan(c)))return replaceMixedPinyinInRow(raw,st,row,w,p,addAux,replaceAux);
+ const syll=generateSyllables(word,st);
  if(!syll)return note(st,'未识别读音',raw);
  if(addAux){
   const missing=chars.filter(c=>!o.table.has(c)||!validAux(o.table.get(c)));
@@ -298,11 +366,33 @@ function canonicalReading(reading){
 function notePolyphonic(st,word,output,layout,generated){
  const chars=Array.from(word);if(chars.length<2)return;
  const hits=chars.filter(isPolyphonicChar);if(!hits.length)return;
+ const p=layout.p==null?layout.w+1:layout.p,row=parseRow(output,st.opt,layout.w,[p]);
+ const code=!row.ambiguous?(row.fields[p]||''):'';
+ let mixed=null;
+ if(!chars.every(function(c){return isHan(c)})){
+  mixed=code.trim()?analyzeMixedCode(word,code,st.opt):null;
+  if(!mixed)return;
+ }
  st.polyphonic=(st.polyphonic||0)+1;
  const unique=[...new Set(hits)];
  st.polyphonicSamples.push('第 '+st.no+' 行 多音字：'+word+'（'+unique.join('、')+'）');
- const p=layout.p==null?layout.w+1:layout.p,row=parseRow(output,st.opt,layout.w,[p]);
- const code=!row.ambiguous?(row.fields[p]||''):'',tokens=code.trim().split(/[\s'’]+/).filter(Boolean).map(x=>x.split(st.opt.aux)[0]);
+ if(!chars.every(function(c){return isHan(c)})){
+  const unitToken=new Map();
+  for(let j=0;j<mixed.tokenToUnit.length;j++){const ui=mixed.tokenToUnit[j];if(ui>=0)unitToken.set(ui,j)}
+  const readings=[];
+  if(mixed)for(let ui=0;ui<mixed.units.length;ui++){
+   const u=mixed.units[ui];if(!u.han||!isPolyphonicChar(u.text))continue;
+   const ti=unitToken.has(ui)?unitToken.get(ui):-1;
+   const used=ti>=0?mixed.tokens[ti].base:'',all=Object.keys(__ziWeights[u.text]||{}),symbol=canonicalReading(used);
+   let excluded=symbol;
+   if(generated&&used){const best=bestZiReading(u.text);if(pinyinPro.convert(best,{format:'toneNone'}).replace(/ü/g,'v')===used.toLowerCase().replace(/ü/g,'v'))excluded=canonicalReading(best)}
+   const others=all.filter(function(x){return canonicalReading(x)!==excluded});
+   readings.push({character:u.text,index:ti,used:used,others:others,toneUnspecified:!!used&&!generated&&!all.some(function(x){return canonicalReading(x)===symbol})});
+  }
+  st.polyphonicDetails.push({line:st.no,word:word,characters:unique,pinyin:mixed?code:'',readings:readings});
+  return;
+ }
+ const tokens=code.trim().split(/[\s'’]+/).filter(Boolean).map(x=>x.split(st.opt.aux)[0]);
  const valid=tokens.length===chars.length&&tokens.every(validSyllable),readings=[];
  for(let i=0;i<chars.length;i++){
   const ch=chars[i];if(!isPolyphonicChar(ch))continue;
@@ -324,6 +414,8 @@ function padDeclaredFields(fields,layout,no){
  while(fields.length<layout.input.length)fields.push('');
 }
 function fillRowWeight(raw,st,layout,codeAdded=false){
+ // Rime 的 sort: original 按原顺序排序，不补权重，也不改 weight 列。
+ if(st.sortOriginal)return raw;
  // An existing numeric third column needs no weight edit, even when earlier checks would reject the row.
  if(typeof raw==='string'&&layout&&layout.has&&!layout.output&&!layout.rimeDefault&&layout.w===0&&layout.p===1){
   const first=raw.indexOf('\t'),second=first<0?-1:raw.indexOf('\t',first+1);
@@ -331,7 +423,7 @@ function fillRowWeight(raw,st,layout,codeAdded=false){
  }
  let row=parseRow(raw,st.opt,layout.w,[layout.p]);if(row.ambiguous)return raw;
  const word=(row.fields[layout.w]||'').replace(/^\uFEFF/,'');
- if(!Array.from(word).length||!Array.from(word).every(c=>isHan(c)))return raw;
+ if(!isValidWord(word))return raw;
  let weight,insert=false;
  if(layout.output){
   if(!layout.has&&!codeAdded){
@@ -391,26 +483,37 @@ function autoConvert(raw,st,delimiter=''){
  if(l?.output){padDeclaredFields(fields,l,st.no);}
  const w=l?l.w:st.opt.w,word=(fields[w]||'').replace(/^\uFEFF/,'');
  if(!word)return note(st,'缺少词语列',raw);
- if(!Array.from(word).every(c=>isHan(c)))return note(st,'混合非汉字',raw);
+ let wordOK=isValidWord(word);
+ if(!wordOK&&l&&l.has){const hint=(fields[l.p]||'').trim();if(hint&&isDigitWord(word,hint,st.opt))wordOK=true}
+ if(!wordOK)return note(st,'混合非汉字',raw);
  const target=l||{w,p:st.opt.w+1,has:false};
+ // sort: original 的词库（如 otae.dict.yaml）在“刷拼音和辅助码”时自动只刷拼音，不写辅助码。
+ const effMode=(st.opt.mode==='autoAux'&&st.sortOriginal)?'autoOnly':st.opt.mode;
  const replacedBefore=st.pyReplaced||0;
   const weighted=(text,added=false)=>{const out=fillRowWeight(text,st,{...target,rimeDefault:!!l?.standard},added);notePolyphonic(st,word,out,target,added||(st.pyReplaced||0)>replacedBefore);return out};
  if(l?.has&&!l.insertAt&&(fields[l.p]||'').trim()){
-   if(st.opt.mode==='autoOnly'){
+   if(effMode==='autoOnly'){
     if(st.opt.replacePinyin)return weighted(replacePinyinInRow(raw,st,row,l.w,l.p,false,false));
     return weighted(note(st,'已有拼音保留',raw));
    }
    if(st.opt.mode==='strip')return weighted(stripAuxFromRow(raw,st,row,l.p));
-   if(st.opt.mode==='autoAux'&&st.opt.replacePinyin)return weighted(replacePinyinInRow(raw,st,row,l.w,l.p,true,!!st.opt.replace));
+   if(effMode==='autoAux'&&st.opt.replacePinyin)return weighted(replacePinyinInRow(raw,st,row,l.w,l.p,true,!!st.opt.replace));
    const old=st.opt;st.opt={...old,w:l.w,p:l.p};st.no--;st.phase='body';let result;
    try{result=legacyConvertLine(raw,st,row)}finally{st.opt=old}
    return weighted(result);
  }
  if(st.opt.mode==='existing'||st.opt.mode==='strip')return weighted(note(st,'无 code',raw));
- let syll=generateSyllables(word,st);
- if(!syll)return weighted(note(st,'未识别读音',raw));
- if(st.opt.mode==='autoAux'){const chars=Array.from(word),missing=chars.filter(c=>!st.opt.table.has(c)||!validAux(st.opt.table.get(c)));if(missing.length){missing.forEach(c=>st.missing.add(c));return weighted(note(st,'缺辅助码',raw))}for(let i=0;i<syll.length;i++)syll[i]+=st.opt.aux+st.opt.table.get(chars[i])}
- const py=syll.join(' ');let out;
+ let py;
+ if(Array.from(word).every(c=>isHan(c))){
+  const syll=generateSyllables(word,st);
+  if(!syll)return weighted(note(st,'未识别读音',raw));
+  if(effMode==='autoAux'){const chars=Array.from(word),missing=chars.filter(c=>!st.opt.table.has(c)||!validAux(st.opt.table.get(c)));if(missing.length){missing.forEach(c=>st.missing.add(c));return weighted(note(st,'缺辅助码',raw))}for(let i=0;i<syll.length;i++)syll[i]+=st.opt.aux+st.opt.table.get(chars[i])}
+  py=syll.join(' ');
+ }else{
+  py=generateMixedCode(word,st,effMode==='autoAux');
+  if(!py)return weighted(note(st,'未识别读音',raw));
+ }
+ let out;
  if(l?.standard){
   const rest=fields.slice(1);
   if(rest.length){
@@ -428,7 +531,7 @@ function autoConvert(raw,st,delimiter=''){
   }
  }
  if(out.length)out[0]=out[0].replace(/^\uFEFF/,'');
- st.coded++;st.pyAdded=(st.pyAdded||0)+1;if(st.opt.mode==='autoAux')st.auxAdded=(st.auxAdded||0)+1;return weighted((raw.startsWith('\uFEFF')?'\uFEFF':'')+out.join(outSep(st,raw)),true)
+ st.coded++;st.pyAdded=(st.pyAdded||0)+1;if(effMode==='autoAux')st.auxAdded=(st.auxAdded||0)+1;return weighted((raw.startsWith('\uFEFF')?'\uFEFF':'')+out.join(outSep(st,raw)),true)
 }
 function convertLine(raw,st,delimiter=''){
  const out=autoConvert(raw,st,delimiter),tab=String.fromCharCode(9);
@@ -452,6 +555,86 @@ async function run(files){if(busy)return;busy=true;files=Array.from(files);let r
  for(const o of outputs){const name=o.name;const a=document.createElement('a');a.textContent='再次下载：'+name;a.href=URL.createObjectURL(o.blob);a.download=name;a.style.display='block';$('downloads').appendChild(a);save(o.blob,name)}say('完成：'+outputs.length+' 个输出文件；普通文件直接导出，ZIP 仍为 ZIP；词库输出 UTF-8，文件名和 ZIP 相对路径保持原样。','ok')
  }catch(e){say('转换失败：'+e.message,'err');reports.push('错误：'+e.message)}finally{busy=false;$('bar').className='bar hide';$('report').textContent=reports.join('\n\n');$('detail').className=''}}
 function isHan(c){var cp=c.codePointAt(0);return cp===0x3007||(cp>=0x3400&&cp<=0x4DBF)||(cp>=0x4E00&&cp<=0x9FFF)||(cp>=0x20000&&cp<=0x2EBEF)||(cp>=0x30000&&cp<=0x3134F);}
+function isKana(c){var cp=c.codePointAt(0);return (cp>=0x3040&&cp<=0x309F)||(cp>=0x30A0&&cp<=0x30FF)||(cp>=0x31F0&&cp<=0x31FF)||(cp>=0xFF66&&cp<=0xFF9D);}
+function isDigitChar(c){return /^[0-9０-９]$/.test(c);}
+function isWordChar(c){var cp=c.codePointAt(0);return isHan(c)||isKana(c)||(cp>=0x20&&cp<=0x7E)||(cp>=0x00B7&&cp<=0x00FF)||(cp>=0x0100&&cp<=0x024F)||(cp>=0x2000&&cp<=0x2BFF)||(cp>=0x3000&&cp<=0x303F)||(cp>=0xFF00&&cp<=0xFFEF);}
+function isMixedWord(word){
+ var a=Array.from(word);
+ if(!a.length||!a.every(isWordChar))return false;
+ var foreign=a.some(function(c){return !isHan(c)&&(isKana(c)||isDigitChar(c)||/^[A-Za-z\u00C0-\u024F]$/.test(c))});
+ if(!foreign)return false;
+ return a.some(isHan);
+}
+function isValidWord(word){var a=Array.from(word);return a.length>0&&(a.every(isHan)||isMixedWord(word));}
+// 把词条切成“汉字单字”和“非汉字连续段（数字单独成段）”。
+function segmentWord(word){
+ var units=[],buf='',bufDigit=false;
+ function flush(){if(buf){units.push({text:buf,han:false,digit:bufDigit});buf='';bufDigit=false}}
+ for(var i=0;i<word.length;){
+  var cp=word.codePointAt(i),ch=String.fromCodePoint(cp);i+=ch.length;
+  if(isHan(ch)){flush();units.push({text:ch,han:true,digit:false});continue}
+  var d=isDigitChar(ch);if(buf&&d!==bufDigit)flush();
+  buf+=ch;bufDigit=d;
+ }
+ flush();return units;
+}
+function normalizeLiteral(s){
+ var t=String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/ü/g,'v');
+ return t.replace(/[^a-z0-9]/g,'');
+}
+// 为中英混排词条匹配“编码 token ↔ 汉字单字”。非汉字段只做字面匹配，不写辅助码。
+function analyzeMixedCode(word,code,opt){
+ var units=segmentWord(word);
+ var matches=[],re=/[^\s'’]+/g,m;
+ while((m=re.exec(code))!==null)matches.push({text:m[0],base:m[0].split(opt.aux)[0]});
+ if(!matches.length||units.length>256||matches.length>256)return null;
+ var memo=new Map();
+ function dfs(ui,ti){
+  var key=ui+'|'+ti;
+  if(memo.has(key))return memo.get(key);
+  var best=null;
+  function consider(cand,step){if(!cand)return;var score=cand.score+step.score;if(!best||score>best.score)best={score:score,steps:[step].concat(cand.steps)}}
+  if(ui===units.length&&ti===matches.length){best={score:0,steps:[]};memo.set(key,best);return best}
+  if(ui>=units.length||ti>matches.length){memo.set(key,null);return null}
+  var u=units[ui];
+  if(u.han){
+   if(ti<matches.length&&__matchesStandardSyllable(matches[ti].base))consider(dfs(ui+1,ti+1),{unit:ui,token:ti,score:10});
+  }else{
+   var nu=normalizeLiteral(u.text);
+   if(!nu)consider(dfs(ui+1,ti),{unit:null,token:null,score:1});
+   if(ti<matches.length){
+    var nt=normalizeLiteral(matches[ti].base);
+    if(nu&&nu===nt)consider(dfs(ui+1,ti+1),{unit:null,token:null,score:20});
+    if(u.digit&&__matchesStandardSyllable(matches[ti].base))consider(dfs(ui+1,ti+1),{unit:null,token:null,digit:ui,score:5});
+   }
+   if(nu){
+    var uj=ui,unitText='';
+    while(uj<units.length&&!units[uj].han){
+     unitText+=normalizeLiteral(units[uj].text);uj++;
+     if(unitText.length>64)break;
+     var tokenText='';
+     for(var tk=ti;tk<matches.length;tk++){
+      tokenText+=normalizeLiteral(matches[tk].base);
+      if(tokenText.length>64)break;
+      if(tokenText===unitText&&(uj>ui+1||tk>ti))consider(dfs(uj,tk+1),{unit:null,token:null,score:15});
+     }
+    }
+   }
+  }
+  memo.set(key,best);return best;
+ }
+ var r=dfs(0,0);if(!r)return null;
+ var tokenToUnit=new Array(matches.length).fill(-1),digitPinyin=false;
+ for(var j=0;j<r.steps.length;j++){
+  var st=r.steps[j];if(st.unit!=null&&st.token!=null)tokenToUnit[st.token]=st.unit;if(st.digit!=null)digitPinyin=true;
+ }
+ return {units:units,tokens:matches,tokenToUnit:tokenToUnit,digitPinyin:digitPinyin};
+}
+function isDigitWord(word,code,opt){
+ var a=Array.from(word);if(a.some(isHan))return false;
+ var mixed=analyzeMixedCode(word,code,opt);
+ return !!(mixed&&mixed.digitPinyin);
+}
 var __st=null;var __tables={};
 function __setTable(id,json){var o=JSON.parse(json);var m=new Map();for(var k in o)m.set(k,o[k]);__tables[id]=m;}
 function __start(auxType,mode,toneType,sep,encoding,replace,aux,w,p,weight,replacePinyin){if(!Number.isInteger(w)||!Number.isInteger(p)||w<0||p<0||w>=128||p>=128||w===p)throw Error('列号必须是不同的 1–128 正整数');var opt={mode:mode,toneType:toneType,sep:sep,encoding:encoding,replace:replace,replacePinyin:replacePinyin===true||replacePinyin==='true',aux:aux,auxType:auxType,w:w,p:p,weight:String(weight||'120'),table:__tables[auxType]||new Map()};__st=state(opt);}
